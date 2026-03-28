@@ -322,6 +322,19 @@ class Projects extends AdminController
                 $data['activity'] = $this->projects_model->get_activity($id);
             } elseif ($group == 'project_notes') {
                 $data['staff_notes'] = $this->projects_model->get_staff_notes($id);
+            } elseif ($group == 'project_boq') {
+                $this->load->model('invoice_items_model');
+                $this->load->model('project_boq_model');
+                $data['boq_items']         = $this->project_boq_model->get_by_project_id($id);
+                $data['boq_items_grouped'] = $this->invoice_items_model->get_grouped();
+                $data['can_edit_boq']      = staff_can('edit', 'projects');
+                $data['can_view_items']    = staff_can('view', 'items');
+                $this->app_scripts->add(
+                    'project-boq-js',
+                    base_url($this->app_scripts->core_file('assets/js', 'project_boq.js')) . '?v=' . $this->app_scripts->core_version(),
+                    'admin',
+                    ['app-js']
+                );
             } elseif ($group == 'project_contracts') {
                 $this->load->model('contracts_model');
                 $data['contract_types']  = $this->contracts_model->get_contract_types();
