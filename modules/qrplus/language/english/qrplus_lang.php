@@ -1,0 +1,50 @@
+<?php
+
+# Version 1.0.0
+
+$lang['qrplus'] = 'QRPlus';
+$lang['qrplus_generate_text'] = 'Text';
+$lang['qrplus_generate_wifi'] = 'WIFI';
+$lang['qrplus_generate_tel'] = 'PHONE';
+$lang['qrplus_generate_sms'] = 'SMS';
+$lang['qrplus_generate_event'] = 'EVENT';
+$lang['qrplus_generate_vcard'] = 'VCARD';
+$lang['qrplus_generate_location'] = 'LOCATION';
+$lang['qrplus_qr_code_title'] = 'QR Code Title';
+$lang['qrplus_text_title'] = 'Your Text';
+$lang['qrplus_generate_qr'] = 'Generate QR';
+$lang['qrplus_generated_qr_codes'] = 'Generated QR';
+$lang['qrplus_network_name'] = 'Network Name';
+$lang['qrplus_network_hidden'] = 'Is Network Hidden?';
+$lang['qrplus_network_password'] = 'Network Password';
+$lang['qrplus_network_encryption'] = 'Network Encryption';
+$lang['qrplus_phone_number'] = 'Your Phone Number';
+$lang['qrplus_sms_message'] = 'Your Message';
+$lang['qrplus_event_title'] = 'Event Title';
+$lang['qrplus_event_location'] = 'Event Location';
+$lang['qrplus_event_start_date'] = 'Start Date';
+$lang['qrplus_event_end_date'] = 'Start Date';
+$lang['qrplus_latitude'] = 'Location Latitude';
+$lang['qrplus_longitude'] = 'Location Longitude';
+$lang['qrplus_firstname'] = 'Firstname';
+$lang['qrplus_last_name'] = 'Lastname';
+$lang['qrplus_title'] = 'Title';
+$lang['qrplus_email'] = 'Email';
+$lang['qrplus_company'] = 'Company';
+$lang['qrplus_website_url'] = 'Website Url';
+$lang['qrplus_phone'] = 'Phone';
+$lang['qrplus_mobile'] = 'Mobile';
+$lang['qrplus_street'] = 'Street';
+$lang['qrplus_city'] = 'City';
+$lang['qrplus_postal_code'] = 'Postal Code';
+$lang['qrplus_state'] = 'State';
+$lang['qrplus_qr_generated_successfully'] = 'QR Generated Successfully!';
+$lang['qrplus_qr_failed_to_generate'] = 'QR Failed To Generate!';
+$lang['qrplus_generate_url'] = 'URL';
+$lang['qrplus_generate_mailto'] = 'MAIL TO';
+$lang['qrplus_generate_mailmessage'] = 'MAIL MESSAGE';
+$lang['qrplus_generate_google_maps'] = 'GOOGLE MAPS';
+$lang['qrplus_generate_viber_chat'] = 'VIBER CHAT';
+$lang['qrplus_generate_whatsapp_chat'] = 'WHATSAPP CHAT';
+$lang['qrplus_email_subject'] = 'Email Subject';
+$lang['qrplus_email_content'] = 'Email Content';

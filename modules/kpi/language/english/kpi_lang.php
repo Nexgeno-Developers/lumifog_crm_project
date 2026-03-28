@@ -1,0 +1,28 @@
+<?php
+defined('BASEPATH') or exit('No direct script access allowed');
+
+$lang['kpi'] = 'KPI';
+$lang['attendance_kpi_title'] = 'Attendance KPI';
+$lang['attendance_kpi'] = 'Attendance KPI';
+$lang['select_month'] = 'Select Month';
+$lang['staff_name'] = 'Staff Name';
+$lang['filter'] = 'Filter';
+$lang['kpi_points'] = 'KPI Points';
+$lang['shift'] = 'Shift';
+$lang['shift_start'] = 'Shift Start';
+$lang['check_in'] = 'Check In';
+$lang['date'] = 'Date';
+$lang['average_points'] = 'Average Points';
+$lang['status'] = 'Status';
+$lang['view_type'] = 'View Type';
+$lang['daily_view'] = 'Daily View';
+$lang['monthly_view'] = 'Monthly View';
+$lang['all_staff'] = 'All Staff';
+$lang['all_months'] = 'All Months';
+$lang['apply_filters'] = 'Apply Filters';
+$lang['month'] = 'Month';
+$lang['start_date'] = 'Start Date';
+$lang['end_date'] = 'End Date';
+$lang['staff'] = 'Staff';
+$lang['days_present'] = 'Days Present';
+$lang['performance_summary'] = 'Performance Summary';
