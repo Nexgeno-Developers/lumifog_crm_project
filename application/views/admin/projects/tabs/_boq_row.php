@@ -5,8 +5,9 @@ $can_edit_boq   = ! empty($can_edit_boq);
 $can_view_items = ! empty($can_view_items);
 $id             = (int) ($row['id'] ?? 0);
 $planned        = (float) ($row['planned_qty'] ?? 0);
+$revised        = isset($row['revised_qty']) ? (float) $row['revised_qty'] : $planned;
 $purchased      = (float) ($row['purchased_qty'] ?? 0);
-$remaining      = isset($row['remaining_qty']) ? (float) $row['remaining_qty'] : ($planned - $purchased);
+$remaining      = isset($row['remaining_qty']) ? (float) $row['remaining_qty'] : ($revised - $purchased);
 ?>
 <tr data-boq-id="<?= e($id); ?>" data-purchased="<?= e($purchased); ?>"
     data-item-description="<?= e($row['item_description'] ?? ''); ?>">
@@ -17,16 +18,19 @@ $remaining      = isset($row['remaining_qty']) ? (float) $row['remaining_qty'] :
         <?php } ?>
     </td>
     <td class="text-right">
+        <?= e($row['planned_qty_display'] ?? app_format_number($planned)); ?>
+    </td>
+    <td class="text-right">
         <?php if ($can_edit_boq && $can_view_items) { ?>
         <input type="number"
-            class="form-control input-sm text-right project-boq-planned-input"
+            class="form-control input-sm text-right project-boq-revised-input"
             step="any"
             min="0"
-            value="<?= e($planned); ?>"
+            value="<?= e($revised); ?>"
             data-boq-id="<?= e($id); ?>"
-            aria-label="<?= _l('project_boq_planned_qty'); ?>">
+            aria-label="<?= _l('project_boq_revised_qty'); ?>">
         <?php } else { ?>
-        <?= e($row['planned_qty_display'] ?? app_format_number($planned)); ?>
+        <?= e($row['revised_qty_display'] ?? app_format_number($revised)); ?>
         <?php } ?>
     </td>
     <td class="text-right">
@@ -46,6 +50,7 @@ $remaining      = isset($row['remaining_qty']) ? (float) $row['remaining_qty'] :
             data-boq-id="<?= e($id); ?>"
             data-item-id="<?= (int) ($row['item_id'] ?? 0); ?>"
             data-planned="<?= e($planned); ?>"
+            data-revised="<?= e($revised); ?>"
             data-toggle="modal"
             data-target="#project_boq_modal"
             title="<?= _l('edit'); ?>">

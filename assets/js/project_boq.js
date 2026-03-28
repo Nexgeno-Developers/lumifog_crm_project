@@ -29,10 +29,10 @@
   }
 
   function projectBoqUpdateRemainingDisplay($tr) {
-    var planned =
-      parseFloat($tr.find(".project-boq-planned-input").val()) || 0;
+    var revised =
+      parseFloat($tr.find(".project-boq-revised-input").val()) || 0;
     var purchased = parseFloat($tr.data("purchased")) || 0;
-    var rem = planned - purchased;
+    var rem = revised - purchased;
     $tr.find(".project-boq-remaining-display").text(projectBoqFormatNumber(rem));
   }
 
@@ -48,6 +48,10 @@
   function projectBoqRowFromServer(row) {
     var id = row.id;
     var planned = parseFloat(row.planned_qty) || 0;
+    var revised =
+      row.revised_qty !== undefined && row.revised_qty !== null
+        ? parseFloat(row.revised_qty)
+        : planned;
     var purchased = parseFloat(row.purchased_qty) || 0;
     var desc = row.item_description || "";
     var unit = row.item_unit || "";
@@ -57,6 +61,18 @@
         "</span>"
       : "";
 
+    var plannedCell =
+      '<td class="text-right">' +
+      (row.planned_qty_display || projectBoqFormatNumber(planned)) +
+      "</td>";
+
+    var revisedCell =
+      '<td class="text-right"><input type="number" class="form-control input-sm text-right project-boq-revised-input" step="any" min="0" value="' +
+      revised +
+      '" data-boq-id="' +
+      id +
+      '" aria-label=""></td>';
+
     var actions =
       '<td>' +
       '<a href="#" class="btn btn-default btn-icon project-boq-edit" data-boq-id="' +
@@ -65,6 +81,8 @@
       row.item_id +
       '" data-planned="' +
       planned +
+      '" data-revised="' +
+      revised +
       '" data-toggle="modal" data-target="#project_boq_modal" title=""><i class="fa-regular fa-pen-to-square"></i></a> ' +
       '<a href="#" class="btn btn-danger btn-icon project-boq-delete" data-boq-id="' +
       id +
@@ -81,18 +99,15 @@
       $("<div>").text(desc).html() +
       unitHtml +
       "</td>" +
-      '<td class="text-right"><input type="number" class="form-control input-sm text-right project-boq-planned-input" step="any" min="0" value="' +
-      planned +
-      '" data-boq-id="' +
-      id +
-      '" aria-label=""></td>' +
+      plannedCell +
+      revisedCell +
       '<td class="text-right"><input type="text" class="form-control input-sm text-right" readonly tabindex="-1" value="' +
       (row.purchased_qty_display || projectBoqFormatNumber(purchased)) +
       '"></td>' +
       '<td class="text-right"><span class="project-boq-remaining-display">' +
       (row.remaining_qty_display ||
         projectBoqFormatNumber(
-          parseFloat(row.remaining_qty) || planned - purchased
+          parseFloat(row.remaining_qty) || revised - purchased
         )) +
       "</span></td>" +
       ($("#project-boq-wrapper").data("can-edit") == "1" &&
@@ -109,17 +124,16 @@
     projectBoqToggleEmptyState();
   }
 
-  // Planned qty: live remaining + save on blur
-  $("body").on("input", ".project-boq-planned-input", function () {
+  $("body").on("input", ".project-boq-revised-input", function () {
     var $tr = $(this).closest("tr");
     projectBoqUpdateRemainingDisplay($tr);
   });
 
-  $("body").on("blur", ".project-boq-planned-input", function () {
+  $("body").on("blur", ".project-boq-revised-input", function () {
     var $input = $(this);
     var $tr = $input.closest("tr");
     var id = $input.data("boq-id");
-    var planned = $input.val();
+    var revised = $input.val();
     var projectId = projectBoqProjectId();
 
     $.post(
@@ -127,7 +141,7 @@
       projectBoqCsrfPayload({
         id: id,
         project_id: projectId,
-        planned_qty: planned,
+        revised_qty: revised,
       })
     )
       .done(function (response) {
@@ -152,7 +166,6 @@
       });
   });
 
-  // Delete
   $("body").on("click", ".project-boq-delete", function (e) {
     e.preventDefault();
     if (typeof confirm_delete === "function" && !confirm_delete()) {
@@ -202,12 +215,20 @@
         "val",
         btn.data("item-id").toString()
       );
-      $("#project-boq-modal-planned").val(btn.data("planned"));
+      $("#project-boq-modal-planned-group").addClass("hide");
+      $("#project-boq-modal-planned").removeAttr("required");
+      $("#project-boq-modal-planned-readonly-group").removeClass("hide");
+      $("#project-boq-modal-planned-readonly").val(btn.data("planned"));
+      $("#project-boq-modal-revised-group").removeClass("hide");
+      $("#project-boq-modal-revised").val(btn.data("revised"));
     } else if (btn.attr("id") === "project-boq-open-add") {
       $("#project-boq-modal-title").text(projectBoqLang.add_title);
       $("#project-boq-modal-id").val("");
       $("#project-boq-modal-item").selectpicker("val", "");
-      $("#project-boq-modal-planned").val("0");
+      $("#project-boq-modal-planned-group").removeClass("hide");
+      $("#project-boq-modal-planned").attr("required", "required").val("0");
+      $("#project-boq-modal-planned-readonly-group").addClass("hide");
+      $("#project-boq-modal-revised-group").addClass("hide");
     }
   });
 
@@ -219,19 +240,26 @@
 
     var boqId = $("#project-boq-modal-id").val();
     var itemId = $("#project-boq-modal-item").val();
-    var planned = $("#project-boq-modal-planned").val();
     var projectId = projectBoqProjectId();
 
-    var payload = {
-      project_id: projectId,
-      item_id: itemId,
-      planned_qty: planned,
-    };
+    var payload;
+    var url;
 
-    var url = admin_url + "project_boq/add";
     if (boqId) {
       url = admin_url + "project_boq/update";
-      payload.id = boqId;
+      payload = {
+        id: boqId,
+        project_id: projectId,
+        item_id: itemId,
+        revised_qty: $("#project-boq-modal-revised").val(),
+      };
+    } else {
+      url = admin_url + "project_boq/add";
+      payload = {
+        project_id: projectId,
+        item_id: itemId,
+        planned_qty: $("#project-boq-modal-planned").val(),
+      };
     }
 
     $.post(url, projectBoqCsrfPayload(payload))

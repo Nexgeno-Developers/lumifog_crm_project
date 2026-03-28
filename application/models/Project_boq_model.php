@@ -57,15 +57,19 @@ class Project_boq_model extends App_Model
     }
 
     /**
-     * @param array $data project_id, item_id, planned_qty
+     * @param array $data project_id, item_id, planned_qty, revised_qty (optional; defaults to planned_qty)
      * @return false|int insert id
      */
     public function add($data)
     {
+        $planned = $data['planned_qty'];
+        $revised = isset($data['revised_qty']) ? $data['revised_qty'] : $planned;
+
         $insert = [
             'project_id'    => (int) $data['project_id'],
             'item_id'       => (int) $data['item_id'],
-            'planned_qty'   => $data['planned_qty'],
+            'planned_qty'   => $planned,
+            'revised_qty'   => $revised,
             'purchased_qty' => isset($data['purchased_qty']) ? $data['purchased_qty'] : 0,
             'created_at'    => date('Y-m-d H:i:s'),
         ];
@@ -81,7 +85,7 @@ class Project_boq_model extends App_Model
 
     /**
      * @param int   $id
-     * @param array $data item_id, planned_qty (purchased_qty not editable from BOQ UI in phase 1)
+     * @param array $data item_id, revised_qty (planned_qty is not updated after creation)
      * @return bool
      */
     public function update_row($id, $data)
@@ -92,8 +96,8 @@ class Project_boq_model extends App_Model
             $update['item_id'] = (int) $data['item_id'];
         }
 
-        if (isset($data['planned_qty'])) {
-            $update['planned_qty'] = $data['planned_qty'];
+        if (isset($data['revised_qty'])) {
+            $update['revised_qty'] = $data['revised_qty'];
         }
 
         if ($update === []) {
@@ -125,13 +129,15 @@ class Project_boq_model extends App_Model
     protected function append_computed_fields($row)
     {
         $planned   = (float) $row['planned_qty'];
+        $revised   = isset($row['revised_qty']) ? (float) $row['revised_qty'] : $planned;
         $purchased = (float) $row['purchased_qty'];
-        $remaining = $planned - $purchased;
+        $remaining = $revised - $purchased;
 
-        $row['remaining_qty']              = $remaining;
-        $row['remaining_qty_display']      = app_format_number($remaining);
-        $row['planned_qty_display']        = app_format_number($planned);
-        $row['purchased_qty_display']      = app_format_number($purchased);
+        $row['remaining_qty']         = $remaining;
+        $row['remaining_qty_display']   = app_format_number($remaining);
+        $row['planned_qty_display']   = app_format_number($planned);
+        $row['revised_qty_display']     = app_format_number($revised);
+        $row['purchased_qty_display']   = app_format_number($purchased);
 
         return $row;
     }

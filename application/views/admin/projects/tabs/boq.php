@@ -31,11 +31,12 @@ $items_grouped  = isset($boq_items_grouped) ? $boq_items_grouped : [];
                     <thead>
                         <tr>
                             <th><?= _l('project_boq_item'); ?></th>
-                            <th class="text-right" width="14%"><?= _l('project_boq_planned_qty'); ?></th>
-                            <th class="text-right" width="14%"><?= _l('project_boq_purchased_qty'); ?></th>
-                            <th class="text-right" width="14%"><?= _l('project_boq_remaining_qty'); ?></th>
+                            <th class="text-right" width="11%"><?= _l('project_boq_planned_qty'); ?></th>
+                            <th class="text-right" width="11%"><?= _l('project_boq_revised_qty'); ?></th>
+                            <th class="text-right" width="11%"><?= _l('project_boq_purchased_qty'); ?></th>
+                            <th class="text-right" width="11%"><?= _l('project_boq_remaining_qty'); ?></th>
                             <?php if ($can_edit_boq && $can_view_items) { ?>
-                            <th width="12%"><?= _l('options'); ?></th>
+                            <th width="11%"><?= _l('options'); ?></th>
                             <?php } ?>
                         </tr>
                     </thead>
@@ -86,10 +87,20 @@ $items_grouped  = isset($boq_items_grouped) ? $boq_items_grouped : [];
                         <?php } ?>
                     </select>
                 </div>
-                <div class="form-group">
+                <div class="form-group" id="project-boq-modal-planned-group">
                     <label for="project-boq-modal-planned"><?= _l('project_boq_planned_qty'); ?></label>
                     <input type="number" class="form-control" name="planned_qty" id="project-boq-modal-planned"
                         step="any" min="0" value="0" required>
+                </div>
+                <div class="form-group hide" id="project-boq-modal-planned-readonly-group">
+                    <label for="project-boq-modal-planned-readonly"><?= _l('project_boq_planned_qty'); ?></label>
+                    <input type="text" class="form-control" id="project-boq-modal-planned-readonly" readonly
+                        tabindex="-1">
+                </div>
+                <div class="form-group hide" id="project-boq-modal-revised-group">
+                    <label for="project-boq-modal-revised"><?= _l('project_boq_revised_qty'); ?></label>
+                    <input type="number" class="form-control" name="revised_qty" id="project-boq-modal-revised"
+                        step="any" min="0" value="0">
                 </div>
             </div>
             <div class="modal-footer">

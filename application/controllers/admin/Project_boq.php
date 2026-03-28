@@ -53,7 +53,7 @@ class Project_boq extends AdminController
             ajax_access_denied();
         }
 
-        $validation = $this->validate_boq_qty($planned, 0.0);
+        $validation = $this->validate_planned_qty_for_add($planned);
         if ($validation !== true) {
             $this->json_response(['success' => false, 'message' => $validation]);
 
@@ -70,6 +70,7 @@ class Project_boq extends AdminController
             'project_id'  => $project_id,
             'item_id'     => $item_id,
             'planned_qty' => $planned,
+            'revised_qty' => $planned,
         ]);
 
         if (! $id) {
@@ -88,7 +89,7 @@ class Project_boq extends AdminController
     }
 
     /**
-     * AJAX: update BOQ line (planned qty and/or item).
+     * AJAX: update BOQ line (revised_qty and/or item only; planned_qty is immutable).
      */
     public function update()
     {
@@ -98,7 +99,7 @@ class Project_boq extends AdminController
 
         $id         = (int) $this->input->post('id');
         $project_id = (int) $this->input->post('project_id');
-        $planned    = $this->normalize_qty($this->input->post('planned_qty'));
+        $revised    = $this->normalize_qty($this->input->post('revised_qty'));
 
         $posted_item = $this->input->post('item_id');
         $item_id     = ($posted_item === null || $posted_item === '' || $posted_item === false)
@@ -119,7 +120,7 @@ class Project_boq extends AdminController
 
         $purchased = (float) $existing->purchased_qty;
 
-        $validation = $this->validate_boq_qty($planned, $purchased);
+        $validation = $this->validate_revised_qty($revised, $purchased);
         if ($validation !== true) {
             $this->json_response(['success' => false, 'message' => $validation]);
 
@@ -132,7 +133,7 @@ class Project_boq extends AdminController
             exit;
         }
 
-        $data = ['planned_qty' => $planned];
+        $data = ['revised_qty' => $revised];
         if ($item_id !== null && $item_id > 0) {
             $data['item_id'] = $item_id;
         }
@@ -218,21 +219,40 @@ class Project_boq extends AdminController
     }
 
     /**
-     * @param float $planned
-     * @param float $purchased
+     * Baseline planned qty on create only (purchased is always 0).
+     *
+     * @param string $planned normalized decimal string
      * @return true|string
      */
-    protected function validate_boq_qty($planned, $purchased)
+    protected function validate_planned_qty_for_add($planned)
     {
-        $planned   = (float) $planned;
-        $purchased = (float) $purchased;
+        $planned = (float) $planned;
 
         if ($planned < 0) {
             return _l('project_boq_planned_qty_non_negative');
         }
 
-        if ($planned < $purchased) {
-            return _l('project_boq_planned_not_below_purchased');
+        return true;
+    }
+
+    /**
+     * Revised qty must be >= purchased_qty.
+     *
+     * @param string $revised normalized decimal string
+     * @param float  $purchased
+     * @return true|string
+     */
+    protected function validate_revised_qty($revised, $purchased)
+    {
+        $revised   = (float) $revised;
+        $purchased = (float) $purchased;
+
+        if ($revised < 0) {
+            return _l('project_boq_revised_qty_non_negative');
+        }
+
+        if ($revised < $purchased) {
+            return _l('project_boq_revised_not_below_purchased');
         }
 
         return true;
