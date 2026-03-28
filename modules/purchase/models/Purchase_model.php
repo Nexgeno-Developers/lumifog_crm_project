@@ -1132,6 +1132,14 @@ class Purchase_model extends App_Model
             unset($data['newitems']);
         }
 
+        $_project_id_for_boq = isset($data['project']) ? (int) $data['project'] : 0;
+        $_boq_qty_ok         = $this->validate_pur_request_boq_quantities($detail_data, $_project_id_for_boq);
+        if ($_boq_qty_ok !== true) {
+            set_alert('danger', $_boq_qty_ok);
+
+            return false;
+        }
+
         $data['to_currency'] = $data['currency'];
 
         unset($data['item_text']);
@@ -1217,6 +1225,10 @@ class Purchase_model extends App_Model
                     $dt_data['tax_name'] = $tax_name;
 
                     $dt_data['quantity'] = ($rqd['quantity'] != ''&& $rqd['quantity'] != null) ? $rqd['quantity'] : 0;
+
+                    if ($this->db->field_exists('boq_item_id', db_prefix() . 'pur_request_detail') && ! empty($rqd['boq_item_id'])) {
+                        $dt_data['boq_item_id'] = (int) $rqd['boq_item_id'];
+                    }
 
                     if($data['status'] == 2 && ($rqd['item_code'] == '' || $rqd['item_code'] == null) ){
                         $item_data['description'] = $rqd['item_text'];
@@ -1309,8 +1321,18 @@ class Purchase_model extends App_Model
             $data['from_items'] = 0;
         }
 
-        
-        
+        $_project_id_boq = isset($data['project']) ? (int) $data['project'] : 0;
+        $_lines_boq      = array_merge(
+            is_array($new_purchase_request) ? $new_purchase_request : [],
+            is_array($update_purchase_request) ? $update_purchase_request : []
+        );
+        $_v_boq = $this->validate_pur_request_boq_quantities($_lines_boq, $_project_id_boq);
+        if ($_v_boq !== true) {
+            set_alert('danger', $_v_boq);
+
+            return false;
+        }
+
         $this->db->where('id',$id);
         $this->db->update(db_prefix().'pur_request',$data);
         if($this->db->affected_rows() > 0){
@@ -1348,6 +1370,10 @@ class Purchase_model extends App_Model
                 $dt_data['tax_name'] = $tax_name;
 
                 $dt_data['quantity'] = ($rqd['quantity'] != ''&& $rqd['quantity'] != null) ? $rqd['quantity'] : 0;
+
+                if ($this->db->field_exists('boq_item_id', db_prefix() . 'pur_request_detail') && ! empty($rqd['boq_item_id'])) {
+                    $dt_data['boq_item_id'] = (int) $rqd['boq_item_id'];
+                }
 
                 if($purq->status == 2 && ($rqd['item_code'] == '' || $rqd['item_code'] == null) ){
                     $item_data['description'] = $rqd['item_text'];
@@ -1401,6 +1427,10 @@ class Purchase_model extends App_Model
                 $dt_data['tax_name'] = $tax_name;
 
                 $dt_data['quantity'] = ($rqd['quantity'] != ''&& $rqd['quantity'] != null) ? $rqd['quantity'] : 0;
+
+                if ($this->db->field_exists('boq_item_id', db_prefix() . 'pur_request_detail') && ! empty($rqd['boq_item_id'])) {
+                    $dt_data['boq_item_id'] = (int) $rqd['boq_item_id'];
+                }
 
                 if($purq->status == 2 && ($rqd['item_code'] == '' || $rqd['item_code'] == null) ){
                     $item_data['description'] = $rqd['item_text'];
@@ -10125,7 +10155,7 @@ class Purchase_model extends App_Model
      * @param      array   $unit_data  The unit data
      * @param      string  $name       The name
      */
-    public function create_purchase_request_row_template($name = '', $item_code = '', $item_text = '', $unit_price = '', $quantity = '', $unit_name = '', $unit_id = '', $into_money = '', $item_key = '', $tax_value = '', $total = '', $tax_name = '', $tax_rate = '', $tax_id = '', $is_edit = false, $currency_rate = 1, $to_currency = ''){
+    public function create_purchase_request_row_template($name = '', $item_code = '', $item_text = '', $unit_price = '', $quantity = '', $unit_name = '', $unit_id = '', $into_money = '', $item_key = '', $tax_value = '', $total = '', $tax_name = '', $tax_rate = '', $tax_id = '', $is_edit = false, $currency_rate = 1, $to_currency = '', $qty_max = null, $boq_item_id = null){
         $this->load->model('invoice_items_model');
         $row = '';
 
@@ -10180,6 +10210,11 @@ class Purchase_model extends App_Model
             $array_rate_attr = ['onblur' => 'pur_calculate_total();', 'onchange' => 'pur_calculate_total();', 'min' => '0.0' , 'step' => 'any', 'data-amount' => 'invoice', 'placeholder' => _l('unit_price')];
 
             $array_qty_attr = ['onblur' => 'pur_calculate_total();', 'onchange' => 'pur_calculate_total();', 'min' => '0.0' , 'step' => 'any',  'data-quantity' => (float)$quantity];
+
+            if ($qty_max !== null && $qty_max !== '' && (float) $qty_max >= 0) {
+                $array_qty_attr['max']           = (string) $qty_max;
+                $array_qty_attr['data-boq-max'] = (string) $qty_max;
+            }
 
             $tax_money = 0;
             $tax_rate_value = 0;
@@ -10242,8 +10277,179 @@ class Purchase_model extends App_Model
         } else {
             $row .= '<td><a href="#" class="btn btn-danger pull-right" onclick="pur_delete_item(this,' . $item_key . ',\'.invoice-item\'); return false;"><i class="fa fa-trash"></i></a></td>';
         }
+
+        if ($name != '' && $boq_item_id !== null && (int) $boq_item_id > 0) {
+            $row .= '<input type="hidden" name="' . $name . '[boq_item_id]" value="' . (int) $boq_item_id . '" class="pur-boq-line-ref">';
+        }
+
         $row .= '</tr>';
         return $row;
+    }
+
+    /**
+     * Append prefilled rows from BOQ (JSON from query string) to new purchase request template HTML.
+     *
+     * @param string $purchase_request_row_template
+     * @param string $items_json                    JSON array of { item_id, remaining_qty, boq_item_id }
+     * @param int    $project_id
+     * @return string
+     */
+    public function append_boq_prefill_rows($purchase_request_row_template, $items_json, $project_id)
+    {
+        $project_id = (int) $project_id;
+        if ($project_id < 1 || $items_json === null || $items_json === '') {
+            return $purchase_request_row_template;
+        }
+
+        $decoded = json_decode((string) $items_json, true);
+        if (! is_array($decoded) || $decoded === []) {
+            $decoded = json_decode(rawurldecode((string) $items_json), true);
+        }
+        if (! is_array($decoded) || $decoded === []) {
+            return $purchase_request_row_template;
+        }
+
+        if (! file_exists(APPPATH . 'models/Project_boq_model.php')) {
+            return $purchase_request_row_template;
+        }
+
+        $this->load->model('project_boq_model');
+
+        $this->load->model('currencies_model');
+        $base_currency = $this->currencies_model->get_base_currency();
+        $currency_rate = 1;
+        $to_currency   = $base_currency->name;
+        $index         = 0;
+
+        foreach ($decoded as $line) {
+            $boq_item_id = isset($line['boq_item_id']) ? (int) $line['boq_item_id'] : 0;
+            $item_id     = isset($line['item_id']) ? (int) $line['item_id'] : 0;
+            if ($boq_item_id < 1 || $item_id < 1) {
+                continue;
+            }
+
+            $boq = $this->project_boq_model->get($boq_item_id);
+            if (! $boq || (int) $boq->project_id !== $project_id || (int) $boq->item_id !== $item_id) {
+                continue;
+            }
+
+            $remaining = (float) $boq->remaining_qty;
+            if ($remaining < 0) {
+                $remaining = 0;
+            }
+
+            $item = $this->get_item_v2($item_id);
+            if (! $item) {
+                continue;
+            }
+
+            $item_text = $item->code_description ?? $item->long_description ?? '';
+            $unit_name = $item->unit_name ?? '';
+            $unit_id   = $item->unit_id ?? '';
+
+            $unit_price = $item->purchase_price ?? 0;
+            $quantity   = $remaining;
+
+            $tax_arr = [];
+            if (! empty($item->taxname) && isset($item->taxrate)) {
+                $tax_arr[] = $item->taxname . '|' . $item->taxrate;
+            }
+            if (! empty($item->taxname_2) && isset($item->taxrate_2)) {
+                $tax_arr[] = $item->taxname_2 . '|' . $item->taxrate_2;
+            }
+            $tax_name_for_template = $tax_arr;
+
+            $tax_rate_data = is_array($tax_name_for_template) ? $this->pur_get_tax_rate($tax_name_for_template) : ['tax_rate' => 0];
+            $tax_rate_value = (float) ($tax_rate_data['tax_rate'] ?? 0);
+            $qty_f          = (float) $quantity;
+            $price_f        = (float) $unit_price;
+
+            if ($tax_rate_value != 0) {
+                $tax_money   = $price_f * $qty_f * $tax_rate_value / 100;
+                $into_money  = $price_f * $qty_f;
+                $total       = $into_money + $tax_money;
+                $tax_value   = $tax_money;
+            } else {
+                $into_money = $price_f * $qty_f;
+                $total      = $into_money;
+                $tax_value  = 0;
+            }
+
+            $index++;
+            $purchase_request_row_template .= $this->create_purchase_request_row_template(
+                'newitems[' . $index . ']',
+                (string) $item_id,
+                $item_text,
+                (string) $unit_price,
+                (string) $quantity,
+                (string) $unit_name,
+                (string) $unit_id,
+                (string) $into_money,
+                (string) $index,
+                (string) $tax_value,
+                (string) $total,
+                $tax_name_for_template,
+                '',
+                '',
+                false,
+                $currency_rate,
+                $to_currency,
+                $remaining,
+                $boq_item_id
+            );
+        }
+
+        return $purchase_request_row_template;
+    }
+
+    /**
+     * Validate quantities for lines linked to BOQ (server-side).
+     *
+     * @param array $lines      newitems or items rows
+     * @param int   $project_id
+     * @return true|string      true or error message
+     */
+    public function validate_pur_request_boq_quantities($lines, $project_id)
+    {
+        $project_id = (int) $project_id;
+        if ($project_id < 1 || empty($lines) || ! is_array($lines)) {
+            return true;
+        }
+
+        if (! file_exists(APPPATH . 'models/Project_boq_model.php')) {
+            return true;
+        }
+
+        $this->load->model('project_boq_model');
+
+        foreach ($lines as $rqd) {
+            if (empty($rqd['boq_item_id'])) {
+                continue;
+            }
+
+            $boq_id = (int) $rqd['boq_item_id'];
+            $boq    = $this->project_boq_model->get($boq_id);
+            if (! $boq) {
+                return _l('pur_boq_invalid_line');
+            }
+
+            if ((int) $boq->project_id !== $project_id) {
+                return _l('pur_boq_invalid_line');
+            }
+
+            if ((int) $boq->item_id !== (int) ($rqd['item_code'] ?? 0)) {
+                return _l('pur_boq_invalid_line');
+            }
+
+            $qty = isset($rqd['quantity']) ? (float) $rqd['quantity'] : 0;
+            $max = (float) $boq->remaining_qty;
+
+            if ($qty > $max + 0.0000001) {
+                return _l('pur_boq_qty_exceeds_remaining');
+            }
+        }
+
+        return true;
     }
 
     /**

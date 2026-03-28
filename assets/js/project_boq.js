@@ -31,6 +31,9 @@
   function projectBoqUpdateRemainingDisplay($tr) {
     var revised =
       parseFloat($tr.find(".project-boq-revised-input").val()) || 0;
+    if ($tr.find(".project-boq-revised-input").length) {
+      $tr.attr("data-revised", revised);
+    }
     var purchased = parseFloat($tr.data("purchased")) || 0;
     var rem = revised - purchased;
     $tr.find(".project-boq-remaining-display").text(projectBoqFormatNumber(rem));
@@ -89,12 +92,22 @@
       '" title=""><i class="fa-regular fa-trash-can"></i></a>' +
       "</td>";
 
+    var chkCell =
+      $("#project-boq-wrapper").data("can-view-items") == "1"
+        ? '<td class="text-center project-boq-select-cell"><input type="checkbox" class="project-boq-select" aria-label=""></td>'
+        : "";
+
     return (
       '<tr data-boq-id="' +
       id +
       '" data-purchased="' +
       purchased +
+      '" data-revised="' +
+      revised +
+      '" data-item-id="' +
+      (row.item_id || 0) +
       '" data-item-description="">' +
+      chkCell +
       '<td class="project-boq-item-label">' +
       $("<div>").text(desc).html() +
       unitHtml +
@@ -289,6 +302,59 @@
       });
 
     return false;
+  });
+
+  $("#project-boq-check-all").on("change", function () {
+    var on = $(this).prop("checked");
+    $("#project-boq-tbody .project-boq-select").prop("checked", on);
+  });
+
+  $(document).on("change", "#project-boq-tbody .project-boq-select", function () {
+    var $rows = $("#project-boq-tbody .project-boq-select");
+    if (!$rows.length) {
+      return;
+    }
+    var all = $rows.filter(":checked").length === $rows.length;
+    $("#project-boq-check-all").prop("checked", all);
+  });
+
+  $("#project-boq-purchase-request").on("click", function () {
+    var items = [];
+    $("#project-boq-tbody tr").each(function () {
+      var $tr = $(this);
+      if (!$tr.find(".project-boq-select").prop("checked")) {
+        return;
+      }
+      var itemId = parseInt($tr.data("item-id"), 10);
+      var boqItemId = parseInt($tr.data("boq-id"), 10);
+      var revised = parseFloat($tr.find(".project-boq-revised-input").val());
+      if (isNaN(revised)) {
+        revised = parseFloat($tr.attr("data-revised")) || 0;
+      }
+      var purchased = parseFloat($tr.data("purchased")) || 0;
+      var remaining = revised - purchased;
+      if (remaining < 0) {
+        remaining = 0;
+      }
+      items.push({
+        item_id: itemId,
+        remaining_qty: remaining,
+        boq_item_id: boqItemId,
+      });
+    });
+
+    if (!items.length) {
+      alert_float("warning", projectBoqLang.select_at_least_one);
+      return;
+    }
+
+    var projectId = projectBoqProjectId();
+    var qs =
+      "boq=1&project_id=" +
+      encodeURIComponent(projectId) +
+      "&items=" +
+      encodeURIComponent(JSON.stringify(items));
+    window.location.href = admin_url + "purchase/pur_request?" + qs;
   });
 
   $(function () {

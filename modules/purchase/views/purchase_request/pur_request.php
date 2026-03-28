@@ -37,8 +37,10 @@
 
                     <?php 
                       $project_id = '';
-                      if($this->input->get('project')){
-                        $project_id = $this->input->get('project'); 
+                      if ($this->input->get('project_id')) {
+                        $project_id = $this->input->get('project_id');
+                      } elseif ($this->input->get('project')) {
+                        $project_id = $this->input->get('project');
                       }
                     ?>
                      <div class="row ">

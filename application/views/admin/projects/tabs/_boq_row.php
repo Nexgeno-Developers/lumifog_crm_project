@@ -10,7 +10,14 @@ $purchased      = (float) ($row['purchased_qty'] ?? 0);
 $remaining      = isset($row['remaining_qty']) ? (float) $row['remaining_qty'] : ($revised - $purchased);
 ?>
 <tr data-boq-id="<?= e($id); ?>" data-purchased="<?= e($purchased); ?>"
+    data-revised="<?= e($revised); ?>"
+    data-item-id="<?= (int) ($row['item_id'] ?? 0); ?>"
     data-item-description="<?= e($row['item_description'] ?? ''); ?>">
+    <?php if ($can_view_items) { ?>
+    <td class="text-center project-boq-select-cell">
+        <input type="checkbox" class="project-boq-select" aria-label="<?= e(_l('project_boq_select_rows')); ?>">
+    </td>
+    <?php } ?>
     <td class="project-boq-item-label">
         <?= e($row['item_description'] ?? ''); ?>
         <?php if (! empty($row['item_unit'])) { ?>

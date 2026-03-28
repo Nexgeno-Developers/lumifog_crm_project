@@ -9,14 +9,59 @@ init_pr_currency();
 init_ajax_search('items','#item_select.ajax-search',undefined,admin_url+'purchase/pur_commodity_code_search');
 
 validate_purrequest_form();
+
+function purValidateBoqQuantities() {
+    var ok = true;
+    $('.invoice-items-table.items tbody tr.item').each(function () {
+        var $q = $(this).find('[data-quantity]');
+        var max = parseFloat($q.attr('data-boq-max'));
+        if (isNaN(max)) {
+            return true;
+        }
+        var v = parseFloat($q.val());
+        if (isNaN(v) || v > max + 1e-9) {
+            ok = false;
+            alert_float('danger', "<?php echo _l('pur_boq_qty_exceeds_remaining'); ?>");
+            $q.trigger('focus');
+            return false;
+        }
+    });
+    return ok;
+}
+
+function purClampBoqQtyInput($inp) {
+    var max = parseFloat($inp.attr('data-boq-max'));
+    if (isNaN(max)) {
+        return;
+    }
+    var v = parseFloat($inp.val());
+    if (isNaN(v) || v < 0) {
+        $inp.val(0).trigger('change');
+        return;
+    }
+    if (v > max + 1e-9) {
+        $inp.val(max).trigger('change');
+        alert_float('warning', "<?php echo _l('pur_boq_qty_exceeds_remaining'); ?>");
+    }
+}
+
 function validate_purrequest_form(selector) {
 
     selector = typeof(selector) == 'undefined' ? '#add_edit_pur_request-form' : selector;
 
     appValidateForm($(selector), {
         pur_rq_code:'required', pur_rq_name:'required', currency:'required'
+    }, function (form) {
+        if (!purValidateBoqQuantities()) {
+            return;
+        }
+        form.submit();
     });
 }
+
+$("body").on("change blur", ".invoice-items-table.items tbody tr.item [data-quantity][data-boq-max]", function () {
+    purClampBoqQtyInput($(this));
+});
 
 
 

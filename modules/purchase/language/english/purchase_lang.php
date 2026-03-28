@@ -693,4 +693,6 @@ $lang['pur_company_country_text'] = 'Country Code';
 $lang['vendor_vat'] = 'GST Number';
 $lang['purchase_order_change_approve_status'] = 'Change the approval status of purchase orders';
 $lang['purchase_request_change_approve_status'] = 'Change the approval status of purchase requests';
+$lang['pur_boq_invalid_line'] = 'One or more purchase lines are not linked to a valid BOQ line for this project.';
+$lang['pur_boq_qty_exceeds_remaining'] = 'Requested quantity cannot exceed the remaining BOQ quantity for that line.';
 $lang['purchase_quotations_change_approve_status'] = 'Change the approval status of purchase quotations';

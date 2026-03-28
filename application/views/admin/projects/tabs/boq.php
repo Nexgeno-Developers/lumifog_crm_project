@@ -22,6 +22,12 @@ $items_grouped  = isset($boq_items_grouped) ? $boq_items_grouped : [];
             <?= _l('project_boq_add_line'); ?>
         </button>
         <?php } ?>
+        <?php if ($can_view_items) { ?>
+        <button type="button" class="btn btn-default" id="project-boq-purchase-request">
+            <i class="fa-regular fa-file-lines tw-mr-1"></i>
+            <?= _l('project_boq_purchase_request'); ?>
+        </button>
+        <?php } ?>
     </div>
 
     <div class="panel_s">
@@ -30,6 +36,11 @@ $items_grouped  = isset($boq_items_grouped) ? $boq_items_grouped : [];
                 <table class="table table-bordered table-hover" id="project-boq-table">
                     <thead>
                         <tr>
+                            <?php if ($can_view_items) { ?>
+                            <th class="text-center" style="width:40px;">
+                                <input type="checkbox" id="project-boq-check-all" aria-label="<?= e(_l('project_boq_select_rows')); ?>">
+                            </th>
+                            <?php } ?>
                             <th><?= _l('project_boq_item'); ?></th>
                             <th class="text-right" width="11%"><?= _l('project_boq_planned_qty'); ?></th>
                             <th class="text-right" width="11%"><?= _l('project_boq_revised_qty'); ?></th>
@@ -118,5 +129,6 @@ var projectBoqLang = <?= json_encode([
     'confirm_delete' => _l('confirm_action_prompt'),
     'add_title'      => _l('project_boq_add_line'),
     'edit_title'     => _l('project_boq_edit_line'),
+    'select_at_least_one' => _l('project_boq_select_at_least_one_line'),
 ]); ?>;
 </script>

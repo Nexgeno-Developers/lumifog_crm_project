@@ -590,6 +590,15 @@ class purchase extends AdminController
             }
         }
 
+        $boq_prefill_active = ($id == '' && $this->input->get('boq') == '1');
+        if ($boq_prefill_active) {
+            $purchase_request_row_template = $this->purchase_model->append_boq_prefill_rows(
+                $purchase_request_row_template,
+                $this->input->get('items'),
+                (int) $this->input->get('project_id')
+            );
+        }
+
         $data['currencies'] = $this->currencies_model->get();
 
         $data['vendors'] = $this->purchase_model->get_vendor();
@@ -612,7 +621,7 @@ class purchase extends AdminController
             $data['items']     = [];
             $data['ajaxItems'] = true;
         }
-    	
+
         $this->load->view('purchase_request/pur_request', $data);
     }
 
@@ -7364,8 +7373,13 @@ class purchase extends AdminController
         $item_code = $this->input->post('item_code');
         $currency_rate = $this->input->post('currency_rate');
         $to_currency = $this->input->post('to_currency');
-        
-        echo $this->purchase_model->create_purchase_request_row_template( $name, $item_code, $item_text, $unit_price, $quantity, $unit_name, $unit_id, $into_money, $item_key, $tax_value, $total, $tax_name, '', '', false, $currency_rate, $to_currency);
+        $qty_max       = $this->input->post('qty_max');
+        $boq_item_id   = $this->input->post('boq_item_id');
+
+        $qty_max_param = ($qty_max !== null && $qty_max !== '') ? $qty_max : null;
+        $boq_id_param  = ($boq_item_id !== null && $boq_item_id !== '') ? (int) $boq_item_id : null;
+
+        echo $this->purchase_model->create_purchase_request_row_template($name, $item_code, $item_text, $unit_price, $quantity, $unit_name, $unit_id, $into_money, $item_key, $tax_value, $total, $tax_name, '', '', false, $currency_rate, $to_currency, $qty_max_param, $boq_id_param);
     }
 
     /**
