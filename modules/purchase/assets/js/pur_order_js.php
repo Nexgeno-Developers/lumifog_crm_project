@@ -10,9 +10,150 @@ $(function(){
       init_ajax_search('items','#item_select.ajax-search',undefined,admin_url+'purchase/pur_commodity_code_search');
     <?php } ?>
 
+    var poBoqItemMap = {};
+    var $poItemSelect = $('#item_select');
+    var poDefaultItemSelectHtml = $poItemSelect.html();
+    var poItemSelectWasAjax = $poItemSelect.hasClass('ajax-search');
+
     pur_calculate_total();
 
     validate_purorder_form();
+    function purFormatBoqQty(value) {
+      var n = parseFloat(value);
+      if (isNaN(n)) {
+        return '0';
+      }
+      return n.toFixed(4).replace(/\.?0+$/, '');
+    }
+
+    function purClampBoqQtyInput($inp) {
+      var max = parseFloat($inp.attr('data-boq-max'));
+      if (isNaN(max)) {
+        return;
+      }
+      var v = parseFloat($inp.val());
+      if (isNaN(v) || v < 0) {
+        $inp.val(0).trigger('change');
+        return;
+      }
+      if (v > max + 1e-9) {
+        $inp.val(max).trigger('change');
+        alert_float('warning', "<?php echo _l('pur_boq_qty_exceeds_remaining'); ?>");
+      }
+    }
+
+    function purValidateBoqQuantities() {
+      var ok = true;
+      $('.invoice-items-table.items tbody tr.item').each(function () {
+        var $q = $(this).find('[data-quantity]');
+        var max = parseFloat($q.attr('data-boq-max'));
+        if (isNaN(max)) {
+          return true;
+        }
+        var v = parseFloat($q.val());
+        if (isNaN(v) || v > max + 1e-9) {
+          ok = false;
+          alert_float('danger', "<?php echo _l('pur_boq_qty_exceeds_remaining'); ?>");
+          $q.trigger('focus');
+          return false;
+        }
+      });
+      return ok;
+    }
+
+    function poApplyBoqMaxToPreview(itemId) {
+      var $previewQty = $('.invoice-item .main input[name="quantity"]');
+      if (!$previewQty.length) {
+        return;
+      }
+
+      var max = parseFloat(poBoqItemMap[itemId]);
+      if (isNaN(max)) {
+        $previewQty.removeAttr('data-boq-max').removeAttr('max');
+        return;
+      }
+
+      $previewQty.attr('data-boq-max', max).attr('max', max);
+      purClampBoqQtyInput($previewQty);
+    }
+
+    function poApplyBoqMaxToRows() {
+      $('.invoice-items-table.items tbody tr.item').each(function () {
+        var $row = $(this);
+        var itemId = parseInt($row.find('td.commodity_code input').val(), 10);
+        var $q = $row.find('[data-quantity]');
+        if (!$q.length) {
+          return true;
+        }
+
+        var max = parseFloat(poBoqItemMap[itemId]);
+        if (isNaN(max)) {
+          $q.removeAttr('data-boq-max').removeAttr('max');
+          return true;
+        }
+
+        $q.attr('data-boq-max', max).attr('max', max);
+        purClampBoqQtyInput($q);
+        return true;
+      });
+    }
+
+    function poRestoreDefaultItemDropdown() {
+      poBoqItemMap = {};
+      $poItemSelect.html(poDefaultItemSelectHtml);
+      $poItemSelect.selectpicker('refresh');
+      if (poItemSelectWasAjax) {
+        $poItemSelect.addClass('ajax-search');
+        init_ajax_search('items', '#item_select.ajax-search', undefined, admin_url + 'purchase/pur_commodity_code_search');
+      }
+
+      $('.invoice-item .main input[name="quantity"]').removeAttr('data-boq-max').removeAttr('max');
+      $('.invoice-items-table.items tbody tr.item [data-quantity]').removeAttr('data-boq-max').removeAttr('max');
+    }
+
+    function poSetBoqItemDropdown(items) {
+      poBoqItemMap = {};
+      var html = '<option value=""></option>';
+
+      $.each(items, function (_, item) {
+        var itemId = parseInt(item.item_id, 10);
+        var remaining = parseFloat(item.remaining_qty);
+        if (isNaN(itemId) || itemId < 1 || isNaN(remaining) || remaining <= 0) {
+          return true;
+        }
+
+        poBoqItemMap[itemId] = remaining;
+        var label = (item.item_name || ('Item #' + itemId)) + ' (Remaining: ' + purFormatBoqQty(remaining) + ')';
+        html += '<option value="' + itemId + '">' + $('<div/>').text(label).html() + '</option>';
+        return true;
+      });
+
+      $poItemSelect.removeClass('ajax-search');
+      $poItemSelect.html(html);
+      $poItemSelect.selectpicker('refresh');
+      poApplyBoqMaxToRows();
+    }
+
+    function poLoadBoqItemsByProject(projectId) {
+      projectId = parseInt(projectId, 10) || 0;
+      if (projectId < 1) {
+        poRestoreDefaultItemDropdown();
+        return;
+      }
+
+      $.getJSON(admin_url + 'project_boq/available_items/' + projectId)
+        .done(function (response) {
+          if (!response || response.success !== true || !$.isArray(response.data)) {
+            poRestoreDefaultItemDropdown();
+            return;
+          }
+          poSetBoqItemDropdown(response.data);
+        })
+        .fail(function () {
+          poRestoreDefaultItemDropdown();
+        });
+    }
+
     function validate_purorder_form(selector) {
 
         selector = typeof(selector) == 'undefined' ? '#pur_order-form' : selector;
@@ -22,14 +163,32 @@ $(function(){
             pur_order_number: 'required',
             order_date: 'required',
             vendor: 'required',
+        }, function (form) {
+            if (!purValidateBoqQuantities()) {
+              return;
+            }
+            form.submit();
         });
     }
 
     $("body").on('change', 'select[name="item_select"]', function () {
       var itemid = $(this).selectpicker('val');
+      poApplyBoqMaxToPreview(itemid);
       if (itemid != '') {
         pur_add_item_to_preview(itemid);
       }
+    });
+
+    $("body").on("change blur", ".invoice-items-table.items tbody tr.item [data-quantity][data-boq-max]", function () {
+      purClampBoqQtyInput($(this));
+    });
+
+    $("body").on("change blur", ".invoice-item .main input[name='quantity'][data-boq-max]", function () {
+      purClampBoqQtyInput($(this));
+    });
+
+    $("body").on("change", "select[name='project']", function () {
+      poLoadBoqItemsByProject($(this).val());
     });
 
     $("body").on('change', 'select.taxes', function () {
@@ -83,6 +242,10 @@ $(function(){
         // Recalculate the total
         pur_calculate_total();
       });
+
+    poLoadBoqItemsByProject($('select[name="project"]').val());
+    window.poApplyBoqMaxToPreview = poApplyBoqMaxToPreview;
+    window.poApplyBoqMaxToRows = poApplyBoqMaxToRows;
     });
 
 var lastAddedItemKey = null;
@@ -482,6 +645,9 @@ function pur_add_item_to_preview(id) {
     $('.main input[name="unit_name"]').val(response.unit_name);
     $('.main input[name="unit_id"]').val(response.unit_id);
     $('.main input[name="quantity"]').val(1);
+    if (typeof window.poApplyBoqMaxToPreview === 'function') {
+      window.poApplyBoqMaxToPreview(id);
+    }
 
     $('.selectpicker').selectpicker('refresh');
 
@@ -540,6 +706,9 @@ function pur_add_item_to_table(data, itemid) {
     table_row += output;
 
     $('.invoice-item table.invoice-items-table.items tbody').append(table_row);
+    if (typeof window.poApplyBoqMaxToRows === 'function') {
+      window.poApplyBoqMaxToRows();
+    }
 
     setTimeout(function () {
       pur_calculate_total();

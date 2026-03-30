@@ -8,6 +8,11 @@ init_pr_currency();
 // Maybe items ajax search
 init_ajax_search('items','#item_select.ajax-search',undefined,admin_url+'purchase/pur_commodity_code_search');
 
+var prBoqItemMap = {};
+var $prItemSelect = $('#item_select');
+var prDefaultItemSelectHtml = $prItemSelect.html();
+var prItemSelectWasAjax = $prItemSelect.hasClass('ajax-search');
+
 validate_purrequest_form();
 
 function purValidateBoqQuantities() {
@@ -45,6 +50,107 @@ function purClampBoqQtyInput($inp) {
     }
 }
 
+function purFormatBoqQty(value) {
+    var n = parseFloat(value);
+    if (isNaN(n)) {
+        return '0';
+    }
+    return n.toFixed(4).replace(/\.?0+$/, '');
+}
+
+function purApplyBoqMaxToPreview(itemId) {
+    var $previewQty = $('.invoice-item .main input[name="quantity"]');
+    if (!$previewQty.length) {
+        return;
+    }
+
+    var max = parseFloat(prBoqItemMap[itemId]);
+    if (isNaN(max)) {
+        $previewQty.removeAttr('data-boq-max').removeAttr('max');
+        return;
+    }
+
+    $previewQty.attr('data-boq-max', max).attr('max', max);
+    purClampBoqQtyInput($previewQty);
+}
+
+function purApplyBoqMaxToRows() {
+    $('.invoice-items-table.items tbody tr.item').each(function () {
+        var $row = $(this);
+        var itemId = parseInt($row.find('td.item_code input').val(), 10);
+        var $q = $row.find('[data-quantity]');
+        if (!$q.length) {
+            return true;
+        }
+
+        var max = parseFloat(prBoqItemMap[itemId]);
+        if (isNaN(max)) {
+            $q.removeAttr('data-boq-max').removeAttr('max');
+            return true;
+        }
+
+        $q.attr('data-boq-max', max).attr('max', max);
+        purClampBoqQtyInput($q);
+        return true;
+    });
+}
+
+function purRestoreDefaultItemDropdown() {
+    prBoqItemMap = {};
+    $prItemSelect.html(prDefaultItemSelectHtml);
+    $prItemSelect.selectpicker('refresh');
+    if (prItemSelectWasAjax) {
+        $prItemSelect.addClass('ajax-search');
+        init_ajax_search('items', '#item_select.ajax-search', undefined, admin_url + 'purchase/pur_commodity_code_search');
+    }
+
+    $('.invoice-item .main input[name="quantity"]').removeAttr('data-boq-max').removeAttr('max');
+    $('.invoice-items-table.items tbody tr.item [data-quantity]').removeAttr('data-boq-max').removeAttr('max');
+}
+
+function purSetBoqItemDropdown(items) {
+    prBoqItemMap = {};
+    var html = '<option value=""></option>';
+
+    $.each(items, function (_, item) {
+        var itemId = parseInt(item.item_id, 10);
+        var remaining = parseFloat(item.remaining_qty);
+        if (isNaN(itemId) || itemId < 1 || isNaN(remaining) || remaining <= 0) {
+            return true;
+        }
+
+        prBoqItemMap[itemId] = remaining;
+        var label = (item.item_name || ('Item #' + itemId)) + ' (Remaining: ' + purFormatBoqQty(remaining) + ')';
+        html += '<option value="' + itemId + '">' + $('<div/>').text(label).html() + '</option>';
+        return true;
+    });
+
+    $prItemSelect.removeClass('ajax-search');
+    $prItemSelect.html(html);
+    $prItemSelect.selectpicker('refresh');
+    purApplyBoqMaxToRows();
+}
+
+function purLoadBoqItemsByProject(projectId) {
+    projectId = parseInt(projectId, 10) || 0;
+    if (projectId < 1) {
+        purRestoreDefaultItemDropdown();
+        return;
+    }
+
+    $.getJSON(admin_url + 'project_boq/available_items/' + projectId)
+        .done(function (response) {
+            if (!response || response.success !== true || !$.isArray(response.data)) {
+                purRestoreDefaultItemDropdown();
+                return;
+            }
+            purSetBoqItemDropdown(response.data);
+        })
+        .fail(function () {
+            purRestoreDefaultItemDropdown();
+        });
+}
+
 function validate_purrequest_form(selector) {
 
     selector = typeof(selector) == 'undefined' ? '#add_edit_pur_request-form' : selector;
@@ -63,11 +169,20 @@ $("body").on("change blur", ".invoice-items-table.items tbody tr.item [data-quan
     purClampBoqQtyInput($(this));
 });
 
+$("body").on("change blur", ".invoice-item .main input[name='quantity'][data-boq-max]", function () {
+    purClampBoqQtyInput($(this));
+});
+
+$("body").on("change", "select[name='project']", function () {
+    purLoadBoqItemsByProject($(this).val());
+});
+
 
 
 // Add item to preview from the dropdown for invoices estimates
 $("body").on('change', 'select[name="item_select"]', function () {
   var itemid = $(this).selectpicker('val');
+  purApplyBoqMaxToPreview(itemid);
   if (itemid != '') {
     pur_add_item_to_preview(itemid);
   }
@@ -116,6 +231,11 @@ $("input[name='currency_rate']").on('change', function () {
 
     });
 });
+
+purLoadBoqItemsByProject($('select[name="project"]').val());
+
+window.purApplyBoqMaxToPreview = purApplyBoqMaxToPreview;
+window.purApplyBoqMaxToRows = purApplyBoqMaxToRows;
 
 })(jQuery); 
 
@@ -253,6 +373,9 @@ function pur_add_item_to_preview(id) {
     $('.main input[name="unit_name"]').val(response.unit_name);
     $('.main input[name="unit_id"]').val(response.unit_id);
     $('.main input[name="quantity"]').val();
+    if (typeof window.purApplyBoqMaxToPreview === 'function') {
+      window.purApplyBoqMaxToPreview(id);
+    }
 
     var taxSelectedArray = [];
     if (response.taxname && response.taxrate) {
@@ -351,6 +474,9 @@ function pur_add_item_to_table(data, itemid) {
     table_row += output;
 
     $('.invoice-item table.invoice-items-table.items tbody').append(table_row);
+    if (typeof window.purApplyBoqMaxToRows === 'function') {
+      window.purApplyBoqMaxToRows();
+    }
 
     setTimeout(function () {
       pur_calculate_total();

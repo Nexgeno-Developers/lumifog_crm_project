@@ -1140,6 +1140,13 @@ class Purchase_model extends App_Model
             return false;
         }
 
+        $_boq_item_qty_ok = $this->validate_project_boq_item_quantities($detail_data, $_project_id_for_boq);
+        if ($_boq_item_qty_ok !== true) {
+            set_alert('danger', $_boq_item_qty_ok);
+
+            return false;
+        }
+
         $data['to_currency'] = $data['currency'];
 
         unset($data['item_text']);
@@ -1329,6 +1336,13 @@ class Purchase_model extends App_Model
         $_v_boq = $this->validate_pur_request_boq_quantities($_lines_boq, $_project_id_boq);
         if ($_v_boq !== true) {
             set_alert('danger', $_v_boq);
+
+            return false;
+        }
+
+        $_v_boq_item_qty = $this->validate_project_boq_item_quantities($_lines_boq, $_project_id_boq);
+        if ($_v_boq_item_qty !== true) {
+            set_alert('danger', $_v_boq_item_qty);
 
             return false;
         }
@@ -2261,6 +2275,14 @@ class Purchase_model extends App_Model
             unset($data['newitems']);
         }
 
+        $_project_id_for_boq_po = isset($data['project']) ? (int) $data['project'] : 0;
+        $_boq_qty_ok_po         = $this->validate_project_boq_item_quantities($order_detail, $_project_id_for_boq_po);
+        if ($_boq_qty_ok_po !== true) {
+            set_alert('danger', $_boq_qty_ok_po);
+
+            return false;
+        }
+
         $prefix = get_purchase_option('pur_order_prefix');
 
         $this->db->where('pur_order_number',$data['pur_order_number']);
@@ -2460,6 +2482,18 @@ class Purchase_model extends App_Model
         if(isset($data['removed_items'])){
             $remove_order = $data['removed_items'];
             unset($data['removed_items']);
+        }
+
+        $_project_id_for_boq_po = isset($data['project']) ? (int) $data['project'] : 0;
+        $_lines_boq_po          = array_merge(
+            is_array($new_order) ? $new_order : [],
+            is_array($update_order) ? $update_order : []
+        );
+        $_boq_qty_ok_po         = $this->validate_project_boq_item_quantities($_lines_boq_po, $_project_id_for_boq_po);
+        if ($_boq_qty_ok_po !== true) {
+            set_alert('danger', $_boq_qty_ok_po);
+
+            return false;
         }
 
         $data['to_currency'] = $data['currency'];
@@ -10626,6 +10660,87 @@ class Purchase_model extends App_Model
             $max = (float) $boq->remaining_qty;
 
             if ($qty > $max + 0.0000001) {
+                return _l('pur_boq_qty_exceeds_remaining');
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Validate requested quantities against BOQ remaining quantity by project+item.
+     *
+     * @param array $lines      newitems or items rows
+     * @param int   $project_id
+     * @return true|string
+     */
+    public function validate_project_boq_item_quantities($lines, $project_id)
+    {
+        $project_id = (int) $project_id;
+        if ($project_id < 1 || empty($lines) || ! is_array($lines)) {
+            return true;
+        }
+
+        if (! $this->db->table_exists(db_prefix() . 'project_boq_items')) {
+            return true;
+        }
+
+        $requested_by_item = [];
+        foreach ($lines as $line) {
+            $item_id = isset($line['item_code']) ? (int) $line['item_code'] : 0;
+            if ($item_id < 1) {
+                continue;
+            }
+
+            $qty = isset($line['quantity']) ? (float) $line['quantity'] : 0;
+            if ($qty <= 0) {
+                continue;
+            }
+
+            if (! isset($requested_by_item[$item_id])) {
+                $requested_by_item[$item_id] = 0;
+            }
+            $requested_by_item[$item_id] += $qty;
+        }
+
+        if (empty($requested_by_item)) {
+            return true;
+        }
+
+        $item_ids = array_map('intval', array_keys($requested_by_item));
+        $item_ids = array_values(array_filter($item_ids, function ($id) {
+            return $id > 0;
+        }));
+
+        if (empty($item_ids)) {
+            return true;
+        }
+
+        $this->db->select('item_id, SUM(revised_qty - purchased_qty) as remaining_qty', false);
+        $this->db->from(db_prefix() . 'project_boq_items');
+        $this->db->where('project_id', $project_id);
+        $this->db->where_in('item_id', $item_ids);
+        $this->db->group_by('item_id');
+        $boq_rows = $this->db->get()->result_array();
+
+        $remaining_by_item = [];
+        foreach ($boq_rows as $row) {
+            $item_id = (int) ($row['item_id'] ?? 0);
+            if ($item_id < 1) {
+                continue;
+            }
+
+            $remaining = (float) ($row['remaining_qty'] ?? 0);
+            if ($remaining < 0) {
+                $remaining = 0;
+            }
+
+            $remaining_by_item[$item_id] = $remaining;
+        }
+
+        foreach ($requested_by_item as $item_id => $requested_qty) {
+            $remaining_qty = isset($remaining_by_item[$item_id]) ? (float) $remaining_by_item[$item_id] : 0;
+            if ((float) $requested_qty > ($remaining_qty + 0.0000001)) {
                 return _l('pur_boq_qty_exceeds_remaining');
             }
         }

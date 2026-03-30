@@ -37,6 +37,62 @@ class Project_boq extends AdminController
     }
 
     /**
+     * AJAX: list BOQ items with remaining qty for purchase forms.
+     *
+     * Returns only rows where remaining_qty > 0, grouped by item_id.
+     *
+     * @param int $project_id
+     */
+    public function available_items($project_id)
+    {
+        if (! $this->input->is_ajax_request()) {
+            show_404();
+        }
+
+        $project_id = (int) $project_id;
+        if ($project_id < 1 || ! $this->can_access_project($project_id)) {
+            ajax_access_denied();
+        }
+
+        $boq_rows = $this->project_boq_model->get_by_project_id($project_id);
+        $grouped  = [];
+
+        foreach ($boq_rows as $row) {
+            $item_id = isset($row['item_id']) ? (int) $row['item_id'] : 0;
+            if ($item_id < 1) {
+                continue;
+            }
+
+            $revised   = isset($row['revised_qty']) ? (float) $row['revised_qty'] : 0;
+            $purchased = isset($row['purchased_qty']) ? (float) $row['purchased_qty'] : 0;
+            $remaining = $revised - $purchased;
+            if ($remaining <= 0) {
+                continue;
+            }
+
+            if (! isset($grouped[$item_id])) {
+                $grouped[$item_id] = [
+                    'item_id'      => $item_id,
+                    'item_name'    => (string) ($row['item_description'] ?? ''),
+                    'remaining_qty'=> 0,
+                ];
+            }
+
+            $grouped[$item_id]['remaining_qty'] += $remaining;
+        }
+
+        foreach ($grouped as &$item) {
+            $item['remaining_qty'] = (float) number_format((float) $item['remaining_qty'], get_decimal_places(), '.', '');
+        }
+        unset($item);
+
+        $this->json_response([
+            'success' => true,
+            'data'    => array_values($grouped),
+        ]);
+    }
+
+    /**
      * AJAX: add BOQ line.
      */
     public function add()
