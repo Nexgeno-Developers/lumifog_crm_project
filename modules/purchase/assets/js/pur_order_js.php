@@ -160,6 +160,8 @@ function coppy_pur_request(){
 
           $('select[name="currency"]').val(response.currency).change();
           $('input[name="currency_rate"]').val(response.currency_rate).change();
+          $('select[name="project"]').val(response.project).change();
+          $('select[name="project"]').selectpicker('refresh');
 
           $('.invoice-item table.invoice-items-table.items tbody').html('');
           $('.invoice-item table.invoice-items-table.items tbody').append(response.list_item);

@@ -2164,9 +2164,16 @@ class Purchase_model extends App_Model
      * @return     boolean  ( description_of_the_return_value )
      */
     public function change_status_pur_order($status,$id){
+        $old_status = 0;
+        $pur_order  = $this->get_pur_order($id);
+        if ($pur_order) {
+            $old_status = (int) $pur_order->approve_status;
+        }
+
         $this->db->where('id',$id);
         $this->db->update(db_prefix().'pur_orders',['approve_status' => $status]);
         if($this->db->affected_rows() > 0){
+            $this->sync_boq_purchased_qty_on_po_status_change($id, $old_status, (int) $status);
 
             hooks()->do_action('after_purchase_order_approve', $id);
 
@@ -2394,6 +2401,8 @@ class Purchase_model extends App_Model
 
             // warehouse module hook after purchase order add
             hooks()->do_action('after_purchase_order_add', $insert_id);
+
+            $this->sync_boq_purchased_qty_on_po_status_change($insert_id, 0, (int) $data['approve_status']);
 
             return $insert_id;
         }
@@ -3355,9 +3364,14 @@ class Purchase_model extends App_Model
                 return true;
                 break;
             case 'pur_order':
+                $pur_order = $this->get_pur_order($rel_id);
+                $old_status = $pur_order ? (int) $pur_order->approve_status : 0;
+
                 $data_update['approve_status'] = $status;
                 $this->db->where('id', $rel_id);
                 $this->db->update(db_prefix().'pur_orders', $data_update);
+
+                $this->sync_boq_purchased_qty_on_po_status_change($rel_id, $old_status, (int) $status);
 
                 // warehouse module hook after purchase order approve
                 hooks()->do_action('after_purchase_order_approve', $rel_id);
@@ -3421,6 +3435,173 @@ class Purchase_model extends App_Model
             }
             
         }
+    }
+
+    /**
+     * Synchronize BOQ purchased quantity when PO approval status changes.
+     *
+     * Only transitions into approved add quantity, and only transitions out of
+     * approved subtract quantity.
+     *
+     * @param int $purchase_id
+     * @param int $old_status
+     * @param int $new_status
+     * @return void
+     */
+    protected function sync_boq_purchased_qty_on_po_status_change($purchase_id, $old_status, $new_status)
+    {
+        $purchase_id = (int) $purchase_id;
+        $old_status  = (int) $old_status;
+        $new_status  = (int) $new_status;
+
+        if ($purchase_id < 1 || $old_status === $new_status) {
+            return;
+        }
+
+        if (! $this->db->table_exists(db_prefix() . 'project_boq_items') || ! $this->db->table_exists(db_prefix() . 'boq_purchase_links')) {
+            return;
+        }
+
+        $pur_order = $this->get_pur_order($purchase_id);
+        if (! $pur_order) {
+            return;
+        }
+
+        $project_id = isset($pur_order->project) ? (int) $pur_order->project : 0;
+        if ($project_id < 1) {
+            return;
+        }
+
+        $transition_to_approved   = ($old_status !== 2 && $new_status === 2);
+        $transition_from_approved = ($old_status === 2 && $new_status !== 2);
+
+        if (! $transition_to_approved && ! $transition_from_approved) {
+            return;
+        }
+
+        $this->db->trans_start();
+
+        if ($transition_to_approved) {
+            $this->add_boq_purchased_qty_from_po($purchase_id, $project_id);
+        } else {
+            $this->revert_boq_purchased_qty_from_po($purchase_id);
+        }
+
+        $this->db->trans_complete();
+    }
+
+    /**
+     * Apply BOQ purchased quantities for an approved PO.
+     *
+     * @param int $purchase_id
+     * @param int $project_id
+     * @return void
+     */
+    protected function add_boq_purchased_qty_from_po($purchase_id, $project_id)
+    {
+        $purchase_id = (int) $purchase_id;
+        $project_id  = (int) $project_id;
+
+        $this->db->where('pur_order', $purchase_id);
+        $po_items = $this->db->get(db_prefix() . 'pur_order_detail')->result_array();
+
+        foreach ($po_items as $po_item) {
+            $purchase_item_id = isset($po_item['id']) ? (int) $po_item['id'] : 0;
+            if ($purchase_item_id < 1) {
+                continue;
+            }
+
+            // Idempotency guard: do not process the same PO detail line twice.
+            $this->db->where('purchase_item_id', $purchase_item_id);
+            $existing_link = $this->db->get(db_prefix() . 'boq_purchase_links')->row();
+            if ($existing_link) {
+                continue;
+            }
+
+            $item_id = isset($po_item['item_code']) ? (int) $po_item['item_code'] : 0;
+            if ($item_id < 1) {
+                continue;
+            }
+
+            $qty = isset($po_item['quantity']) ? (float) $po_item['quantity'] : 0;
+            if ($qty <= 0) {
+                continue;
+            }
+
+            $this->db->select('id, purchased_qty');
+            $this->db->where('project_id', $project_id);
+            $this->db->where('item_id', $item_id);
+            $this->db->order_by('id', 'asc');
+            $boq_row = $this->db->get(db_prefix() . 'project_boq_items')->row();
+            if (! $boq_row) {
+                continue;
+            }
+
+            $this->db->insert(db_prefix() . 'boq_purchase_links', [
+                'purchase_item_id' => $purchase_item_id,
+                'boq_item_id'      => (int) $boq_row->id,
+                'purchase_id'      => $purchase_id,
+                'qty'              => number_format($qty, 4, '.', ''),
+                'created_at'       => date('Y-m-d H:i:s'),
+            ]);
+
+            if ($this->db->affected_rows() <= 0) {
+                continue;
+            }
+
+            $new_purchased_qty = (float) $boq_row->purchased_qty + $qty;
+            $this->db->where('id', (int) $boq_row->id);
+            $this->db->update(db_prefix() . 'project_boq_items', [
+                'purchased_qty' => number_format($new_purchased_qty, 4, '.', ''),
+            ]);
+        }
+    }
+
+    /**
+     * Revert BOQ purchased quantities when PO leaves approved status.
+     *
+     * @param int $purchase_id
+     * @return void
+     */
+    protected function revert_boq_purchased_qty_from_po($purchase_id)
+    {
+        $purchase_id = (int) $purchase_id;
+
+        $this->db->where('purchase_id', $purchase_id);
+        $links = $this->db->get(db_prefix() . 'boq_purchase_links')->result_array();
+
+        if (empty($links)) {
+            return;
+        }
+
+        foreach ($links as $link) {
+            $boq_item_id = isset($link['boq_item_id']) ? (int) $link['boq_item_id'] : 0;
+            if ($boq_item_id < 1) {
+                continue;
+            }
+
+            $qty = isset($link['qty']) ? (float) $link['qty'] : 0;
+            if ($qty <= 0) {
+                continue;
+            }
+
+            $this->db->select('id, purchased_qty');
+            $this->db->where('id', $boq_item_id);
+            $boq_row = $this->db->get(db_prefix() . 'project_boq_items')->row();
+
+            if (! $boq_row) {
+                continue;
+            }
+
+            $new_purchased_qty = max(0, ((float) $boq_row->purchased_qty - $qty));
+            $this->db->where('id', $boq_item_id);
+            $this->db->update(db_prefix() . 'project_boq_items', [
+                'purchased_qty' => number_format($new_purchased_qty, 4, '.', ''),
+            ]);
+        }
+
+        $this->db->where('purchase_id', $purchase_id);
+        $this->db->delete(db_prefix() . 'boq_purchase_links');
     }
 
     /**

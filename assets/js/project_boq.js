@@ -318,7 +318,10 @@
     $("#project-boq-check-all").prop("checked", all);
   });
 
-  $("#project-boq-purchase-request").on("click", function () {
+  $("#project-boq-purchase-request").on("click", function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+
     var items = [];
     $("#project-boq-tbody tr").each(function () {
       var $tr = $(this);
@@ -354,7 +357,15 @@
       encodeURIComponent(projectId) +
       "&items=" +
       encodeURIComponent(JSON.stringify(items));
-    window.location.href = admin_url + "purchase/pur_request?" + qs;
+    var targetUrl = admin_url + "purchase/pur_request?" + qs;
+    var link = document.createElement("a");
+    link.href = targetUrl;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.style.display = "none";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   });
 
   $(function () {

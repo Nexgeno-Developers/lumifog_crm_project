@@ -1241,6 +1241,7 @@ class purchase extends AdminController
             'currency' => $to_currency,
             'currency_rate' => $currency_rate,
             'estimate_html' => $estimate_html,
+            'project' => !empty($purchase_request->project) ? (int) $purchase_request->project : '',
         ]);
     }
 
