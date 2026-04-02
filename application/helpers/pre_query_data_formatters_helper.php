@@ -48,6 +48,10 @@ function _format_data_sales_feature($data)
         $data['data']['duedate'] = to_sql_date($data['data']['duedate']);
     }
 
+    if (isset($data['data']['buyers_order_date']) && !empty($data['data']['buyers_order_date'])) {
+        $data['data']['buyers_order_date'] = to_sql_date($data['data']['buyers_order_date']);
+    }
+
     if (isset($data['data']['clientnote'])) {
         $data['data']['clientnote'] = nl2br_save_html($data['data']['clientnote']);
     }
