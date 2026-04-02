@@ -4741,14 +4741,7 @@ class Purchase_model extends App_Model
             <th class="invoice-td-dark" style="width: 35%;">'._l('items').'</th>
             <th class="invoice-td-dark" style="width: 15%;">HSN</th>
             <th class="invoice-td-dark" style="width: 15%;">'._l('purchase_quantity').'</th>
-            <th class="invoice-td-dark" style="width: 15%;">'._l('purchase_unit_price').'</th>';
-         
-            // Tax column removed as per requirement
-            //if(get_option('show_purchase_tax_column') == 1){ 
-            //    $html .= '<th class="invoice-td-dark" align="right" style="width: 10%;">'._l('tax').'</th>';
-            //}
- 
-            $html .= '
+            <th class="invoice-td-dark" style="width: 15%;">'._l('purchase_unit_price').'</th>
             <th class="invoice-td-dark" style="width: 15%;">'._l('total').'</th>
           </tr>
           </thead>
@@ -4767,18 +4760,11 @@ class Purchase_model extends App_Model
             <td style="width: 35%;"><strong>'.$des_html.'</strong><br><span>'.$row['description'].'</span></td>
             <td style="width:15%;">'.$items->commodity_code.'</td>
             <td style="width: 15%;">'.app_format_number($row['quantity'],'').' '.$unit_name.'</td>
-            <td style="width: 15%;">'.app_format_money($row['unit_price'],$base_currency->symbol).'</td>';
-         
-            // Tax column removed as per requirement
-            //if(get_option('show_purchase_tax_column') == 1){  
-            //    $html .= '<td align="right" style="width: 10%;">'.app_format_money($row['total'] - $row['into_money'],$base_currency->symbol).'</td>';
-            //}
-       
-            $html .= '
-            <td style="width: 15%;">'.app_format_money($row['total_money'],$base_currency->symbol).'</td>
+            <td style="width: 15%;">'.app_format_money($row['unit_price'],$base_currency->symbol).'</td>
+            <td style="width: 15%;">'.app_format_money($row['into_money'],$base_currency->symbol).'</td>
           </tr>';
 
-        $t_mn += $row['total_money'];
+        $t_mn += $row['into_money'];
         $item_discount += $row['discount_money'];
       }  
       $html .=  '</tbody>
@@ -4831,11 +4817,11 @@ class Purchase_model extends App_Model
         $html .= '
         <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:15px;">
             <tr>
-                <td style="width:80%; vertical-align:top;">
+                <td style="width:75%; vertical-align:top;">
                     <h4>'._l('terms_and_conditions').':</h4>
                     <p>'.$pur_order->terms.'</p>
                 </td>
-                <td style="width:20%; vertical-align:top; text-align:right;">
+                <td style="width:25%; vertical-align:top; text-align:right;">
                     <h4>From: Lumifog Pvt Ltd</h4>
         
                     <img src="/uploads/company/stamp-sign-both.png" 
@@ -10260,11 +10246,12 @@ class Purchase_model extends App_Model
                         }
 
                         $total = $into_money + $tax_value;
-                        $total_money = $total;
-
+                        // Store total_money as into_money (exclude tax), as requested
+                        $total_money = $into_money;
 
                         if($discount_tt != '' && $discount_tt > 0){
-                            $total_money = $total - $discount_tt;
+                            // apply discount still if set (to keep discount behavior)
+                            $total_money = $into_money - $discount_tt;
                         }
 
                         $final_total += $total_money;
@@ -14434,10 +14421,10 @@ class Purchase_model extends App_Model
             }
        
             $html .= '<td align="right" style="width: 15%;">'.app_format_money($row['discount_money'],$base_currency->symbol).'</td>
-            <td align="right" style="width: 15%;">'.app_format_money($row['total_money'],$base_currency->symbol).'</td>
+            <td align="right" style="width: 15%;">'.app_format_money($row['into_money'],$base_currency->symbol).'</td>
           </tr>';
 
-            $t_mn += $row['total_money'];
+            $t_mn += $row['into_money'];
             $item_discount += $row['discount_money'];
         }  
         $html .=  '</tbody>
