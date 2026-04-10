@@ -694,6 +694,10 @@ class Estimates_model extends App_Model
                 $affectedRows++;
             }
 
+            if (update_sales_item_post($item['itemid'], $item, 'hsn_sac')) {
+                $affectedRows++;
+            }
+
             if (update_sales_item_post($item['itemid'], $item, 'rate')) {
                 $this->log_estimate_activity($id, 'invoice_estimate_activity_updated_item_rate', false, serialize([
                     $original_item->rate,

@@ -45,6 +45,9 @@
                     <th width="25%" align="left">
                         <?= _l('estimate_table_item_description'); ?>
                     </th>
+                    <th width="10%" align="left">
+                        HSN/SAC
+                    </th>
                     <?php
                   $custom_fields = get_custom_fields('items');
 
@@ -85,13 +88,17 @@ if (isset($estimate) && $estimate->show_quantity_as == 2) {
                         <textarea name="long_description" rows="4" class="form-control"
                             placeholder="<?= _l('item_long_description_placeholder'); ?>"></textarea>
                     </td>
+                    <td>
+                        <input type="text" class="form-control hsn_sac_preview"
+                            placeholder="HSN/SAC" autocomplete="off">
+                    </td>
                     <?= render_custom_fields_items_table_add_edit_preview(); ?>
                     <td>
                         <input type="number" name="quantity" min="0" value="1" class="form-control"
                             placeholder="<?= _l('item_quantity_placeholder'); ?>">
                         <input type="text"
                             placeholder="<?= _l('unit'); ?>"
-                            data-toggle="tooltip" 612 data-title="e.q kg, lots, packs" name="unit"
+                            data-toggle="tooltip" data-title="e.q kg, lots, packs" name="unit"
                             class="form-control input-transparent text-right">
                     </td>
                     <td>
@@ -161,6 +168,8 @@ if (isset($estimate)) {
                         $table_row .= '</td>';
                         $table_row .= '<td class="bold description"><textarea name="' . $items_indicator . '[' . $i . '][description]" class="form-control" rows="5">' . clear_textarea_breaks($item['description']) . '</textarea></td>';
                         $table_row .= '<td><textarea name="' . $items_indicator . '[' . $i . '][long_description]" class="form-control" rows="5">' . clear_textarea_breaks($item['long_description']) . '</textarea></td>';
+                        $hsn_value = isset($item['hsn_sac']) ? $item['hsn_sac'] : '';
+                        $table_row .= '<td><input type="text" name="' . $items_indicator . '[' . $i . '][hsn_sac]" class="form-control" value="' . e($hsn_value) . '" placeholder="HSN/SAC"></td>';
                         $table_row .= render_custom_fields_items_table_in($item, $items_indicator . '[' . $i . ']');
                         $table_row .= '<td><input type="number" min="0" onblur="calculate_total();" onchange="calculate_total();" data-quantity name="' . $items_indicator . '[' . $i . '][qty]" value="' . $item['qty'] . '" class="form-control">';
                         $unit_placeholder = '';
@@ -287,3 +296,58 @@ if (isset($estimate)) {
     </div>
     <div id="removed-items"></div>
 </div>
+
+<script>
+    (function(attachHandlers) {
+        if (window.jQuery) {
+            attachHandlers(window.jQuery);
+        } else {
+            window.addEventListener('load', function() {
+                if (window.jQuery) {
+                    attachHandlers(window.jQuery);
+                }
+            });
+        }
+    })(function($) {
+        $(document).on('item-added-to-preview', function(e) {
+            if (e && e.item && typeof e.item.hsn_sac !== 'undefined') {
+                $('.main .hsn_sac_preview').val(e.item.hsn_sac);
+            }
+        });
+
+        $(document).on('item-added-to-table', function(e) {
+            var data = e && e.data ? e.data : {};
+            var $row = $('table.items tbody tr.item').last();
+            if ($row.length === 0) {
+                return;
+            }
+
+            var hsnVal = data.hsn_sac || $('.main .hsn_sac_preview').val() || '';
+            var $hsnInput = $row.find('input[name$="[hsn_sac]"]');
+
+            if ($hsnInput.length === 0) {
+                var $customFieldCell = $row.find('td.custom_field').first();
+                var $longDescCell = $row.find('td').eq(2);
+                var $newCell = $('<td><input type="text" class="form-control"></td>');
+
+                var descName = $row.find('textarea[name*="[description]"]').attr('name') || '';
+                var match = descName.match(/^(items|newitems)\[(\d+)\]\[description\]$/);
+                if (match) {
+                    $newCell.find('input').attr('name', match[1] + '[' + match[2] + '][hsn_sac]');
+                }
+
+                if ($customFieldCell.length) {
+                    $newCell.insertBefore($customFieldCell);
+                } else if ($longDescCell.length) {
+                    $newCell.insertAfter($longDescCell);
+                } else {
+                    $row.append($newCell);
+                }
+
+                $hsnInput = $newCell.find('input');
+            }
+
+            $hsnInput.val(hsnVal);
+        });
+    });
+</script>
