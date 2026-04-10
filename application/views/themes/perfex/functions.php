@@ -167,8 +167,8 @@ function lumifog_invoice_pdf_header($data)
                                 ' . ($invoice->billing_city ? $invoice->billing_city . ', ' : '') .
                                 ($invoice->billing_state ? $invoice->billing_state . ' - ' : '') .
                                 $invoice->billing_zip . ', India<br/>
-                                <strong>GSTIN/UIN:</strong> ' . ($invoice->client->vat ?: 'Not Available') . '<br/>
-                                <strong>State Name:</strong> ' . ($invoice->billing_state ?: 'Not Available') . '</span><br/>
+                                <strong>GSTIN/UIN:</strong> ' . ($invoice->client->vat ?: '') . '<br/>
+                                <strong>State Name:</strong> ' . ($invoice->billing_state ?: '') . '</span><br/>
                             </td>
                             <td width="50%" valign="top"><strong style="font-size:12px;">Consignee (Ship to)</strong><br/>
                                 <strong style="font-size:12px;">' . $invoice->client->company . '</strong><br/>
@@ -176,8 +176,8 @@ function lumifog_invoice_pdf_header($data)
                                 ' . ($invoice->shipping_city ? $invoice->shipping_city . ', ' : '') .
                                 ($invoice->shipping_state ? $invoice->shipping_state . ' - ' : '') .
                                 $invoice->shipping_zip . ', India<br/>
-                                <strong>GSTIN/UIN:</strong> ' . ($invoice->client->vat ?: 'Not Available') . '<br/>
-                                <strong>State Name:</strong> ' . ($invoice->shipping_state ?: 'Not Available') . '</span><br/>
+                                <strong>GSTIN/UIN:</strong> ' . ($invoice->client->vat ?: '') . '<br/>
+                                <strong>State Name:</strong> ' . ($invoice->shipping_state ?: '') . '</span><br/>
                             </td>
                         </tr>
                     </table>
@@ -350,8 +350,8 @@ function lumifog_estimate_pdf_header($data)
                                 ' . ($estimate->billing_city ? $estimate->billing_city . ', ' : '') .
                                 ($estimate->billing_state ? $estimate->billing_state . ' - ' : '') .
                                 $estimate->billing_zip . ', India<br/>
-                                <strong>GSTIN/UIN:</strong> ' . ($estimate->client->vat ?: 'Not Available') . '<br/>
-                                <strong>State Name:</strong> ' . ($estimate->billing_state ?: 'Not Available') . '</span><br/>
+                                <strong>GSTIN/UIN:</strong> ' . ($estimate->client->vat ?: '') . '<br/>
+                                <strong>State Name:</strong> ' . ($estimate->billing_state ?: '') . '</span><br/>
                             </td>
                             <td width="50%" valign="top"><strong style="font-size:12px;">Consignee (Ship to)</strong><br/>
                                 <strong style="font-size:12px;">' . $estimate->client->company . '</strong><br/>
@@ -359,8 +359,8 @@ function lumifog_estimate_pdf_header($data)
                                 ' . ($estimate->shipping_city ? $estimate->shipping_city . ', ' : '') .
                                 ($estimate->shipping_state ? $estimate->shipping_state . ' - ' : '') .
                                 $estimate->shipping_zip . ', India<br/>
-                                <strong>GSTIN/UIN:</strong> ' . ($estimate->client->vat ?: 'Not Available') . '<br/>
-                                <strong>State Name:</strong> ' . ($estimate->shipping_state ?: 'Not Available') . '</span><br/>
+                                <strong>GSTIN/UIN:</strong> ' . ($estimate->client->vat ?: '') . '<br/>
+                                <strong>State Name:</strong> ' . ($estimate->shipping_state ?: '') . '</span><br/>
                             </td>
                         </tr>
                     </table>
