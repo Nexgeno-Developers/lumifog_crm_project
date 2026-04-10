@@ -287,7 +287,7 @@ function lumifog_estimate_pdf_header($data)
     $e_invoice_number = trim((string) get_custom_field_value($estimate->id, 'estimate_e_invoice_no', 'estimate'));
 
     // Heading fixed to Pro-Tax-Invoice for estimates
-    $estimate_heading = 'Pro-Tax-Invoice';
+    $estimate_heading = 'Proforma-Invoice';
 
     static $marginsAdjusted = [];
     $pdfId       = spl_object_id($pdf);
@@ -315,9 +315,10 @@ function lumifog_estimate_pdf_header($data)
                 <td width="30%" valign="middle" style="vertical-align:middle;">
                     <img src="' . base_url('uploads/company/lumifog-logo.webp') . '" height="80">
                 </td>
-                <td width="70%" valign="middle" style="text-align:right; vertical-align:middle;">
-                    <div style="font-size:12px; font-weight:bold;"><strong>' . $estimate_heading . '</strong></div>
+                <td width="40%" valign="middle" style="text-align:center; vertical-align:middle;">
+                    <div style="font: size 20px; font-weight:bold;"><strong>' . $estimate_heading . '</strong></div>
                 </td>
+                <td width="30%"></td>
             </tr>
         </table>
 
