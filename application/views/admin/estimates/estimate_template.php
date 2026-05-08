@@ -206,6 +206,50 @@
                   echo render_date_input('expirydate', 'estimate_add_edit_expirydate', $value); ?>
                     </div>
                 </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <?php $value = isset($estimate) ? $estimate->buyers_order_no : ''; ?>
+                        <?php echo render_input('buyers_order_no', 'Buyer\'s Order No.', $value); ?>
+                    </div>
+                    <div class="col-md-6">
+                        <?php $value = isset($estimate) && $estimate->buyers_order_date ? _d($estimate->buyers_order_date) : ''; ?>
+                        <?php echo render_date_input('buyers_order_date', 'Buyer\'s Order Date', $value); ?>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <?php $value = isset($estimate) ? $estimate->eway_bill_no : ''; ?>
+                        <?php echo render_input('eway_bill_no', 'E-way Bill No.', $value); ?>
+                    </div>
+                    <div class="col-md-6">
+                        <?php $value = isset($estimate) ? $estimate->dispatch_doc_no : ''; ?>
+                        <?php echo render_input('dispatch_doc_no', 'Dispatch Doc No.', $value); ?>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <?php $value = isset($estimate) ? $estimate->dispatched_through : ''; ?>
+                        <?php echo render_input('dispatched_through', 'Dispatched Through', $value); ?>
+                    </div>
+                    <div class="col-md-6">
+                        <?php $value = isset($estimate) ? $estimate->payment_terms : ''; ?>
+                        <?php echo render_input('payment_terms', 'Payment Terms', $value); ?>
+                    </div>
+                </div>
+
+                <?php if (is_invoices_overdue_reminders_enabled()) { ?>
+                <div class="form-group">
+                    <div class="checkbox checkbox-danger">
+                        <input type="checkbox"
+                            <?php echo isset($estimate) && $estimate->cancel_overdue_reminders == 1 ? 'checked' : ''; ?>
+                        id="cancel_overdue_reminders" name="cancel_overdue_reminders">
+                        <label for="cancel_overdue_reminders">Prevent sending overdue reminders for this estimate</label>
+                    </div>
+                </div>
+                <?php } ?>
                 <div class="clearfix mbot15"></div>
                 <?php $rel_id = (isset($estimate) ? $estimate->id : false); ?>
                 <?php

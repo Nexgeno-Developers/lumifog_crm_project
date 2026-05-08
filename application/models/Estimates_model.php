@@ -156,6 +156,16 @@ class Estimates_model extends App_Model
         $new_invoice_data['shipping_state']   = $_estimate->shipping_state;
         $new_invoice_data['shipping_zip']     = $_estimate->shipping_zip;
         $new_invoice_data['shipping_country'] = $_estimate->shipping_country;
+        $new_invoice_data['buyers_order_no']      = $_estimate->buyers_order_no ?? '';
+        $new_invoice_data['buyers_order_date']    = $_estimate->buyers_order_date ?? '';
+        $new_invoice_data['eway_bill_no']         = $_estimate->eway_bill_no ?? '';
+        $new_invoice_data['dispatch_doc_no']      = $_estimate->dispatch_doc_no ?? '';
+        $new_invoice_data['dispatched_through']   = $_estimate->dispatched_through ?? '';
+        $new_invoice_data['payment_terms']        = $_estimate->payment_terms ?? '';
+
+        if (isset($_estimate->cancel_overdue_reminders) && (int) $_estimate->cancel_overdue_reminders === 1) {
+            $new_invoice_data['cancel_overdue_reminders'] = 1;
+        }
 
         if ($_estimate->include_shipping == 1) {
             $new_invoice_data['include_shipping'] = 1;
@@ -318,6 +328,13 @@ class Estimates_model extends App_Model
         $new_estimate_data['terms']            = $_estimate->terms;
         $new_estimate_data['sale_agent']       = $_estimate->sale_agent;
         $new_estimate_data['reference_no']     = $_estimate->reference_no;
+        $new_estimate_data['buyers_order_no']           = $_estimate->buyers_order_no ?? '';
+        $new_estimate_data['buyers_order_date']         = $_estimate->buyers_order_date ?? '';
+        $new_estimate_data['eway_bill_no']              = $_estimate->eway_bill_no ?? '';
+        $new_estimate_data['dispatch_doc_no']           = $_estimate->dispatch_doc_no ?? '';
+        $new_estimate_data['dispatched_through']        = $_estimate->dispatched_through ?? '';
+        $new_estimate_data['payment_terms']             = $_estimate->payment_terms ?? '';
+        $new_estimate_data['cancel_overdue_reminders']  = $_estimate->cancel_overdue_reminders ?? 0;
         // Since version 1.0.6
         $new_estimate_data['billing_street']   = clear_textarea_breaks($_estimate->billing_street);
         $new_estimate_data['billing_city']     = $_estimate->billing_city;
@@ -479,6 +496,8 @@ class Estimates_model extends App_Model
 
         $save_and_send = isset($data['save_and_send']);
 
+        $data['cancel_overdue_reminders'] = isset($data['cancel_overdue_reminders']) && (bool) $data['cancel_overdue_reminders'] ? 1 : 0;
+
         $estimateRequestID = false;
         if (isset($data['estimate_request_id'])) {
             $estimateRequestID = $data['estimate_request_id'];
@@ -597,6 +616,8 @@ class Estimates_model extends App_Model
         $original_number_formatted = format_estimate_number($id);
 
         $save_and_send = isset($data['save_and_send']);
+
+        $data['cancel_overdue_reminders'] = isset($data['cancel_overdue_reminders']) && (bool) $data['cancel_overdue_reminders'] ? 1 : 0;
 
         $items = [];
         if (isset($data['items'])) {
