@@ -2275,13 +2275,8 @@ class Purchase_model extends App_Model
             unset($data['newitems']);
         }
 
-        $_project_id_for_boq_po = isset($data['project']) ? (int) $data['project'] : 0;
-        $_boq_qty_ok_po         = $this->validate_project_boq_item_quantities($order_detail, $_project_id_for_boq_po);
-        if ($_boq_qty_ok_po !== true) {
-            set_alert('danger', $_boq_qty_ok_po);
-
-            return false;
-        }
+        // BOQ quantity validation bypassed: all items are accepted regardless of project.
+        $_boq_qty_ok_po = true;
 
         $prefix = get_purchase_option('pur_order_prefix');
 
@@ -2484,17 +2479,8 @@ class Purchase_model extends App_Model
             unset($data['removed_items']);
         }
 
-        $_project_id_for_boq_po = isset($data['project']) ? (int) $data['project'] : 0;
-        $_lines_boq_po          = array_merge(
-            is_array($new_order) ? $new_order : [],
-            is_array($update_order) ? $update_order : []
-        );
-        $_boq_qty_ok_po         = $this->validate_project_boq_item_quantities($_lines_boq_po, $_project_id_for_boq_po);
-        if ($_boq_qty_ok_po !== true) {
-            set_alert('danger', $_boq_qty_ok_po);
-
-            return false;
-        }
+        // BOQ quantity validation bypassed: all items are accepted regardless of project.
+        $_boq_qty_ok_po = true;
 
         $data['to_currency'] = $data['currency'];
 

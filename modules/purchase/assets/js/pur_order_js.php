@@ -135,23 +135,9 @@ $(function(){
     }
 
     function poLoadBoqItemsByProject(projectId) {
-      projectId = parseInt(projectId, 10) || 0;
-      if (projectId < 1) {
-        poRestoreDefaultItemDropdown();
+        // BOQ item restriction removed: all catalogue items are selectable
+        // regardless of which project is selected.
         return;
-      }
-
-      $.getJSON(admin_url + 'project_boq/available_items/' + projectId)
-        .done(function (response) {
-          if (!response || response.success !== true || !$.isArray(response.data)) {
-            poRestoreDefaultItemDropdown();
-            return;
-          }
-          poSetBoqItemDropdown(response.data);
-        })
-        .fail(function () {
-          poRestoreDefaultItemDropdown();
-        });
     }
 
     function validate_purorder_form(selector) {
@@ -187,9 +173,7 @@ $(function(){
       purClampBoqQtyInput($(this));
     });
 
-    $("body").on("change", "select[name='project']", function () {
-      poLoadBoqItemsByProject($(this).val());
-    });
+
 
     $("body").on('change', 'select.taxes', function () {
       pur_calculate_total();
@@ -243,7 +227,7 @@ $(function(){
         pur_calculate_total();
       });
 
-    poLoadBoqItemsByProject($('select[name="project"]').val());
+
     window.poApplyBoqMaxToPreview = poApplyBoqMaxToPreview;
     window.poApplyBoqMaxToRows = poApplyBoqMaxToRows;
     });
