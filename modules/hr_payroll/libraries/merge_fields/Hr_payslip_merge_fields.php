@@ -8,14 +8,38 @@ class Hr_payslip_merge_fields extends App_merge_fields
 	{
 		$payslip_columns = [];
 		$payslip_columns[] = [
-			'name'      => _l('hrp_time_range'),
-			'key'       => '{payslip_range}',
-			'available' => [
-				'hr_payslip',
-			],
-		];
+		'name'      => _l('hrp_time_range'),
+		'key'       => '{payslip_range}',
+		'available' => [
+			'hr_payslip',
+		],
+	];
 
-		$CI             = &get_instance();
+	$payslip_columns[] = [
+		'name'      => _l('job_position'),
+		'key'       => '{job_position}',
+		'available' => [
+			'hr_payslip',
+		],
+	];
+
+	$payslip_columns[] = [
+		'name'      => 'Date of Joining',
+		'key'       => '{date_of_joining}',
+		'available' => [
+			'hr_payslip',
+		],
+	];
+
+	$payslip_columns[] = [
+		'name'      => 'Paid Days',
+		'key'       => '{paid_days}',
+		'available' => [
+			'hr_payslip',
+		],
+	];
+
+	$CI             = &get_instance();
 		$CI->load->model('hr_payroll/hr_payroll_model');
 
 		$get_hrp_payroll_columns = $CI->hr_payroll_model->get_hrp_payroll_columns();
@@ -97,6 +121,29 @@ class Hr_payslip_merge_fields extends App_merge_fields
 		$fields['{total_hours_by_tasks}'] = $payslip_detail->total_hours_by_tasks;
 		$fields['{salary_from_tasks}'] = currency_converter_value($payslip_detail->salary_from_tasks, $hrp_payslip->to_currency_rate, $hrp_payslip->to_currency_name ?? '', true);
 		$fields['{payslip_range}'] = $payslip_range;
+
+		$fields['{job_position}'] = '';
+		$fields['{date_of_joining}'] = '';
+
+		if ($payslip_detail->staff_id) {
+			$this->ci->db->where('staffid', $payslip_detail->staff_id);
+			$staff = $this->ci->db->get(db_prefix() . 'staff')->row();
+			if ($staff && $staff->job_position) {
+				$fields['{job_position}'] = hr_profile_job_name_by_id($staff->job_position);
+			}
+			$fields['{date_of_joining}'] = get_custom_field_value($payslip_detail->staff_id, 12, 'staff');
+
+			$fields['{paid_days}'] = 0;
+			if ($hrp_payslip && $hrp_payslip->payslip_range) {
+				$arr_payslip_range = explode(' to ', $hrp_payslip->payslip_range);
+				if (count($arr_payslip_range) === 2 && $arr_payslip_range[0] && $arr_payslip_range[1]) {
+					$start_date = new DateTime($arr_payslip_range[0]);
+					$end_date = new DateTime($arr_payslip_range[1]);
+					$interval = $start_date->diff($end_date);
+					$fields['{paid_days}'] = $interval->days + 1;
+				}
+			}
+		}
 
 		$json_data = json_decode($payslip_detail->json_data, true);
 		if(is_array($json_data)){
