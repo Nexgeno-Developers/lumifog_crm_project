@@ -133,8 +133,10 @@ function lumifog_invoice_pdf_header($data)
                 <td width="30%" valign="middle" style="vertical-align:middle;">
                     <img src="' . base_url('uploads/company/lumifog-logo.webp') . '" height="80">
                 </td>
-                <td width="70%" valign="middle" style="text-align:right; vertical-align:middle;">
+                <td width="40%" valign="middle" style="text-align:center; vertical-align:middle;">
                     <div style="font-size:12px; font-weight:bold;"><strong>' . $invoice_heading . '</strong></div>
+                </td>
+                <td width="30%" valign="middle" style="vertical-align:middle;">
                 </td>
             </tr>
         </table>
