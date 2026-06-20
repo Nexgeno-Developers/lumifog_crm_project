@@ -709,7 +709,15 @@ class Invoices extends AdminController
             $type = 'I';
         }
 
-        $pdf->Output(mb_strtoupper(slug_it($invoice_number)) . '.pdf', $type);
+        $pdf_filename = mb_strtoupper(slug_it($invoice_number)) . '.pdf';
+
+        if (!empty($invoice->client->company)) {
+            $pdf_filename = mb_strtoupper(slug_it($invoice_number)) . '_' . mb_strtoupper(slug_it($invoice->client->company)) . '.pdf';
+        } elseif (function_exists('get_company_name') && $client_name = get_company_name($invoice->clientid)) {
+            $pdf_filename = mb_strtoupper(slug_it($invoice_number)) . '_' . mb_strtoupper(slug_it($client_name)) . '.pdf';
+        }
+
+        $pdf->Output($pdf_filename, $type);
     }
 
     public function mark_as_sent($id)
