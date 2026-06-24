@@ -202,6 +202,7 @@ if (!$has_igst && $cgst_amount == 0 && $sgst_amount == 0 && count($taxes) > 0) {
 }
 
 // Add tax summary and total on the last page only
+$invoice_total_in_words = strtoupper($CI->numberword->convert($invoice->total, $invoice->currency_name));
 $tax_summary_table = '<table width="100%" cellspacing="0" cellpadding="4" border="1" style="' . $border_style . '">
 <tbody>';
 
@@ -231,6 +232,9 @@ if ($is_mixed_gst) {
     <td style="' . $border_style . ' text-align:center;"><strong>' . array_sum(array_column($invoice->items, 'qty')) . ' Nos</strong></td>
     <td colspan="2" style="' . $border_style . '">&nbsp;</td>
     <td style="' . $border_style . ' text-align:right;"><strong>' . app_format_money($invoice->total, $invoice->currency_name) . '</strong></td>
+</tr>
+<tr>
+    <td colspan="8" style="' . $border_style . '"><strong>Amount (in words):</strong> ' . $invoice_total_in_words . '</td>
 </tr>';
 } elseif ($has_igst) {
     // IGST only (no separate CGST/SGST rows)
@@ -243,6 +247,9 @@ if ($is_mixed_gst) {
     <td style="' . $border_style . ' text-align:center;"><strong>' . array_sum(array_column($invoice->items, 'qty')) . ' Nos</strong></td>
     <td colspan="2" style="' . $border_style . '">&nbsp;</td>
     <td style="' . $border_style . ' text-align:right;"><strong>' . app_format_money($invoice->total, $invoice->currency_name) . '</strong></td>
+</tr>
+<tr>
+    <td colspan="8" style="' . $border_style . '"><strong>Amount (in words):</strong> ' . $invoice_total_in_words . '</td>
 </tr>';
 } else {
     // CGST + SGST pair
@@ -259,6 +266,9 @@ if ($is_mixed_gst) {
     <td style="' . $border_style . ' text-align:center;"><strong>' . array_sum(array_column($invoice->items, 'qty')) . ' Nos</strong></td>
     <td colspan="2" style="' . $border_style . '">&nbsp;</td>
     <td style="' . $border_style . ' text-align:right;"><strong>' . app_format_money($invoice->total, $invoice->currency_name) . '</strong></td>
+</tr>
+<tr>
+    <td colspan="8" style="' . $border_style . '"><strong>Total Amount (in words):</strong> ' . $invoice_total_in_words . '</td>
 </tr>';
 }
 $tax_summary_table .= '</tbody>
@@ -284,32 +294,6 @@ $pdf->writeHTMLCell(
     true
 );
 $pdf->Ln(0);
-
-// Amount in words
-if (get_option('total_to_words_enabled') == 1) {
-    $amount_words = '<table width="100%" cellspacing="0" cellpadding="4" border="1" style="' . $border_style . '">
-    <tr>
-        <td style="' . $border_style . '"><strong>Amount Chargeable (in words)</strong><br/>' . 
-        strtoupper($CI->numberword->convert($invoice->total, $invoice->currency_name)) . '</td>
-        <td width="15%" style="' . $border_style . ' text-align:right;"><strong>E & O.E</strong></td>
-    </tr>
-    </table>';
-    $pdf->SetX($pdf->getMargins()['left']);
-    $pdf->writeHTMLCell(
-        $contentWidth,
-        '',
-        '',
-        '',
-        $amount_words,
-        0,
-        1,
-        false,
-        true,
-        'L',
-        true
-    );
-    $pdf->Ln(0);
-}
 
 // Item-wise HSN/SAC GST Summary Table
 $tax_table = '<table width="100%" cellspacing="0" cellpadding="4" border="1" style="' . $border_style . '">

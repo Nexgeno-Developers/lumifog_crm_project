@@ -11,6 +11,8 @@ $border_style = 'border:1px solid #000000;';
 $estimate_items = get_items_table_data($estimate, 'estimate', 'pdf');
 $item_counter   = 1;
 $total_items    = count($estimate->items);
+// If items <= 5, show 5 rows per page, else show 12 rows per page
+$items_per_page = ($total_items <= 5) ? 5 : 12;
 
 // Store total items count for footer logic
 $pdfId = spl_object_id($pdf);
@@ -61,102 +63,124 @@ if (!function_exists('_my_pdf_add_page_if_needed')) {
 
 /*
 |--------------------------------------------------------------------------
-| ITEMS TABLE - AUTO HEIGHT / AUTO PAGE BREAK
+| ITEMS TABLE - FIXED ROWS PER PAGE
 |--------------------------------------------------------------------------
 */
-$items_table = '<table width="100%" cellspacing="0" cellpadding="3" border="1" style="' . $border_style . ' font-size:14px; ">
-<thead>
-    <tr nobr="true" style="background-color:#f0f0f0;">
-        <th width="6%" style="' . $border_style . ' text-align:center;"><strong>Sr No.</strong></th>
-        <th width="30%" style="' . $border_style . '"><strong>Description of Services</strong></th>
-        <th width="10%" style="' . $border_style . ' text-align:center;"><strong>HSN/SAC</strong></th>
-        <th width="10%" style="' . $border_style . ' text-align:center;"><strong>GST Rate</strong></th>
-        <th width="12%" style="' . $border_style . ' text-align:center;"><strong>Quantity</strong></th>
-        <th width="10%" style="' . $border_style . ' text-align:right;"><strong>Rate</strong></th>
-        <th width="10%" style="' . $border_style . ' text-align:center;"><strong>per</strong></th>
-        <th width="12%" style="' . $border_style . ' text-align:right;"><strong>Amount</strong></th>
-    </tr>
-</thead>
-<tbody>';
+$item_chunks = array_chunk($estimate->items, $items_per_page);
 
-foreach ($estimate->items as $item) {
-    $item_gst_rate_total   = 0;
-    $item_gst_rate_display = '0%';
+foreach ($item_chunks as $chunk_index => $items_chunk) {
+    $items_table = '<table width="100%" cellspacing="0" cellpadding="4" border="1" style="' . $border_style . ' margin-top:0 !important;">
+    <thead>
+        <tr style="background-color:#f0f0f0;">
+            <th width="6%" style="' . $border_style . ' text-align:center;"><strong>Sr No.</strong></th>
+            <th width="30%" style="' . $border_style . '"><strong>Description of Services</strong></th>
+            <th width="10%" style="' . $border_style . ' text-align:center;"><strong>HSN/SAC</strong></th>
+            <th width="10%" style="' . $border_style . ' text-align:center;"><strong>GST Rate</strong></th>
+            <th width="12%" style="' . $border_style . ' text-align:center;"><strong>Quantity</strong></th>
+            <th width="10%" style="' . $border_style . ' text-align:right;"><strong>Rate</strong></th>
+            <th width="10%" style="' . $border_style . ' text-align:center;"><strong>per</strong></th>
+            <th width="12%" style="' . $border_style . ' text-align:right;"><strong>Amount</strong></th>
+        </tr>
+    </thead>
+    <tbody>';
 
-    $item_taxes = [];
-    if (isset($item['id'])) {
-        $item_taxes = _my_get_estimate_item_taxes($item['id']);
-    }
+    foreach ($items_chunk as $item) {
+        $item_gst_rate_total   = 0;
+        $item_gst_rate_display = '0%';
 
-    if (is_array($item_taxes) && count($item_taxes) > 0) {
-        foreach ($item_taxes as $t) {
-            $tax_name_only = '';
-            $tax_rate      = 0;
-
-            if (isset($t['taxname'])) {
-                $tmp           = explode('|', $t['taxname']);
-                $tax_name_only = trim($tmp[0] ?? '');
-                $tax_rate      = (float) ($tmp[1] ?? 0);
-            } elseif (isset($t['taxrate'])) {
-                $tax_rate = (float) $t['taxrate'];
-            }
-
-            if ($tax_name_only !== '' && function_exists('get_tax_by_name')) {
-                $taxObj = get_tax_by_name($tax_name_only);
-                if ($taxObj && isset($taxObj->taxrate)) {
-                    $tax_rate = (float) $taxObj->taxrate;
-                }
-            }
-
-            $item_gst_rate_total += $tax_rate;
+        $item_taxes = [];
+        if (isset($item['id'])) {
+            $item_taxes = _my_get_estimate_item_taxes($item['id']);
         }
 
-        $item_gst_rate_display = app_format_number($item_gst_rate_total, true) . '%';
+        if (is_array($item_taxes) && count($item_taxes) > 0) {
+            foreach ($item_taxes as $t) {
+                $tax_name_only = '';
+                $tax_rate      = 0;
+
+                if (isset($t['taxname'])) {
+                    $tmp           = explode('|', $t['taxname']);
+                    $tax_name_only = trim($tmp[0] ?? '');
+                    $tax_rate      = (float) ($tmp[1] ?? 0);
+                } elseif (isset($t['taxrate'])) {
+                    $tax_rate = (float) $t['taxrate'];
+                }
+
+                if ($tax_name_only !== '' && function_exists('get_tax_by_name')) {
+                    $taxObj = get_tax_by_name($tax_name_only);
+                    if ($taxObj && isset($taxObj->taxrate)) {
+                        $tax_rate = (float) $taxObj->taxrate;
+                    }
+                }
+
+                $item_gst_rate_total += $tax_rate;
+            }
+
+            $item_gst_rate_display = app_format_number($item_gst_rate_total, true) . '%';
+        }
+
+        $description      = $item['description'] ?? '';
+        $long_description = html_entity_decode($item['long_description'] ?? '', ENT_QUOTES, 'UTF-8');
+
+        // Convert saved <br>, <br/>, <br /> into actual new lines first
+        $long_description = preg_replace('/<br\s*\/?>/i', "\n", $long_description);
+
+        $description_html = htmlspecialchars($description);
+
+        if (!empty(trim($long_description))) {
+            $description_html .= '<br>' . nl2br(htmlspecialchars($long_description));
+        }
+
+        $items_table .= '<tr style="height:15mm;">
+        <td width="6%" style="' . $border_style . ' text-align:center; vertical-align:middle; height:15mm;">' . $item_counter . '</td>
+        <td width="30%" style="' . $border_style . ' vertical-align:middle; height:15mm;">' . $description_html . '</td>
+        <td width="10%" style="' . $border_style . ' text-align:center; vertical-align:middle; height:15mm;">' . (!empty($item['hsn_sac']) ? htmlspecialchars($item['hsn_sac']) : '') . '</td>
+        <td width="10%" style="' . $border_style . ' text-align:center; vertical-align:middle; height:15mm;">' . $item_gst_rate_display . '</td>
+        <td width="12%" style="' . $border_style . ' text-align:center; vertical-align:middle; height:15mm;">' . $item['qty'] . ' Nos</td>
+        <td width="10%" style="' . $border_style . ' text-align:right; vertical-align:middle; height:15mm;">' . app_format_number($item['rate']) . '</td>
+        <td width="10%" style="' . $border_style . ' text-align:center; vertical-align:middle; height:15mm;">Nos</td>
+        <td width="12%" style="' . $border_style . ' text-align:right; vertical-align:middle; height:15mm;">' . app_format_money($item['qty'] * $item['rate'], $estimate->currency_name) . '</td>
+    </tr>';
+
+        $item_counter++;
     }
 
-    $description      = $item['description'] ?? '';
-    $long_description = html_entity_decode($item['long_description'] ?? '', ENT_QUOTES, 'UTF-8');
-
-    // Convert saved <br>, <br/>, <br /> into actual new lines first
-    $long_description = preg_replace('/<br\s*\/?>/i', "\n", $long_description);
-
-    $description_html = htmlspecialchars($description);
-
-    if (!empty(trim($long_description))) {
-        $description_html .= '<br>' . nl2br(htmlspecialchars($long_description));
+    $rows_in_chunk = count($items_chunk);
+    for ($i = $rows_in_chunk; $i < $items_per_page; $i++) {
+        $items_table .= '<tr style="height:15mm;">
+            <td style="' . $border_style . ' height:15mm; vertical-align:middle;">&nbsp;</td>
+            <td style="' . $border_style . ' height:15mm; vertical-align:middle;">&nbsp;</td>
+            <td style="' . $border_style . ' height:15mm; vertical-align:middle;">&nbsp;</td>
+            <td style="' . $border_style . ' height:15mm; vertical-align:middle;">&nbsp;</td>
+            <td style="' . $border_style . ' height:15mm; vertical-align:middle;">&nbsp;</td>
+            <td style="' . $border_style . ' height:15mm; vertical-align:middle;">&nbsp;</td>
+            <td style="' . $border_style . ' height:15mm; vertical-align:middle;">&nbsp;</td>
+            <td style="' . $border_style . ' height:15mm; vertical-align:middle;">&nbsp;</td>
+        </tr>';
     }
 
-    $items_table .= '<tr nobr="true">
-    <td width="6%" style="' . $border_style . ' text-align:center; vertical-align:middle;">' . $item_counter . '</td>
-    <td width="30%" style="' . $border_style . ' vertical-align:top;">' . $description_html . '</td>
-    <td width="10%" style="' . $border_style . ' text-align:center; vertical-align:middle;">' . (!empty($item['hsn_sac']) ? htmlspecialchars($item['hsn_sac']) : '') . '</td>
-    <td width="10%" style="' . $border_style . ' text-align:center; vertical-align:middle;">' . $item_gst_rate_display . '</td>
-    <td width="12%" style="' . $border_style . ' text-align:center; vertical-align:middle;">' . $item['qty'] . ' Nos</td>
-    <td width="10%" style="' . $border_style . ' text-align:right; vertical-align:middle;">' . app_format_number($item['rate']) . '</td>
-    <td width="10%" style="' . $border_style . ' text-align:center; vertical-align:middle;">Nos</td>
-    <td width="12%" style="' . $border_style . ' text-align:right; vertical-align:middle;">' . app_format_money($item['qty'] * $item['rate'], $estimate->currency_name) . '</td>
-</tr>';
+    $items_table .= '</tbody></table>';
 
-    $item_counter++;
+    $pdf->SetX($pdf->getMargins()['left']);
+    $pdf->writeHTMLCell(
+        $contentWidth,
+        '',
+        '',
+        '',
+        $items_table,
+        0,
+        1,
+        false,
+        true,
+        'L',
+        true
+    );
+    $pdf->Ln(0);
+
+    if ($chunk_index < count($item_chunks) - 1) {
+        $pdf->AddPage();
+    }
 }
-
-$items_table .= '</tbody></table>';
-
-$pdf->SetX($pdf->getMargins()['left']);
-$pdf->writeHTMLCell(
-    $contentWidth,
-    '',
-    '',
-    '',
-    $items_table,
-    0,
-    1,
-    false,
-    true,
-    'L',
-    true
-);
-$pdf->Ln(0);
 
 /*
 |--------------------------------------------------------------------------
@@ -224,8 +248,11 @@ if (!$has_igst && $cgst_amount == 0 && $sgst_amount == 0 && count($taxes) > 0) {
 | TAX SUMMARY TABLE
 |--------------------------------------------------------------------------
 */
-_my_pdf_add_page_if_needed($pdf, 55);
+if ($total_items > 5) {
+    $pdf->AddPage();
+}
 
+$estimate_total_in_words = strtoupper($CI->numberword->convert($estimate->total, $estimate->currency_name));
 $tax_summary_table = '<table width="100%" cellspacing="0" cellpadding="4" border="1" style="' . $border_style . '"><tbody>';
 
 if ($is_mixed_gst) {
@@ -255,6 +282,9 @@ if ($is_mixed_gst) {
         <td style="' . $border_style . ' text-align:center;"><strong>' . array_sum(array_column($estimate->items, 'qty')) . ' Nos</strong></td>
         <td colspan="2" style="' . $border_style . '">&nbsp;</td>
         <td style="' . $border_style . ' text-align:right;"><strong>' . app_format_money($estimate->total, $estimate->currency_name) . '</strong></td>
+    </tr>
+    <tr>
+        <td colspan="8" style="' . $border_style . '"><strong>Amount (in words):</strong> ' . $estimate_total_in_words . '</td>
     </tr>';
 } elseif ($has_igst) {
     $tax_summary_table .= '<tr>
@@ -266,6 +296,9 @@ if ($is_mixed_gst) {
         <td style="' . $border_style . ' text-align:center;"><strong>' . array_sum(array_column($estimate->items, 'qty')) . ' Nos</strong></td>
         <td colspan="2" style="' . $border_style . '">&nbsp;</td>
         <td style="' . $border_style . ' text-align:right;"><strong>' . app_format_money($estimate->total, $estimate->currency_name) . '</strong></td>
+    </tr>
+    <tr>
+        <td colspan="8" style="' . $border_style . '"><strong>Amount (in words):</strong> ' . $estimate_total_in_words . '</td>
     </tr>';
 } else {
     $tax_summary_table .= '<tr>
@@ -281,6 +314,9 @@ if ($is_mixed_gst) {
         <td style="' . $border_style . ' text-align:center;"><strong>' . array_sum(array_column($estimate->items, 'qty')) . ' Nos</strong></td>
         <td colspan="2" style="' . $border_style . '">&nbsp;</td>
         <td style="' . $border_style . ' text-align:right;"><strong>' . app_format_money($estimate->total, $estimate->currency_name) . '</strong></td>
+    </tr>
+    <tr>
+        <td colspan="8" style="' . $border_style . '"><strong>Total Amount (in words):</strong> ' . $estimate_total_in_words . '</td>
     </tr>';
 }
 
@@ -301,39 +337,6 @@ $pdf->writeHTMLCell(
     true
 );
 $pdf->Ln(0);
-
-/*
-|--------------------------------------------------------------------------
-| AMOUNT IN WORDS
-|--------------------------------------------------------------------------
-*/
-if (get_option('total_to_words_enabled') == 1) {
-    _my_pdf_add_page_if_needed($pdf, 35);
-
-    $amount_words = '<table width="100%" cellspacing="0" cellpadding="4" border="1" style="' . $border_style . '">
-        <tr>
-            <td style="' . $border_style . '"><strong>Amount Chargeable (in words)</strong><br/>' .
-            strtoupper($CI->numberword->convert($estimate->total, $estimate->currency_name)) . '</td>
-            <td width="15%" style="' . $border_style . ' text-align:right;"><strong>E & O.E</strong></td>
-        </tr>
-    </table>';
-
-    $pdf->SetX($pdf->getMargins()['left']);
-    $pdf->writeHTMLCell(
-        $contentWidth,
-        '',
-        '',
-        '',
-        $amount_words,
-        0,
-        1,
-        false,
-        true,
-        'L',
-        true
-    );
-    $pdf->Ln(0);
-}
 
 /*
 |--------------------------------------------------------------------------
