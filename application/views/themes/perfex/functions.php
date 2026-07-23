@@ -312,7 +312,7 @@ function lumifog_estimate_pdf_header($data)
     $header_html = '
     <div style="background-color:#ffffff; margin:0; padding:0; margin-bottom:0 !important;">
         <!-- Logo and Pro-Tax-Invoice Row -->
-        <table width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom:5px;">
+        <table width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom:0;">
             <tr>
                 <td width="30%" valign="middle" style="vertical-align:middle;">
                     <img src="' . base_url('uploads/company/lumifog-logo.webp') . '" height="80">
@@ -425,6 +425,8 @@ function lumifog_estimate_pdf_header($data)
     // Ensure consistent X position before writing header table
     $pdf->SetX($margins['left']);
 
+    // ln=2 places cursor below the cell; TCPDF HTML still reports Y past the visible border.
+    // Pull up so items sit with only a small spacer under the header table.
     $pdf->writeHTMLCell(
         $contentWidth,
         '',
@@ -432,16 +434,14 @@ function lumifog_estimate_pdf_header($data)
         '',
         $header_html,
         0,
-        1,
+        2,
         false,
         true,
         'L',
         true
     );
 
-    // Store Y position after header for content to start immediately after
-    $currentY  = $pdf->GetY();
-    $adjustedY = max($currentY - 2, 5);
+    $adjustedY = max($pdf->GetY() - 10, 5);
     $GLOBALS['header_end_y_' . $pdfId] = $adjustedY;
 
     // Store content width for consistent table widths
@@ -512,7 +512,7 @@ function lumifog_invoice_pdf_footer($data)
             <strong style="font-size:12px;">Company\'s Bank Details</strong><br/>
             <span style="font-size:12px;"><strong>A/c Holder\'s Name:</strong> ' . get_option('invoice_company_name') . '<br/>
             <strong>Bank Name:</strong> HDFC BANK LTD<br/>
-            <strong>A/c No.:</strong> 50200095015459<br/>
+            <strong>A/c No.:</strong> 50200096015459<br/>
             <strong>Branch & IFS Code:</strong> HDFC0000592</span>
         </td>
         <td width="40%" style="' . $border_style . ' text-align:right; vertical-align:bottom; font-size:12px; padding:3px; padding-bottom:5px; margin:0;">
@@ -623,7 +623,7 @@ function lumifog_estimate_pdf_footer($data)
             <strong style="font-size:12px;">Company\'s Bank Details</strong><br/>
             <span style="font-size:12px;"><strong>A/c Holder\'s Name:</strong> ' . get_option('invoice_company_name') . '<br/>
             <strong>Bank Name:</strong> HDFC BANK LTD<br/>
-            <strong>A/c No.:</strong> 50200095015459<br/>
+            <strong>A/c No.:</strong> 50200096015459<br/>
             <strong>Branch & IFS Code:</strong> HDFC0000592</span>
         </td>
         <td width="40%" style="' . $border_style . ' text-align:right; vertical-align:bottom; font-size:12px; padding:3px; padding-bottom:5px; margin:0;">
@@ -640,13 +640,26 @@ function lumifog_estimate_pdf_footer($data)
     </tr>
     </table>';
 
-    // Position footer at bottom of page
-    $margins     = $pdf->getMargins();
-    $pageHeight  = $pdf->getPageHeight();
-    $footerHeight = 35;
+    // Position footer relative to tax/HSN block (not bottom-anchored — that overlapped tax-in-words)
+    $margins      = $pdf->getMargins();
+    $pageHeight   = $pdf->getPageHeight();
+    // Approx height of bank-details + signature + declaration (slightly tight so spacer can use leftover room)
+    $footerHeight = 30;
+    // App_pdf::Footer() already SetY(-15); use stored content end Y from my_estimatepdf.php
+    $contentEndY  = isset($GLOBALS['estimate_pdf_content_end_y_' . $pdfId])
+        ? (float) $GLOBALS['estimate_pdf_content_end_y_' . $pdfId]
+        : $pdf->GetY();
 
-    $footerY = $pageHeight - $margins['bottom'] - $footerHeight;
-    $pdf->SetY($footerY);
+    // Use near-page-bottom (not full bottom margin) so free whitespace can pull the footer down
+    $bottomLimit = $pageHeight - 8;
+    $remaining   = $bottomLimit - $contentEndY - $footerHeight;
+    // Small gap after tax-in-words; if free space remains, use ~half so footer sits lower
+    $spacer = 5;
+    if ($remaining > $spacer) {
+        $spacer = $spacer + (($remaining - $spacer) / 2);
+    }
+
+    $pdf->SetY($contentEndY + $spacer);
     $pdf->SetX($margins['left']);
 
     $pdf->writeHTMLCell(

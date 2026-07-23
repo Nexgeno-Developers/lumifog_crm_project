@@ -18,12 +18,19 @@ $items_per_page = ($total_items <= 5) ? 5 : 12;
 $pdfId = spl_object_id($pdf);
 $GLOBALS['estimate_pdf_total_items_' . $pdfId] = $total_items;
 
-// Start after header if stored by hook
+// Start items table immediately after header with a small fixed spacer (~5pt / 2mm)
 if (isset($GLOBALS['header_end_y_' . $pdfId])) {
-    $pdf->SetY($GLOBALS['header_end_y_' . $pdfId]);
+    $headerEndY = (float) $GLOBALS['header_end_y_' . $pdfId];
+    // Prefer live cursor when it is still at the header end (relative placement)
+    $liveY = $pdf->GetY();
+    if ($liveY > 0 && abs($liveY - $headerEndY) < 20) {
+        $headerEndY = min($headerEndY, $liveY);
+    }
+    $itemsStartY = $headerEndY + 2;
+    $pdf->SetY($itemsStartY);
     $pdf->SetMargins(
         $pdf->getMargins()['left'],
-        $GLOBALS['header_end_y_' . $pdfId],
+        $itemsStartY,
         $pdf->getMargins()['right']
     );
 }
@@ -46,18 +53,6 @@ if (!function_exists('_my_get_estimate_item_taxes')) {
         }
 
         return [];
-    }
-}
-
-// Helper: add page only if needed
-if (!function_exists('_my_pdf_add_page_if_needed')) {
-    function _my_pdf_add_page_if_needed($pdf, $requiredSpace = 80)
-    {
-        $remaining_space = $pdf->getPageHeight() - $pdf->GetY() - $pdf->getMargins()['bottom'];
-
-        if ($remaining_space < $requiredSpace) {
-            $pdf->AddPage();
-        }
     }
 }
 
@@ -253,7 +248,20 @@ if ($total_items > 5) {
 }
 
 $estimate_total_in_words = strtoupper($CI->numberword->convert($estimate->total, $estimate->currency_name));
+
+// Total of item amounts (taxable value) shown before the tax rows
+$items_amount_total = 0;
+foreach ($estimate->items as $item) {
+    $items_amount_total += $item['qty'] * $item['rate'];
+}
+
+$amount_total_row = '<tr>
+    <td colspan="7" style="' . $border_style . ' text-align:right;"><strong>Amount</strong></td>
+    <td style="' . $border_style . ' text-align:right;"><strong>' . app_format_money($items_amount_total, $estimate->currency_name) . '</strong></td>
+</tr>';
+
 $tax_summary_table = '<table width="100%" cellspacing="0" cellpadding="4" border="1" style="' . $border_style . '"><tbody>';
+$tax_summary_table .= $amount_total_row;
 
 if ($is_mixed_gst) {
     if ($cgst_amount != 0) {
@@ -343,8 +351,6 @@ $pdf->Ln(0);
 | ITEM-WISE HSN/SAC GST SUMMARY TABLE
 |--------------------------------------------------------------------------
 */
-_my_pdf_add_page_if_needed($pdf, 85);
-
 $tax_table = '<table width="100%" cellspacing="0" cellpadding="4" border="1" style="' . $border_style . '">
 <thead>
     <tr style="background-color:#f0f0f0;">
@@ -529,6 +535,8 @@ $pdf->writeHTMLCell(
 );
 $pdf->Ln(0);
 
-// Mark completion
+// Mark completion — store content end Y so footer can sit relative to this block
+// (App_pdf::Footer() calls SetY(-15) before the footer hook, wiping GetY())
 $GLOBALS['estimate_pdf_content_complete_' . $pdfId] = true;
 $GLOBALS['estimate_pdf_last_page_' . $pdfId]        = $pdf->getPage();
+$GLOBALS['estimate_pdf_content_end_y_' . $pdfId]    = $pdf->GetY();
