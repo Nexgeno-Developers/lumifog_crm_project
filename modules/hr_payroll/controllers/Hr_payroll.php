@@ -6121,11 +6121,15 @@ class hr_payroll extends AdminController {
 			$message = '';
 			$data = $this->input->post();
 
-			$data['content'] = $this->input->post('mce_0', false);
+			// Prefer explicit content field (synced from TinyMCE on submit); fallback to legacy mce_0
+			$content = $this->input->post('content', false);
+			if ($content === false || $content === null || $content === '') {
+				$content = $this->input->post('mce_0', false);
+			}
+			$data['content'] = $content;
 
 			if (isset($data['mce_0'])) {
 				unset($data['mce_0']);
-
 			}
 
 			if ($id == '') {
@@ -6210,16 +6214,25 @@ class hr_payroll extends AdminController {
 			die;
 		}
 
-		$success = false;
-		$message = '';
+		$template_id = $this->input->post('contract_id');
+		$content = $this->input->post('content', false);
 
-		$this->db->where('id_contract', $this->input->post('contract_id'));
-		$this->db->update(db_prefix() . 'hr_staff_contract', [
-			'content' => html_purify($this->input->post('content', false)),
+		if (!is_numeric($template_id)) {
+			header('HTTP/1.0 400 Bad error');
+			echo json_encode([
+				'success' => false,
+				'message' => _l('something_went_wrong'),
+			]);
+			die;
+		}
+
+		$this->db->where('id', $template_id);
+		$this->db->update(db_prefix() . 'hrp_payslip_pdf_templates', [
+			'content' => $content,
 		]);
 
 		$success = $this->db->affected_rows() > 0;
-		$message = _l('updated_successfully', _l('contract'));
+		$message = _l('updated_successfully', _l('pdf_payslip_template'));
 
 		echo json_encode([
 			'success' => $success,

@@ -91,7 +91,17 @@
 												style="border:1px solid #d2d2d2;min-height:70px; border-radius:4px;">
 												<?php
 												if((!isset($pdf_payslip_template) || empty($pdf_payslip_template->content) ) && has_permission('hrp_setting','','edit')){
-													echo hooks()->apply_filters('new_pdf_payslip_default_content', '<span class="text-danger text-uppercase mtop15 editor-add-content-notice"> ' . _l('click_to_add_content') . '</span>');
+													$default_payslip_pdf = '';
+													$default_payslip_pdf_path = module_dir_path(HR_PAYROLL_MODULE_NAME, 'assets/templates/payslip_pdf_default.html');
+													if (file_exists($default_payslip_pdf_path)) {
+														$default_payslip_pdf = file_get_contents($default_payslip_pdf_path);
+													}
+													echo hooks()->apply_filters(
+														'new_pdf_payslip_default_content',
+														$default_payslip_pdf !== ''
+															? $default_payslip_pdf
+															: '<span class="text-danger text-uppercase mtop15 editor-add-content-notice"> ' . _l('click_to_add_content') . '</span>'
+													);
 												} else {
 													echo $pdf_payslip_template->content;
 												}

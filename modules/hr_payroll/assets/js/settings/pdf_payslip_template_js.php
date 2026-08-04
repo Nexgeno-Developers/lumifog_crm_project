@@ -2,11 +2,36 @@
 	
 	$(function() {
 		'use strict';
+
+		var contract_id = '<?php echo isset($template_id) ? $template_id : ''; ?>';
 		
 		appValidateForm($('.pdf-payslip-template-form'), {
 			'name': 'required',
 			'payslip_template_id': 'required',
 			
+		});
+
+		// Ensure TinyMCE inline content is posted with the form
+		$('.pdf-payslip-template-form').on('submit', function () {
+			var $form = $(this);
+			var content = '';
+
+			if (typeof tinymce !== 'undefined') {
+				var editor = tinymce.activeEditor || (tinymce.editors && tinymce.editors[0]);
+				if (editor) {
+					content = editor.getContent();
+				}
+			}
+
+			if (!content) {
+				content = $('.tc-content.editable').html() || '';
+			}
+
+			$form.find('input[name="content"], textarea[name="content"]').remove();
+			$('<textarea/>', {
+				name: 'content',
+				css: { display: 'none' }
+			}).val(content).appendTo($form);
 		});
 	});
 
@@ -44,14 +69,14 @@
 				setup: function (editor) {
 
 					editor.addCommand('mceSave', function () {
-						// save_contract_content(true);
+						save_pdf_payslip_content(true);
 					});
 
 					editor.addShortcut('Meta+S', '', 'mceSave');
 
 					editor.on('MouseLeave blur', function () {
-						if (tinymce.activeEditor.isDirty()) {
-							// save_contract_content();
+						if (tinymce.activeEditor && tinymce.activeEditor.isDirty()) {
+							save_pdf_payslip_content();
 						}
 					});
 
@@ -87,8 +112,8 @@
 
 				editor_settings.inline = false;
 				window.addEventListener("beforeunload", function (event) {
-					if (tinymce.activeEditor.isDirty()) {
-						save_contract_content();
+					if (tinymce.activeEditor && tinymce.activeEditor.isDirty()) {
+						save_pdf_payslip_content();
 					}
 				});
 			}
@@ -109,21 +134,25 @@
 			}
 
 
-			function save_contract_content(manual) {
+			function save_pdf_payslip_content(manual) {
+				if (!contract_id) {
+					return;
+				}
+
 				var editor = tinyMCE.activeEditor;
+				if (!editor) {
+					return;
+				}
+
 				var data = {};
 				data.contract_id = contract_id;
 				data.content = editor.getContent();
-				$.post(admin_url + 'hr_payroll/save_hr_contract_data', data).done(function (response) {
+				$.post(admin_url + 'hr_payroll/save_pdf_payslip_data', data).done(function (response) {
 					response = JSON.parse(response);
 					if (typeof (manual) != 'undefined') {
-
-				// Show some message to the user if saved via CTRL + S
-				alert_float('success', response.message);
-
-				}
-				// Invokes to set dirty to false
-				editor.save();
+						alert_float('success', response.message);
+					}
+					editor.save();
 				}).fail(function (error) {
 					var response = JSON.parse(error.responseText);
 					alert_float('danger', response.message);

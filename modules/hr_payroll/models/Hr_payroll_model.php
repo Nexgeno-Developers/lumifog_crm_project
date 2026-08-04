@@ -7428,6 +7428,27 @@ order by staff_id, header_oder
 								}
 							}
 
+							// Company signature for payslip PDF
+							$signature_html = '';
+							$signature_candidates = [];
+							$option_signature = get_option('signature_image');
+							if (!empty($option_signature)) {
+								$signature_candidates[] = FCPATH . 'uploads/company/' . $option_signature;
+							}
+							$signature_candidates[] = FCPATH . 'uploads/company/signature.png';
+
+							foreach ($signature_candidates as $signature_path) {
+								if (is_file($signature_path)) {
+									$signature_url = base_url('uploads/company/' . basename($signature_path));
+									$signature_html = '<img src="' . $signature_url . '" width="150" style="max-height:70px;" alt="Signature" />';
+									break;
+								}
+							}
+
+							if (stripos($pdf_payslip_template->content, '{company_signature}') !== false) {
+								$pdf_payslip_template->content = str_ireplace('{company_signature}', $signature_html, $pdf_payslip_template->content);
+							}
+
 						}
 					}
 				}
