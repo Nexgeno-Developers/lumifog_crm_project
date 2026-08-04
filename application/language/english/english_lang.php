@@ -1153,6 +1153,7 @@ $lang['estimate_table_tax_heading']      = 'Tax';
 $lang['estimate_table_amount_heading']   = 'Amount';
 $lang['estimate_subtotal']               = 'Sub Total';
 $lang['estimate_adjustment']             = 'Adjustment';
+$lang['estimate_paid']                   = 'Paid';
 $lang['estimate_discount']               = 'Discount';
 $lang['estimate_total']                  = 'Total';
 $lang['estimate_to']                     = 'To';

@@ -2690,7 +2690,7 @@ $(function () {
   });
 
   // Recaulciate total on these changes
-  $("body").on("change", 'input[name="adjustment"],select.tax', function () {
+  $("body").on("change", 'input[name="adjustment"],input[name="paid"],select.tax', function () {
     calculate_total();
   });
 
@@ -7517,6 +7517,7 @@ function calculate_total() {
     rows = $(".table.has-calculations tbody tr.item"),
     discount_area = $("#discount_area"),
     adjustment = $('input[name="adjustment"]').val(),
+    paid = $('input[name="paid"]').val(),
     discount_percent = $('input[name="discount_percent"]').val(),
     discount_fixed = $('input[name="discount_total"]').val(),
     discount_total_type = $(".discount-total-type.selected"),
@@ -7632,6 +7633,7 @@ function calculate_total() {
 
   total = total - total_discount_calculated;
   adjustment = parseFloat(adjustment);
+  paid = parseFloat(paid);
 
   // Check if adjustment not empty
   if (!isNaN(adjustment)) {
@@ -7646,6 +7648,7 @@ function calculate_total() {
   // Append, format to html and display
   $(".discount-total").html(discount_html);
   $(".adjustment").html(format_money(adjustment));
+  $(".paid").html(format_money(isNaN(paid) ? 0 : paid));
   $(".subtotal").html(
     format_money(subtotal) +
       hidden_input(

@@ -70,6 +70,12 @@ function _format_data_sales_feature($data)
         $data['data']['adjustment'] = number_format($data['data']['adjustment'], get_decimal_places(), '.', '');
     }
 
+    if ((isset($data['data']['paid']) && !is_numeric($data['data']['paid'])) || !isset($data['data']['paid'])) {
+        $data['data']['paid'] = 0;
+    } elseif (isset($data['data']['paid']) && is_numeric($data['data']['paid'])) {
+        $data['data']['paid'] = number_format($data['data']['paid'], get_decimal_places(), '.', '');
+    }
+
     if (isset($data['data']['discount_total']) && $data['data']['discount_total'] == 0) {
         $data['data']['discount_type'] = '';
     }

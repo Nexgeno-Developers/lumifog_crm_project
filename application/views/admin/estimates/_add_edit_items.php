@@ -284,6 +284,22 @@ if (isset($estimate)) {
                     <td class="adjustment"></td>
                 </tr>
                 <tr>
+                    <td>
+                        <div class="row">
+                            <div class="col-md-7">
+                                <span class="bold tw-text-neutral-700"><?= _l('estimate_paid'); ?></span>
+                            </div>
+                            <div class="col-md-5">
+                                <input type="number" data-toggle="tooltip"
+                                    data-title="<?= _l('numbers_not_formatted_while_editing'); ?>"
+                                    value="<?= isset($estimate) ? ($estimate->paid ?? 0) : 0; ?>"
+                                    class="form-control pull-left" name="paid">
+                            </div>
+                        </div>
+                    </td>
+                    <td class="paid"></td>
+                </tr>
+                <tr>
                     <td><span
                             class="bold tw-text-neutral-700"><?= _l('estimate_total'); ?>
                             :</span>

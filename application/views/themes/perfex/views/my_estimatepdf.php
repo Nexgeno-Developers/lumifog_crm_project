@@ -247,7 +247,10 @@ if ($total_items > 5) {
     $pdf->AddPage();
 }
 
-$estimate_total_in_words = strtoupper($CI->numberword->convert($estimate->total, $estimate->currency_name));
+$paid_amount            = isset($estimate->paid) ? (float) $estimate->paid : 0;
+$has_paid_amount        = $paid_amount != 0;
+$estimate_balance       = (float) $estimate->total - $paid_amount;
+$estimate_total_in_words = strtoupper($CI->numberword->convert($estimate_balance, $estimate->currency_name));
 
 // Total of item amounts (taxable value) shown before the tax rows
 $items_amount_total = 0;
@@ -259,6 +262,20 @@ $amount_total_row = '<tr>
     <td colspan="7" style="' . $border_style . ' text-align:right;"><strong>Amount</strong></td>
     <td style="' . $border_style . ' text-align:right;"><strong>' . app_format_money($items_amount_total, $estimate->currency_name) . '</strong></td>
 </tr>';
+
+$summary_total_row = $has_paid_amount
+    ? '<tr>
+        <td colspan="3" style="' . $border_style . ' text-align:right;"><strong>' . _l('estimate_paid') . '</strong></td>
+        <td style="' . $border_style . ' text-align:right;">' . app_format_money($paid_amount, $estimate->currency_name) . '</td>
+        <td colspan="3" style="' . $border_style . ' text-align:right;"><strong>Balance</strong></td>
+        <td style="' . $border_style . ' text-align:right;"><strong>' . app_format_money($estimate_balance, $estimate->currency_name) . '</strong></td>
+    </tr>'
+    : '<tr>
+        <td colspan="4" style="' . $border_style . '"><strong>Total</strong></td>
+        <td style="' . $border_style . ' text-align:center;"><strong>' . array_sum(array_column($estimate->items, 'qty')) . ' Nos</strong></td>
+        <td colspan="2" style="' . $border_style . '">&nbsp;</td>
+        <td style="' . $border_style . ' text-align:right;"><strong>' . app_format_money($estimate->total, $estimate->currency_name) . '</strong></td>
+    </tr>';
 
 $tax_summary_table = '<table width="100%" cellspacing="0" cellpadding="4" border="1" style="' . $border_style . '"><tbody>';
 $tax_summary_table .= $amount_total_row;
@@ -285,27 +302,14 @@ if ($is_mixed_gst) {
         </tr>';
     }
 
-    $tax_summary_table .= '<tr>
-        <td colspan="4" style="' . $border_style . '"><strong>Total</strong></td>
-        <td style="' . $border_style . ' text-align:center;"><strong>' . array_sum(array_column($estimate->items, 'qty')) . ' Nos</strong></td>
-        <td colspan="2" style="' . $border_style . '">&nbsp;</td>
-        <td style="' . $border_style . ' text-align:right;"><strong>' . app_format_money($estimate->total, $estimate->currency_name) . '</strong></td>
-    </tr>
-    <tr>
+    $tax_summary_table .= $summary_total_row . '<tr>
         <td colspan="8" style="' . $border_style . '"><strong>Amount (in words):</strong> ' . $estimate_total_in_words . '</td>
     </tr>';
 } elseif ($has_igst) {
     $tax_summary_table .= '<tr>
         <td colspan="7" style="' . $border_style . ' text-align:right;"><strong>IGST</strong></td>
         <td style="' . $border_style . ' text-align:right;">' . app_format_money($igst_amount, $estimate->currency_name) . '</td>
-    </tr>
-    <tr>
-        <td colspan="4" style="' . $border_style . '"><strong>Total</strong></td>
-        <td style="' . $border_style . ' text-align:center;"><strong>' . array_sum(array_column($estimate->items, 'qty')) . ' Nos</strong></td>
-        <td colspan="2" style="' . $border_style . '">&nbsp;</td>
-        <td style="' . $border_style . ' text-align:right;"><strong>' . app_format_money($estimate->total, $estimate->currency_name) . '</strong></td>
-    </tr>
-    <tr>
+    </tr>' . $summary_total_row . '<tr>
         <td colspan="8" style="' . $border_style . '"><strong>Amount (in words):</strong> ' . $estimate_total_in_words . '</td>
     </tr>';
 } else {
@@ -316,14 +320,7 @@ if ($is_mixed_gst) {
     <tr>
         <td colspan="7" style="' . $border_style . ' text-align:right;"><strong>SGST</strong></td>
         <td style="' . $border_style . ' text-align:right;">' . app_format_money($sgst_amount, $estimate->currency_name) . '</td>
-    </tr>
-    <tr>
-        <td colspan="4" style="' . $border_style . '"><strong>Total</strong></td>
-        <td style="' . $border_style . ' text-align:center;"><strong>' . array_sum(array_column($estimate->items, 'qty')) . ' Nos</strong></td>
-        <td colspan="2" style="' . $border_style . '">&nbsp;</td>
-        <td style="' . $border_style . ' text-align:right;"><strong>' . app_format_money($estimate->total, $estimate->currency_name) . '</strong></td>
-    </tr>
-    <tr>
+    </tr>' . $summary_total_row . '<tr>
         <td colspan="8" style="' . $border_style . '"><strong>Total Amount (in words):</strong> ' . $estimate_total_in_words . '</td>
     </tr>';
 }
