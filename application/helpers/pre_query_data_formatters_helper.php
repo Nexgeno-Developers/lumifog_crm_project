@@ -70,10 +70,19 @@ function _format_data_sales_feature($data)
         $data['data']['adjustment'] = number_format($data['data']['adjustment'], get_decimal_places(), '.', '');
     }
 
-    if ((isset($data['data']['paid']) && !is_numeric($data['data']['paid'])) || !isset($data['data']['paid'])) {
-        $data['data']['paid'] = 0;
-    } elseif (isset($data['data']['paid']) && is_numeric($data['data']['paid'])) {
-        $data['data']['paid'] = number_format($data['data']['paid'], get_decimal_places(), '.', '');
+    // `paid` exists only on estimates (pro-forma invoices). Detect estimates by
+    // expirydate (proposals use open_till). Never inject paid for invoices/CNs/proposals.
+    $isEstimateDocument = array_key_exists('expirydate', $data['data'])
+        && !array_key_exists('open_till', $data['data']);
+
+    if (!$isEstimateDocument) {
+        unset($data['data']['paid']);
+    } elseif (isset($data['data']['paid'])) {
+        if (!is_numeric($data['data']['paid']) || $data['data']['paid'] === '') {
+            $data['data']['paid'] = 0;
+        } else {
+            $data['data']['paid'] = number_format($data['data']['paid'], get_decimal_places(), '.', '');
+        }
     }
 
     if (isset($data['data']['discount_total']) && $data['data']['discount_total'] == 0) {

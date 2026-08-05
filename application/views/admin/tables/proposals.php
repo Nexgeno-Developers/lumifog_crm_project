@@ -44,6 +44,7 @@ return App_table::find('proposals')
         ];
 
         $custom_fields = get_table_custom_fields('proposal');
+        $customFieldsColumns = [];
 
         foreach ($custom_fields as $key => $field) {
             $selectAs = (is_cf_date($field) ? 'date_picker_cvalue_' . $key : 'cvalue_' . $key);
@@ -96,6 +97,7 @@ return App_table::find('proposals')
 
             $row[] = '<a href="' . admin_url('proposals/list_proposals/' . $aRow[db_prefix() . 'proposals.id']) . '"' . ($project_id ? 'target="_blank"' : 'onclick="init_proposal(' . $aRow[db_prefix() . 'proposals.id'] . '); return false;"') . '>' . e($aRow['subject']) . '</a>';
 
+            $toOutput = e($aRow['proposal_to']);
             if ($aRow['rel_type'] == 'lead') {
                 $toOutput = '<a href="#" onclick="init_lead(' . $aRow['rel_id'] . ');return false;" target="_blank" data-toggle="tooltip" data-title="' . _l('lead') . '">' . $aRow['proposal_to'] . '</a>';
             } elseif ($aRow['rel_type'] == 'customer') {

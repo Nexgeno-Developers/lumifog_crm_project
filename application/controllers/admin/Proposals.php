@@ -165,6 +165,9 @@ class Proposals extends AdminController
                 }
             }
         }
+        // Shared estimate items view uses this to hide estimate-only fields (e.g. paid).
+        $data['is_proposal'] = true;
+
         if ($id == '') {
             $title = _l('add_new', _l('proposal'));
         } else {
@@ -174,9 +177,8 @@ class Proposals extends AdminController
                 blank_page(_l('proposal_not_found'));
             }
 
-            $data['estimate']    = $data['proposal'];
-            $data['is_proposal'] = true;
-            $title               = _l('edit', _l('proposal'));
+            $data['estimate'] = $data['proposal'];
+            $title            = _l('edit', _l('proposal'));
         }
 
         $this->load->model('taxes_model');

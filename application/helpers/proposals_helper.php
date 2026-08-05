@@ -152,8 +152,13 @@ function format_proposal_number($id)
     $CI = &get_instance();
 
     if (is_array($id)) {
+        // DataTables rows use `tblproposals.id` as the key (prefixed select alias).
+        $idKey = db_prefix() . 'proposals.id';
+        if (!isset($id['id']) && isset($id[$idKey])) {
+            $id['id'] = $id[$idKey];
+        }
         $proposal = (object) $id;
-        $id       = $proposal->id;
+        $id       = $proposal->id ?? null;
     } elseif (!is_object($id)) {
         $CI->db->select('id,proposal_number,proposal_prefix');
         $CI->db->from(db_prefix() . 'proposals');
@@ -161,14 +166,14 @@ function format_proposal_number($id)
         $proposal = $CI->db->get()->row();
     } else {
         $proposal = $id;
-        $id       = $proposal->id;
+        $id       = $proposal->id ?? null;
     }
 
     if (!$proposal) {
         return '';
     }
 
-    $number = !empty($proposal->proposal_number) ? $proposal->proposal_number : $proposal->id;
+    $number = !empty($proposal->proposal_number) ? $proposal->proposal_number : ($proposal->id ?? $id);
     $prefix = !empty($proposal->proposal_prefix) ? $proposal->proposal_prefix : get_option('proposal_number_prefix');
 
     $format = $prefix . str_pad($number, get_option('number_padding_prefixes'), '0', STR_PAD_LEFT);

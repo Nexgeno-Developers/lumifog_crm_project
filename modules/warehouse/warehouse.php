@@ -1577,7 +1577,7 @@ function wh_proposal_table_sql_columns($column)
 function wh_proposal_add_filter_column($array_filter, $filter_value)
 {   
 
-    if($filter_value['proposals_processing']){
+    if (!empty($filter_value['proposals_processing'])) {
         array_push($array_filter, 'OR processing = 1');
     }
 

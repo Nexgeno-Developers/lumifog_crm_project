@@ -283,6 +283,7 @@ if (isset($estimate)) {
                     </td>
                     <td class="adjustment"></td>
                 </tr>
+                <?php if (! isset($is_proposal)) { ?>
                 <tr>
                     <td>
                         <div class="row">
@@ -299,6 +300,7 @@ if (isset($estimate)) {
                     </td>
                     <td class="paid"></td>
                 </tr>
+                <?php } ?>
                 <tr>
                     <td><span
                             class="bold tw-text-neutral-700"><?= _l('estimate_total'); ?>
