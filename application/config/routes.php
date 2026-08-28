@@ -184,6 +184,11 @@ $route['authentication/set_password/(:num)/(:num)/(:any)'] = 'admin/authenticati
 // For backward compatilibilty
 $route['survey/(:num)/(:any)'] = 'surveys/participate/index/$1/$2';
 
+// BOQ module route alias (admin prefix required in Perfex)
+$route['admin/project_boq'] = 'admin/project_boq/index';
+$route['admin/project_boq/(:any)'] = 'admin/project_boq/$1';
+$route['admin/project_boq/(:any)/(:any)'] = 'admin/project_boq/$1/$2';
+
 if (file_exists(APPPATH . 'config/my_routes.php')) {
     include_once(APPPATH . 'config/my_routes.php');
 }

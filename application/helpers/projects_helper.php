@@ -167,13 +167,6 @@ function app_init_project_tabs()
         'visible'  => (staff_can('view',  'proposals') || staff_can('view_own',  'proposals') || (get_option('allow_staff_view_proposals_assigned') == 1 && staff_has_assigned_proposals())),
     ]);
 
-    $CI->app_tabs->add_project_tab('project_boq', [
-        'name'     => _l('project_boq'),
-        'icon'     => 'fa-solid fa-list-ol',
-        'view'     => 'admin/projects/tabs/boq',
-        'position' => 52,
-    ]);
-
     $CI->app_tabs->add_project_tab('project_notes', [
         'name'     => _l('project_notes'),
         'icon'     => 'fa-regular fa-note-sticky',
@@ -473,4 +466,22 @@ function total_project_finished_tasks_by_milestone($milestone_id, $project_id)
              'status'    => 5,
              'milestone' => $milestone_id,
              ]);
+}
+
+/**
+ * Get BOQ item description by BOQ item ID.
+ *
+ * @param int $boq_item_id
+ * @return string
+ */
+function get_boq_item_description($boq_item_id)
+{
+    $CI = &get_instance();
+    if (!class_exists('Boq_model')) {
+        $CI->load->model('boq/Boq_model', 'project_boq_model');
+    }
+
+    $row = $CI->project_boq_model->get((int) $boq_item_id);
+
+    return $row ? $row->boq_description : '';
 }

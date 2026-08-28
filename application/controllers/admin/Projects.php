@@ -324,14 +324,19 @@ class Projects extends AdminController
                 $data['staff_notes'] = $this->projects_model->get_staff_notes($id);
             } elseif ($group == 'project_boq') {
                 $this->load->model('invoice_items_model');
-                $this->load->model('project_boq_model');
+                $this->load->model('boq/Boq_model', 'project_boq_model');
                 $data['boq_items']         = $this->project_boq_model->get_by_project_id($id);
                 $data['boq_items_grouped'] = $this->invoice_items_model->get_grouped();
                 $data['can_edit_boq']      = staff_can('edit', 'projects');
                 $data['can_view_items']    = staff_can('view', 'items');
+                if (is_admin()) {
+                    $data['pending_requests'] = $this->project_boq_model->get_pending_requests($id);
+                } else {
+                    $data['pending_requests'] = [];
+                }
                 $this->app_scripts->add(
                     'project-boq-js',
-                    base_url($this->app_scripts->core_file('assets/js', 'project_boq.js')) . '?v=' . $this->app_scripts->core_version(),
+                    module_dir_url('boq', 'assets/js/project_boq.js') . '?v=' . $this->app_scripts->core_version(),
                     'admin',
                     ['app-js']
                 );
