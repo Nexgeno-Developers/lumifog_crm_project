@@ -1,0 +1,89 @@
+/*
+ * KPI widget styles.
+ *
+ * Must live in a linked stylesheet: render_dashboard_widgets() parses each widget
+ * view with simple_html_dom and keeps only firstChild(), so any <style> block
+ * placed after the widget markup is dropped before it reaches the page.
+ *
+ * Badge rules are scoped under the modal id so they outrank Bootstrap's
+ * single-class .badge background without needing !important.
+ */
+
+#widget-kpi_widget .kpi-clickable-stat:hover {
+    background-color: #f5f5f5;
+    transition: background-color 0.2s ease;
+}
+
+#widget-kpi_widget .kpi-clickable-stat h3 {
+    transition: transform 0.2s ease;
+}
+
+#widget-kpi_widget .kpi-clickable-stat:hover h3 {
+    transform: scale(1.05);
+}
+
+#kpi_staff_list_modal .badge-gold {
+    background-color: #eab308;
+    color: #1f2937;
+}
+
+#kpi_staff_list_modal .badge-green {
+    background-color: #22c55e;
+    color: #052e16;
+}
+
+#kpi_staff_list_modal .badge-lime {
+    background-color: #84cc16;
+    color: #1a2e05;
+}
+
+#kpi_staff_list_modal .badge-gray-light {
+    background-color: #d1d5db;
+    color: #1f2937;
+}
+
+#kpi_staff_list_modal .badge-gray-medium {
+    background-color: #9ca3af;
+    color: #1f2937;
+}
+
+#kpi_staff_list_modal .badge-gray-dark {
+    background-color: #6b7280;
+    color: #fff;
+}
+
+#kpi_staff_list_modal .badge-gray {
+    background-color: #e5e7eb;
+    color: #374151;
+}
+
+#kpi_staff_list_modal .kpi-checkin-time-gold {
+    color: #eab308;
+    font-weight: 600;
+}
+
+#kpi_staff_list_modal .kpi-checkin-time-green {
+    color: #22c55e;
+    font-weight: 600;
+}
+
+#kpi_staff_list_modal .kpi-checkin-time-lime {
+    color: #84cc16;
+    font-weight: 600;
+}
+
+#kpi_staff_list_modal .kpi-checkin-time-gray-light {
+    color: #9ca3af;
+}
+
+#kpi_staff_list_modal .kpi-checkin-time-gray-medium {
+    color: #6b7280;
+}
+
+#kpi_staff_list_modal .kpi-checkin-time-gray-dark {
+    color: #4b5563;
+}
+
+#kpi_staff_list_modal .kpi-checkin-time-gray {
+    color: #9ca3af;
+}

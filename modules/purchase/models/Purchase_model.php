@@ -2184,11 +2184,20 @@ class Purchase_model extends App_Model
             $old_status = (int) $pur_order->approve_status;
         }
 
+        $overage_items = [];
+        if ((int) $status === 2 && $old_status === 1) {
+            $overage_items = json_decode($pur_order->boq_overage_items ?? '[]', true);
+            if (!empty($overage_items)) {
+                $this->consume_boq_qty_for_po($id, $overage_items);
+            }
+        }
+
         $this->db->where('id',$id);
         $this->db->update(db_prefix().'pur_orders',['approve_status' => $status]);
         if($this->db->affected_rows() > 0){
-            $this->sync_boq_purchased_qty_on_po_status_change($id, $old_status, (int) $status);
-
+            if (empty($overage_items)) {
+                $this->sync_boq_purchased_qty_on_po_status_change($id, $old_status, (int) $status);
+            }
             hooks()->do_action('after_purchase_order_approve', $id);
 
             // hooks()->apply_filters('create_goods_receipt',['status' => $status,'id' => $id]);
@@ -2275,8 +2284,20 @@ class Purchase_model extends App_Model
             unset($data['newitems']);
         }
 
-        // BOQ quantity validation bypassed: all items are accepted regardless of project.
-        $_boq_qty_ok_po = true;
+        $_project_id_for_boq = isset($data['project']) ? (int) $data['project'] : 0;
+        $_boq_qty_ok_po = $this->validate_po_against_boq($_project_id_for_boq, $order_detail);
+        if ($_boq_qty_ok_po !== true) {
+            if (isset($_boq_qty_ok_po['error']) && $_boq_qty_ok_po['error'] === 'item_not_in_boq') {
+                set_alert('danger', _l('pur_boq_item_not_in_boq_message', $_boq_qty_ok_po['item_id']));
+                redirect(admin_url('purchase/pur_order'));
+            }
+            if (isset($_boq_qty_ok_po['error']) && ($_boq_qty_ok_po['error'] === 'invalid_item_code' || $_boq_qty_ok_po['error'] === 'invalid_quantity')) {
+                set_alert('danger', $_boq_qty_ok_po['message']);
+                redirect(admin_url('purchase/pur_order'));
+            }
+            $data['approve_status'] = 1;
+            $data['boq_overage_items'] = json_encode($_boq_qty_ok_po);
+        }
 
         $prefix = get_purchase_option('pur_order_prefix');
 
@@ -2421,6 +2442,10 @@ class Purchase_model extends App_Model
 
             $this->sync_boq_purchased_qty_on_po_status_change($insert_id, 0, (int) $data['approve_status']);
 
+            if ($_boq_qty_ok_po !== true && is_array($_boq_qty_ok_po)) {
+                $this->notify_admin_boq_po($insert_id, $_boq_qty_ok_po);
+            }
+
             return $insert_id;
         }
 
@@ -2479,8 +2504,24 @@ class Purchase_model extends App_Model
             unset($data['removed_items']);
         }
 
-        // BOQ quantity validation bypassed: all items are accepted regardless of project.
-        $_boq_qty_ok_po = true;
+        $_project_id_boq = isset($data['project']) ? (int) $data['project'] : 0;
+        $_lines_boq = array_merge(
+            is_array($new_order) ? $new_order : [],
+            is_array($update_order) ? $update_order : []
+        );
+        $_boq_qty_ok_po = $this->validate_po_against_boq($_project_id_boq, $_lines_boq);
+        if ($_boq_qty_ok_po !== true) {
+            if (isset($_boq_qty_ok_po['error']) && $_boq_qty_ok_po['error'] === 'item_not_in_boq') {
+                set_alert('danger', _l('pur_boq_item_not_in_boq_message', $_boq_qty_ok_po['item_id']));
+                redirect(admin_url('purchase/pur_order'));
+            }
+            if (isset($_boq_qty_ok_po['error']) && ($_boq_qty_ok_po['error'] === 'invalid_item_code' || $_boq_qty_ok_po['error'] === 'invalid_quantity')) {
+                set_alert('danger', $_boq_qty_ok_po['message']);
+                redirect(admin_url('purchase/pur_order'));
+            }
+            $data['approve_status'] = 1;
+            $data['boq_overage_items'] = json_encode($_boq_qty_ok_po);
+        }
 
         $data['to_currency'] = $data['currency'];
 
@@ -2663,7 +2704,9 @@ class Purchase_model extends App_Model
         }
         
         if ($affectedRows > 0) {
-           
+            if ($_boq_qty_ok_po !== true && is_array($_boq_qty_ok_po)) {
+                $this->notify_admin_boq_po($id, $_boq_qty_ok_po);
+            }
 
             return true;
         }
@@ -3622,6 +3665,163 @@ class Purchase_model extends App_Model
 
         $this->db->where('purchase_id', $purchase_id);
         $this->db->delete(db_prefix() . 'boq_purchase_links');
+    }
+
+    /**
+     * Validate PO lines against BOQ for a project.
+     *
+     * @param int   $project_id
+     * @param array $lines  PO line items with item_code and quantity
+     * @return array|true  array of overage items or true if valid
+     */
+    public function validate_po_against_boq($project_id, $lines)
+    {
+        $project_id = (int) $project_id;
+        if ($project_id < 1 || empty($lines) || !is_array($lines)) {
+            return true;
+        }
+        if (!$this->db->table_exists(db_prefix() . 'project_boq_items')) {
+            return true;
+        }
+        if (!$this->load_project_boq_model()) {
+            return true;
+        }
+        $overage_items = [];
+        foreach ($lines as $line) {
+            $item_id = isset($line['item_code']) ? (int) $line['item_code'] : 0;
+            $qty = isset($line['quantity']) ? (float) $line['quantity'] : 0;
+            if ($item_id < 1) {
+                return [
+                    'error'   => 'invalid_item_code',
+                    'message' => _l('pur_boq_invalid_item_code'),
+                ];
+            }
+            if ($qty <= 0) {
+                return [
+                    'error'   => 'invalid_quantity',
+                    'item_id' => $item_id,
+                    'message' => _l('pur_boq_invalid_quantity', $item_id),
+                ];
+            }
+            $boq = $this->project_boq_model->get_by_project_and_item($project_id, $item_id);
+            if (!$boq) {
+                return [
+                    'error'   => 'item_not_in_boq',
+                    'item_id' => $item_id,
+                    'message' => _l('pur_boq_item_not_in_boq', $item_id),
+                ];
+            }
+            $remaining = $this->project_boq_model->get_remaining_qty($boq['id']);
+            if ($qty > $remaining + 0.0000001) {
+                $overage_items[] = [
+                    'item_id'       => $item_id,
+                    'boq_item_id'   => $boq['id'],
+                    'requested_qty' => $qty,
+                    'remaining_qty' => $remaining,
+                    'overage'       => $qty - $remaining,
+                ];
+            }
+        }
+        if (!empty($overage_items)) {
+            return $overage_items;
+        }
+        return true;
+    }
+
+    /**
+     * Consume BOQ quantities when an overage PO is approved.
+     *
+     * @param int   $pur_order_id
+     * @param array $overage_items
+     * @return void
+     */
+    public function consume_boq_qty_for_po($pur_order_id, $overage_items)
+    {
+        $this->db->trans_start();
+        foreach ($overage_items as $item) {
+            $boq_item_id = (int) $item['boq_item_id'];
+            $qty = (float) $item['requested_qty'];
+            $this->db->set('purchased_qty', 'purchased_qty + ' . $qty, false);
+            $this->db->where('id', $boq_item_id);
+            $this->db->update(db_prefix() . 'project_boq_items');
+            $this->db->insert(db_prefix() . 'boq_consumption_log', [
+                'boq_item_id'    => $boq_item_id,
+                'pur_request_id' => $pur_order_id,
+                'qty'            => $qty,
+                'created_at'     => date('Y-m-d H:i:s'),
+            ]);
+        }
+        $this->db->trans_complete();
+    }
+
+    /**
+     * Notify super admins about a BOQ overage PO.
+     *
+     * @param int   $pur_order_id
+     * @param array $overage_items
+     * @return void
+     */
+    protected function notify_admin_boq_po($pur_order_id, $overage_items)
+    {
+        if (!$this->load_project_boq_model()) {
+            return;
+        }
+
+        $admins = $this->db->select('staffid, firstname, lastname, email')
+            ->from(db_prefix() . 'staff')
+            ->where('admin', 1)
+            ->where('active', 1)
+            ->get()->result_array();
+
+        $order   = $this->get_pur_order($pur_order_id);
+        $creator = $this->staff_model->get($order->addedfrom);
+        $item_names = [];
+        foreach ($overage_items as $item) {
+            $boq = $this->project_boq_model->get($item['boq_item_id']);
+            $item_names[] = $boq->boq_description ?? ('Item #' . $item['item_id']);
+        }
+        $message = _l(
+            'pur_boq_po_pending_approval_message',
+            $creator->firstname . ' ' . $creator->lastname,
+            $pur_order_id,
+            implode(', ', $item_names)
+        );
+
+        foreach ($admins as $admin) {
+            add_notification([
+                'description' => $message,
+                'touserid'    => $admin['staffid'],
+                'fromuserid'  => $creator->staffid,
+                'link'        => 'purchase/purchase_order/' . $pur_order_id,
+            ]);
+            send_mail_template('boq_po_pending_approval', $admin['email'], $creator, [
+                'message'      => $message,
+                'pur_order_id' => $pur_order_id,
+                'item_names'   => implode(', ', $item_names),
+            ]);
+        }
+    }
+
+    /**
+     * Load the BOQ model from the module, falling back to the legacy core model.
+     *
+     * @return bool
+     */
+    protected function load_project_boq_model()
+    {
+        if (isset($this->project_boq_model) && is_object($this->project_boq_model)) {
+            return true;
+        }
+        if (function_exists('is_module_active') && is_module_active('boq') && file_exists(FCPATH . 'modules/boq/models/Boq_model.php')) {
+            $this->load->model('boq/Boq_model', 'project_boq_model');
+            return true;
+        }
+        if (file_exists(APPPATH . 'models/Project_boq_model.php')) {
+            $this->load->model('project_boq_model');
+            return true;
+        }
+
+        return false;
     }
 
     /**
@@ -10497,11 +10697,9 @@ class Purchase_model extends App_Model
             return $purchase_request_row_template;
         }
 
-        if (! file_exists(APPPATH . 'models/Project_boq_model.php')) {
+        if (!$this->load_project_boq_model()) {
             return $purchase_request_row_template;
         }
-
-        $this->load->model('project_boq_model');
 
         $this->load->model('currencies_model');
         $base_currency = $this->currencies_model->get_base_currency();
@@ -10604,11 +10802,9 @@ class Purchase_model extends App_Model
             return true;
         }
 
-        if (! file_exists(APPPATH . 'models/Project_boq_model.php')) {
+        if (!$this->load_project_boq_model()) {
             return true;
         }
-
-        $this->load->model('project_boq_model');
 
         foreach ($lines as $rqd) {
             if (empty($rqd['boq_item_id'])) {

@@ -1,0 +1,136 @@
+================================================================================
+KPI MANAGEMENT — ATTENDANCE RECONCILE FEATURE
+================================================================================
+
+WHAT IT DOES
+------------
+Re-evaluates attendance KPI transactions for all active staff using the
+correct shift start time for each person.
+
+Use this after deploying the shift-start-time fix, or whenever dashboard
+points do not match what staff should have earned from their check-ins.
+
+The reconcile process:
+  - Loops every active staff member
+  - Finds each staff member's check-in days in the selected date range
+  - Re-runs attendance KPI rules with the correct shift start time
+  - Removes stale wrong transactions (e.g. Late when it should be On Time)
+  - Updates incorrect point values
+  - Inserts missing correct transactions
+
+This repairs data in the database. It is NOT a cache clear.
+
+
+WHEN TO USE IT
+--------------
+  - After deploying the KPI shift-start-time fix to production
+  - When transactions show wrong Late (-2) points for early check-ins
+  - When dashboard / personal dashboard totals do not match transactions
+  - One-time bulk fix for a past date range
+
+You normally only need to run it once per environment after the fix is deployed.
+New check-ins after the fix also auto-reconcile for that day on each check-in.
+
+
+WHO CAN RUN IT
+--------------
+  - Administrators
+  - Staff with KPI Management EDIT permission
+
+You must be logged in to the admin panel.
+
+
+HOW TO USE IT (BROWSER)
+-----------------------
+1. Deploy the latest KPI Management module files to the server.
+
+2. Log in to the admin panel as an administrator.
+
+3. Open this URL in your browser:
+
+   Default (current month, 1st through today):
+   https://YOUR-DOMAIN/admin/kpi_management/kpi_reconcile_attendance_transactions_for_staff
+
+   Example (production):
+   https://mcrm.nexgeno.in/admin/kpi_management/kpi_reconcile_attendance_transactions_for_staff
+
+4. Optional — specify a custom date range with query parameters:
+
+   ?from=YYYY-MM-DD&to=YYYY-MM-DD
+
+   Example — July 2026 only:
+   https://mcrm.nexgeno.in/admin/kpi_management/kpi_reconcile_attendance_transactions_for_staff?from=2026-07-01&to=2026-07-31
+
+5. Review the summary page:
+   - Active staff count
+   - Staff with check-ins processed
+   - Total check-in days processed
+   - Per-staff breakdown table
+
+6. Refresh KPI Management dashboard and Personal Dashboard to confirm points.
+
+
+DATE RANGE DEFAULTS
+-------------------
+  from  = First day of the current calendar month
+  to    = Today
+
+If from is after to, the dates are swapped automatically.
+
+
+WHAT GETS UPDATED
+-----------------
+Only attendance KPI transactions tied to check-ins (rel_type: check_in_out)
+for rules such as:
+  - early_and_on_time_arrival (On Time / Early)
+  - late_arrival (Late)
+
+Other transaction types (manual KPI, absent penalty cron, etc.) are not
+removed by this reconcile unless they no longer match after re-evaluation
+of the same attendance rules.
+
+
+RELATED CODE
+------------
+  Helper:
+    modules/kpi_management/helpers/kpi_management_helper.php
+      - kpi_resolve_shift_start_time()
+      - kpi_reconcile_attendance_transactions_for_staff()
+      - kpi_reconcile_attendance_transactions_for_all_staff()
+
+  Controller:
+    modules/kpi_management/controllers/Kpi_reconcile_attendance_transactions_for_staff.php
+
+  View:
+    modules/kpi_management/views/reconcile_attendance.php
+
+
+TROUBLESHOOTING
+---------------
+  Still seeing minus points after reconcile?
+    - Confirm the shift-start-time fix files are deployed on production
+    - Restart PHP / OPcache after deploy if your host caches PHP files
+    - Verify transactions in KPI Management > Transactions for the staff member
+    - Run reconcile again with the correct ?from= and ?to= range
+
+  Page shows "access denied"?
+    - Log in as admin or grant KPI Management edit permission
+
+  No staff processed?
+    - No check-ins exist in the selected date range
+    - Widen the date range with ?from= and ?to=
+
+  URL returns 404?
+    - Ensure Kpi_reconcile_attendance_transactions_for_staff.php controller
+      is deployed under modules/kpi_management/controllers/
+
+
+NOTES
+-----
+  - Safe to run multiple times; it recalculates from existing check-in data
+  - Run during low-traffic hours if reconciling a large date range
+  - Keep this file local; it is gitignored and not deployed with the repo
+
+================================================================================
+Last updated: July 2026
+================================================================================

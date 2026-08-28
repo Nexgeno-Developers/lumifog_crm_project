@@ -1472,6 +1472,22 @@ class Sales_agent_model extends App_Model
             unset($data['newitems']);
         }
 
+        $_project_id_for_boq = isset($data['project']) ? (int) $data['project'] : 0;
+        $this->load->model('boq/Boq_model', 'project_boq_model');
+        $this->load->model('purchase_model');
+        $_boq_qty_ok_po = $this->purchase_model->validate_po_against_boq($_project_id_for_boq, $order_detail);
+        if ($_boq_qty_ok_po !== true) {
+            if (isset($_boq_qty_ok_po['error']) && $_boq_qty_ok_po['error'] === 'item_not_in_boq') {
+                set_alert('danger', _l('pur_boq_item_not_in_boq_message', $_boq_qty_ok_po['item_id']));
+                redirect(site_url('sales_agent/portal/pur_order'));
+            }
+            if (isset($_boq_qty_ok_po['error']) && ($_boq_qty_ok_po['error'] === 'invalid_item_code' || $_boq_qty_ok_po['error'] === 'invalid_quantity')) {
+                set_alert('danger', $_boq_qty_ok_po['message']);
+                redirect(site_url('sales_agent/portal/pur_order'));
+            }
+            $data['boq_overage_items'] = json_encode($_boq_qty_ok_po);
+        }
+
         $prefix = get_sa_option('pur_order_prefix', $agent_id);
 
         $this->db->where('order_number',$data['order_number']);
@@ -1829,6 +1845,26 @@ class Sales_agent_model extends App_Model
         if(isset($data['removed_items'])){
             $remove_order = $data['removed_items'];
             unset($data['removed_items']);
+        }
+
+        $_project_id_boq = isset($data['project']) ? (int) $data['project'] : 0;
+        $_lines_boq = array_merge(
+            is_array($new_order) ? $new_order : [],
+            is_array($update_order) ? $update_order : []
+        );
+        $this->load->model('boq/Boq_model', 'project_boq_model');
+        $this->load->model('purchase_model');
+        $_boq_qty_ok_po = $this->purchase_model->validate_po_against_boq($_project_id_boq, $_lines_boq);
+        if ($_boq_qty_ok_po !== true) {
+            if (isset($_boq_qty_ok_po['error']) && $_boq_qty_ok_po['error'] === 'item_not_in_boq') {
+                set_alert('danger', _l('pur_boq_item_not_in_boq_message', $_boq_qty_ok_po['item_id']));
+                redirect(site_url('sales_agent/portal/pur_order'));
+            }
+            if (isset($_boq_qty_ok_po['error']) && ($_boq_qty_ok_po['error'] === 'invalid_item_code' || $_boq_qty_ok_po['error'] === 'invalid_quantity')) {
+                set_alert('danger', $_boq_qty_ok_po['message']);
+                redirect(site_url('sales_agent/portal/pur_order'));
+            }
+            $data['boq_overage_items'] = json_encode($_boq_qty_ok_po);
         }
 
         $data['to_currency'] = $data['currency'];
