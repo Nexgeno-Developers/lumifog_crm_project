@@ -121,7 +121,7 @@ $page1_html = '<div style="font-size:16px; color:#000;"><div style="line-height:
 $pdf->writeHTML($page1_html, true, false, true, false, '');
 // render_fixed_footer($pdf);
 
-$this->load->view('boq/proposalpdf_boq');
+$CI->load->view('boq/proposalpdf_boq');
 
 /* ITEMS TABLE */
 $pdf->AddPage(); // Annexure I - items/BOQ
