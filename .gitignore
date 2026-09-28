@@ -28,3 +28,9 @@ error_log
 /application/cache/*
 
 /install123/
+
+# Local KPI module notes (not for repo)
+modules/kpi_management/KPI_RECONCILE_GUIDE.txt
+
+# Agents
+.agents/*
