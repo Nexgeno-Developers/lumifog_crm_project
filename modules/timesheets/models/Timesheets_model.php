@@ -2746,6 +2746,21 @@ class timesheets_model extends app_model
 
 			$this->add_check_in_out_value_to_timesheet($data['staff_id'], $date);
 			if ($affectedrows > 0) {
+				if (isset($data['type_check']) && (int) $data['type_check'] === 1 && $insert_id) {
+					if (!function_exists('kpi_attendance_after_checkin')) {
+						$this->load->helper('kpi_management/kpi_management');
+					}
+					if (function_exists('kpi_attendance_after_checkin')) {
+						try {
+							kpi_attendance_after_checkin((int) $data['staff_id'], (string) $data['date'], (int) $insert_id);
+						} catch (Exception $e) {
+							log_message('error', 'KPI Checkin Error: ' . $e->getMessage());
+						} catch (Throwable $e) {
+							log_message('error', 'KPI Checkin Throwable: ' . $e->getMessage());
+						}
+					}
+				}
+
 				$type_check_email = '';
 				$type_check_notify = '';
 				if ($data['type_check'] == 1) {

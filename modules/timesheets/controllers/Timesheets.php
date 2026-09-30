@@ -1377,6 +1377,18 @@ class timesheets extends AdminController {
 	$this->db->where('id', $id);
 	$this->db->update('tblcheck_in_out', ['date' => $new_timestamp]);
 	$this->timesheets_model->add_check_in_out_value_to_timesheet($staff_id, $date_work);
+	if (isset($entry->type_check) && (int) $entry->type_check === 1) {
+		if (!function_exists('kpi_attendance_after_checkin')) {
+			$this->load->helper('kpi_management/kpi_management');
+		}
+		if (function_exists('kpi_attendance_after_checkin')) {
+			try {
+				kpi_attendance_after_checkin((int) $staff_id, (string) $new_timestamp, (int) $id);
+			} catch (Exception $e) {
+			} catch (Throwable $e) {
+			}
+		}
+	}
 	echo json_encode(['success' => true]);
 }
 // zaid

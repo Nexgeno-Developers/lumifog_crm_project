@@ -441,6 +441,12 @@ function kpi_attendance_after_checkin($staff_id, $checkin_time, $rel_id)
             ->result_array();
     }
 
+    // If an absent transaction was previously recorded for this date, delete it
+    $CI->db->where('staff_id', $staff_id);
+    $CI->db->where('transaction_date', $date);
+    $CI->db->where_in('rel_type', ['attendance_absent', 'absent']);
+    $CI->db->delete(db_prefix() . 'kpi_transactions');
+
     foreach ($existingRows as $row) {
         $existingRuleId = (int) ($row['kpi_rule_id'] ?? 0);
         if ($existingRuleId <= 0 || isset($matchedByRuleId[$existingRuleId])) {
@@ -635,3 +641,138 @@ function kpi_reconcile_attendance_transactions_for_all_staff($fromDate = null, $
         'staff'               => $staffSummary,
     ];
 }
+
+/**
+ * Process daily absent penalties for staff on scheduled working shifts.
+ * Runs nightly at 10 PM. If no check-in, no holiday, no approved leave,
+ * and scheduled for a shift on $date, records an Absent KPI transaction.
+ *
+ * @param string|null $date Defaults to today
+ * @return array{date:string, evaluated:int, absent_count:int, staff_ids:list<int>}
+ */
+function kpi_process_daily_absent_staff($date = null)
+{
+    $CI = &get_instance();
+
+    if (!$CI->app_modules->is_active('kpi_management')) {
+        return ['date' => (string) $date, 'evaluated' => 0, 'absent_count' => 0, 'staff_ids' => []];
+    }
+
+    $date = $date !== null && $date !== ''
+        ? date('Y-m-d', strtotime((string) $date))
+        : date('Y-m-d');
+
+    if (!$date || $date === '1970-01-01') {
+        $date = date('Y-m-d');
+    }
+
+    $CI->load->model('timesheets/timesheets_model');
+    $CI->load->model('kpi_management/kpi_rules_model');
+    $CI->load->model('kpi_management/kpi_transactions_model');
+
+    // Find the active Absent rule
+    $absentRule = $CI->db->query(
+        "SELECT id, rules_json FROM " . db_prefix() . "kpi_rules WHERE module = 'attendance' AND is_active = 1 AND JSON_EXTRACT(rules_json, '$.rule') = 'absent' LIMIT 1"
+    )->row_array();
+
+    if (!$absentRule) {
+        return ['date' => $date, 'evaluated' => 0, 'absent_count' => 0, 'staff_ids' => []];
+    }
+
+    $absentRuleId = (int) $absentRule['id'];
+    $ruleJson = json_decode((string) ($absentRule['rules_json'] ?? ''), true);
+    $absentPoints = isset($ruleJson['points']) ? (int) $ruleJson['points'] : -6;
+
+    // Get all active staff
+    $activeStaff = $CI->db->select('staffid, firstname, lastname')
+        ->from(db_prefix() . 'staff')
+        ->where('active', 1)
+        ->get()
+        ->result_array();
+
+    $evaluated = 0;
+    $absentStaffIds = [];
+
+    foreach ($activeStaff as $staff) {
+        $staffId = (int) ($staff['staffid'] ?? 0);
+        if ($staffId <= 0) {
+            continue;
+        }
+
+        $evaluated++;
+
+        // 1. Check holiday: if holiday, skip
+        if ($CI->timesheets_model->check_holiday($staffId, $date)) {
+            continue;
+        }
+
+        // 2. Check approved leave in timesheets_timesheet or timesheets_requisition_leave
+        $leaveCount = $CI->db->where('staff_id', $staffId)
+            ->where('date_work', $date)
+            ->where('relate_type', 'leave')
+            ->count_all_results(db_prefix() . 'timesheets_timesheet');
+        if ($leaveCount > 0) {
+            continue;
+        }
+
+        $leaveReq = $CI->db->query(
+            'SELECT id FROM ' . db_prefix() . 'timesheets_requisition_leave WHERE staff_id = ? AND rel_type = 1 AND status = 1 AND DATE(?) BETWEEN DATE(start_time) AND DATE(end_time) LIMIT 1',
+            [$staffId, $date]
+        )->row();
+        if ($leaveReq) {
+            continue;
+        }
+
+        // 3. Check if staff has a scheduled shift on this day
+        $shiftIds = $CI->timesheets_model->get_shift_work_staff_by_date($staffId, $date);
+        if (empty($shiftIds)) {
+            // No scheduled shift (e.g. Sunday or non-working day)
+            continue;
+        }
+
+        // 4. Check if staff has checked in on this date
+        $checkinCount = $CI->db->where('staff_id', $staffId)
+            ->where('type_check', 1)
+            ->where('DATE(date)', $date)
+            ->count_all_results(db_prefix() . 'check_in_out');
+        if ($checkinCount > 0) {
+            // Staff checked in
+            continue;
+        }
+
+        // 5. Check if an absent transaction already exists
+        $existing = $CI->db->where('staff_id', $staffId)
+            ->where('transaction_date', $date)
+            ->where('kpi_rule_id', $absentRuleId)
+            ->get(db_prefix() . 'kpi_transactions')
+            ->row_array();
+
+        if ($existing) {
+            continue;
+        }
+
+        // 6. Record Absent KPI transaction
+        $insertData = [
+            'staff_id'         => $staffId,
+            'kpi_rule_id'      => $absentRuleId,
+            'rel_type'         => 'attendance_absent',
+            'rel_id'           => 0,
+            'points'           => $absentPoints,
+            'transaction_date' => $date,
+            'status'           => 'approved',
+            'remarks'          => 'Absent (No check-in by 10:00 PM)',
+            'created_by'       => null,
+        ];
+
+        $CI->kpi_transactions_model->insertTransactionIfNotExists($insertData);
+        $absentStaffIds[] = $staffId;
+    }
+
+    return [
+        'date'         => $date,
+        'evaluated'    => $evaluated,
+        'absent_count' => count($absentStaffIds),
+        'staff_ids'    => $absentStaffIds,
+    ];
+}
+

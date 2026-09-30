@@ -24,6 +24,7 @@ hooks()->add_action('app_admin_footer', 'kpi_management_add_notification_js');
 hooks()->add_action('app_admin_footer', 'kpi_management_load_widget_js');
 hooks()->add_action('admin_navbar_start', 'kpi_management_add_notification_icon');
 hooks()->add_filter('get_dashboard_widgets', 'kpi_management_add_dashboard_widget');
+hooks()->add_action('before_cron_run', 'kpi_management_cron_run');
 //hooks()->add_action('admin_init', 'kpi_management_ensure_install');
 
 /**
@@ -415,4 +416,29 @@ function kpi_management_init_menu_items()
         'position' => 5,
     ]);
 }
+
+/**
+ * Nightly cron runner for KPI management.
+ * Checks for unmarked attendance at 10 PM (22:00) and awards Absent penalty (-6 points).
+ */
+function kpi_management_cron_run()
+{
+    $CI = &get_instance();
+    if (!$CI->app_modules->is_active(KPI_MANAGEMENT_MODULE_NAME)) {
+        return;
+    }
+
+    $currentHour = (int) date('H');
+    // Run after 22:00 (10:00 PM) for today's unmarked attendance
+    if ($currentHour >= 22) {
+        $lastRun = get_option('kpi_last_absent_cron_date');
+        $today   = date('Y-m-d');
+        if ($lastRun !== $today) {
+            $CI->load->helper(KPI_MANAGEMENT_MODULE_NAME . '/kpi_management');
+            kpi_process_daily_absent_staff($today);
+            update_option('kpi_last_absent_cron_date', $today);
+        }
+    }
+}
+
 

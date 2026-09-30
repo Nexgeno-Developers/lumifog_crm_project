@@ -81,5 +81,20 @@ if (!$exists) {
         'description' => 'Sample rule: late arrival points/penalties.',
         'is_active'   => 1,
     ]);
+
+    $absent = [
+        'rule'        => 'absent',
+        'type'        => 'fixed',
+        'points'      => -6,
+        'description' => 'Automatic deduction for unmarked attendance / absence without approved leave.',
+    ];
+
+    $CI->db->insert(db_prefix() . 'kpi_rules', [
+        'title'       => 'Absent',
+        'module'      => 'attendance',
+        'rules_json'  => json_encode($absent),
+        'description' => 'Deduction of 6 points for absence / unmarked attendance.',
+        'is_active'   => 1,
+    ]);
 }
 

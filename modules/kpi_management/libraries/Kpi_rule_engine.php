@@ -65,13 +65,13 @@ class Kpi_rule_engine
         }
 
         // ==========================================
-        // 👉 ADD FUTURE RULE HERE
+        // RULE: ABSENT
         // ==========================================
-        /*
-        if ($ruleName === 'xyz_rule') {
-            // your custom logic
+        if ($ruleName === 'absent') {
+            $points = isset($rule['points']) ? (int) $rule['points'] : -6;
+            $cond = ['rule' => 'absent', 'points' => $points, 'remarks' => 'Absent'];
+            return $this->response($points, $cond, true, $context);
         }
-        */
 
         return $this->response(0, null, false, $context);
     }
