@@ -30,7 +30,8 @@
         "pragmarx/google2fa": "^8.0",
         "bacon/bacon-qr-code": "^3.0",
         "league/html-to-markdown": "^5.1",
-        "stripe/stripe-php": "^17.1"
+        "stripe/stripe-php": "^17.1",
+        "phpoffice/phpspreadsheet": "^5.10"
     },
     "config": {
         "allow-plugins": {

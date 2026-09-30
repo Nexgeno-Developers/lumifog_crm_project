@@ -236,23 +236,53 @@ class Admin extends AdminController
             exit;
         }
 
-        $file = $_FILES['boq_csv']['tmp_name'];
-        $fd   = fopen($file, 'r');
-        if ($fd === false) {
-            $this->json_response(['success' => false, 'message' => _l('project_boq_import_read_error')]);
+        $file_name = $_FILES['boq_csv']['name'];
+        $ext       = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
+        $file_tmp  = $_FILES['boq_csv']['tmp_name'];
+
+        $rows = [];
+        if ($ext === 'csv') {
+            $fd = fopen($file_tmp, 'r');
+            if ($fd === false) {
+                $this->json_response(['success' => false, 'message' => _l('project_boq_import_read_error')]);
+                exit;
+            }
+            while (($line = fgetcsv($fd)) !== false) {
+                $rows[] = $line;
+            }
+            fclose($fd);
+        } elseif (in_array($ext, ['xlsx', 'xls', 'ods'])) {
+            require_once(APPPATH . 'vendor/autoload.php');
+            try {
+                $reader = \PhpOffice\PhpSpreadsheet\IOFactory::createReaderForFile($file_tmp);
+                $reader->setReadDataOnly(false);
+                $spreadsheet = $reader->load($file_tmp);
+                $sheet = $spreadsheet->getSheet(0);
+                $rows  = $sheet->toArray(null, true, false, false);
+                $spreadsheet->disconnectWorksheets();
+                unset($spreadsheet);
+            } catch (\Exception $e) {
+                $this->json_response(['success' => false, 'message' => _l('project_boq_import_read_error') . ': ' . $e->getMessage()]);
+                exit;
+            }
+        } else {
+            $this->json_response(['success' => false, 'message' => _l('project_boq_import_invalid_file_type')]);
             exit;
         }
 
-        $header = fgetcsv($fd);
-        fclose($fd);
+        if (empty($rows) || count($rows) < 2) {
+            $this->json_response(['success' => false, 'message' => _l('project_boq_import_invalid_headers')]);
+            exit;
+        }
 
+        $header = array_shift($rows);
         if ($header === false || empty($header)) {
             $this->json_response(['success' => false, 'message' => _l('project_boq_import_invalid_headers')]);
             exit;
         }
 
         $normalized = array_map(function ($h) {
-            return strtolower(trim($h));
+            return strtolower(trim((string)$h));
         }, $header);
 
         $required_keys = [
@@ -273,14 +303,11 @@ class Admin extends AdminController
             }
         }
 
-        $fd = fopen($file, 'r');
-        fgetcsv($fd);
-
         $imported = 0;
         $merged   = 0;
         $errors   = [];
 
-        while (($row = fgetcsv($fd)) !== false) {
+        foreach ($rows as $row) {
             if (count($row) < count($header)) {
                 continue;
             }
@@ -290,16 +317,44 @@ class Admin extends AdminController
                 $data[$col] = isset($row[$idx]) ? $row[$idx] : null;
             }
 
-            $item_id = 0;
-            if (isset($data['CRM ITEM ID'])) {
-                $item_id = (int) $data['CRM ITEM ID'];
-            } elseif (isset($data['CRM Item'])) {
-                $item_id = (int) $data['CRM Item'];
+            // Check if entire row is blank
+            $is_blank = true;
+            foreach ($data as $k => $v) {
+                if ($v !== null && trim((string)$v) !== '') {
+                    $is_blank = false;
+                    break;
+                }
             }
-            $order_qty = isset($data['Order Quantity']) ? (float) $data['Order Quantity'] : 0;
+            if ($is_blank) {
+                continue;
+            }
+
+            $item_id = 0;
+            if (isset($data['CRM ITEM ID']) && is_numeric(trim((string)$data['CRM ITEM ID'])) && (int)$data['CRM ITEM ID'] > 0) {
+                $item_id = (int) $data['CRM ITEM ID'];
+            } elseif (isset($data['CRM Item']) && is_numeric(trim((string)$data['CRM Item'])) && (int)$data['CRM Item'] > 0) {
+                $item_id = (int) $data['CRM Item'];
+            } elseif (!empty($data['CRM Item'])) {
+                // If CRM Item contains description from dropdown lookup
+                $desc_clean = trim((string)$data['CRM Item']);
+                $lookup_item = $this->db->select('id')
+                    ->from(db_prefix() . 'items')
+                    ->where('description', $desc_clean)
+                    ->get()->row();
+                if ($lookup_item) {
+                    $item_id = (int) $lookup_item->id;
+                }
+            }
+
+            $order_qty = isset($data['Order Quantity']) && $data['Order Quantity'] !== '' ? (float) $data['Order Quantity'] : 0;
+
+            // Silently skip pre-filled template rows that user didn't populate
+            if ($item_id < 1 && $order_qty <= 0) {
+                continue;
+            }
 
             if ($item_id < 1 || $order_qty <= 0) {
-                $errors[] = _l('project_boq_import_invalid_row', $item_id > 0 ? $item_id : '');
+                $errors[] = _l('project_boq_import_invalid_row', $item_id > 0 ? $item_id : (string)($data['CRM Item'] ?? ''));
                 continue;
             }
 
@@ -342,8 +397,6 @@ class Admin extends AdminController
             }
         }
 
-        fclose($fd);
-
         $this->json_response([
             'success'  => true,
             'message'  => _l('project_boq_import_success', $imported, $merged),
@@ -351,6 +404,227 @@ class Admin extends AdminController
             'imported' => $imported,
             'merged'   => $merged,
         ]);
+        exit;
+    }
+
+    /**
+     * Download an XLSX template for BOQ import.
+     *
+     * Sheet 1 "BOQ format" — data-entry sheet with:
+     *   • CRM Item column: data-validation dropdown of item descriptions from Sheet 2
+     *   • CRM ITEM ID column: INDEX-MATCH formula that auto-fills the ID
+     *
+     * Sheet 2 "Items" — read-only reference of all inventory items.
+     */
+    public function download_template($project_id)
+    {
+        $project_id = (int) $project_id;
+        if (! $this->can_access_project($project_id)) {
+            show_404();
+        }
+
+        require_once(APPPATH . 'vendor/autoload.php');
+
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $spreadsheet->getProperties()
+            ->setCreator('Lumifog CRM')
+            ->setTitle('BOQ Template');
+
+        // ── Fetch all inventory items ──
+        $items = $this->db->select('id, description, unit, commodity_code, rate, sku_code, group_id')
+            ->from(db_prefix() . 'items')
+            ->order_by('description', 'asc')
+            ->get()->result_array();
+
+        $item_count = count($items);
+
+        // ── Sheet 2: Items (reference data) ──
+        $items_sheet = new \PhpOffice\PhpSpreadsheet\Worksheet\Worksheet($spreadsheet, 'Items');
+        $spreadsheet->addSheet($items_sheet, 1);
+
+        $items_headers = ['id', 'description', 'unit', 'commodity_code', 'rate', 'sku_code', 'group_id'];
+        $items_sheet->fromArray($items_headers, null, 'A1');
+
+        // Style Items header row
+        $items_header_style = [
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 11],
+            'fill' => [
+                'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                'startColor' => ['rgb' => '2C3E50'],
+            ],
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                    'color' => ['rgb' => '1A252F'],
+                ],
+            ],
+        ];
+        $items_sheet->getStyle('A1:G1')->applyFromArray($items_header_style);
+
+        // Write item rows
+        if ($item_count > 0) {
+            $row_idx = 2;
+            foreach ($items as $item) {
+                $items_sheet->setCellValue('A' . $row_idx, (int) $item['id']);
+                $items_sheet->setCellValue('B' . $row_idx, $item['description'] ?? '');
+                $items_sheet->setCellValue('C' . $row_idx, $item['unit'] ?? '');
+                $items_sheet->setCellValue('D' . $row_idx, $item['commodity_code'] ?? '');
+                $items_sheet->setCellValue('E' . $row_idx, $item['rate'] !== null ? (float) $item['rate'] : '');
+                $items_sheet->setCellValue('F' . $row_idx, $item['sku_code'] ?? '');
+                $items_sheet->setCellValue('G' . $row_idx, $item['group_id'] !== null ? (int) $item['group_id'] : '');
+                $row_idx++;
+            }
+        }
+
+        // Auto-size Items columns
+        foreach (range('A', 'G') as $col) {
+            $items_sheet->getColumnDimension($col)->setAutoSize(true);
+        }
+
+        // Protect Items sheet (read-only)
+        $items_sheet->getProtection()->setSheet(true);
+        $items_sheet->getProtection()->setPassword('boqref');
+
+        // ── Sheet 1: BOQ format (data entry) ──
+        $boq_sheet = $spreadsheet->getSheet(0);
+        $boq_sheet->setTitle('BOQ format');
+
+        $boq_headers = [
+            'Internal Ref No',       // A
+            'Client Ref No',         // B
+            'CRM ITEM ID',           // C  (auto-filled by formula)
+            'CRM Item',              // D  (dropdown from Items sheet)
+            'BOQ Description',       // E
+            'BOQ Unit',              // F
+            'Order Quantity',        // G
+            'Supply Rate',           // H
+            'ITC Rate',              // I
+            'Supply Amount',         // J
+            'ITC Amount',            // K
+            'TAX',                   // L
+            'Summary Item',          // M
+            '(internal)Client Ref No',    // N
+            '(internal)Description',      // O
+            '(internal)Unit',             // P
+            '(internal)Quantity',         // Q
+            '(internal)Material Rate',    // R
+            '(internal)Labour Rate',      // S
+            '(internal)Supply Amount',    // T
+            '(internal)ITC Amount',       // U
+        ];
+
+        $boq_sheet->fromArray($boq_headers, null, 'A1');
+
+        // Style BOQ header row — dark navy header with white text
+        $boq_header_style = [
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 11],
+            'fill' => [
+                'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                'startColor' => ['rgb' => '2C3E50'],
+            ],
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                    'color' => ['rgb' => '1A252F'],
+                ],
+            ],
+        ];
+        $boq_sheet->getStyle('A1:U1')->applyFromArray($boq_header_style);
+
+        // Style internal columns (N-U) header with a different accent
+        $internal_header_style = [
+            'fill' => [
+                'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                'startColor' => ['rgb' => 'D4AC0D'],  // gold for internal columns
+            ],
+        ];
+        $boq_sheet->getStyle('N1:U1')->applyFromArray($internal_header_style);
+
+        // Style CRM ITEM ID header to indicate it's auto-filled
+        $autofill_header_style = [
+            'fill' => [
+                'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                'startColor' => ['rgb' => '27AE60'],  // green for auto-fill
+            ],
+        ];
+        $boq_sheet->getStyle('C1')->applyFromArray($autofill_header_style);
+
+        // Auto-size BOQ columns
+        foreach (range('A', 'U') as $col) {
+            $boq_sheet->getColumnDimension($col)->setWidth(18);
+        }
+
+        // Determine data rows range (pre-fill formulas/validations for 500 rows)
+        $template_rows = 500;
+        $items_last_row = $item_count + 1; // header is row 1
+
+        if ($item_count > 0) {
+            // Add data validation (dropdown) for CRM Item column (D2:D501)
+            for ($r = 2; $r <= $template_rows + 1; $r++) {
+                $cell_coord = 'D' . $r;
+                $validation = $boq_sheet->getCell($cell_coord)->getDataValidation();
+                $validation->setType(\PhpOffice\PhpSpreadsheet\Cell\DataValidation::TYPE_LIST);
+                $validation->setErrorStyle(\PhpOffice\PhpSpreadsheet\Cell\DataValidation::STYLE_INFORMATION);
+                $validation->setAllowBlank(true);
+                $validation->setShowDropDown(true);
+                $validation->setShowInputMessage(true);
+                $validation->setShowErrorMessage(true);
+                $validation->setPromptTitle('Select Item');
+                $validation->setPrompt('Choose an item from the inventory list. Start typing to search.');
+                $validation->setErrorTitle('Invalid Item');
+                $validation->setError('Please select a valid item from the dropdown list.');
+                $validation->setFormula1('Items!$B$2:$B$' . $items_last_row);
+            }
+
+            // Add INDEX-MATCH formula for CRM ITEM ID column (C2:C501)
+            // =IFERROR(INDEX(Items!$A$2:$A$N, MATCH(D2, Items!$B$2:$B$N, 0)), "")
+            for ($r = 2; $r <= $template_rows + 1; $r++) {
+                $formula = '=IFERROR(INDEX(Items!$A$2:$A$' . $items_last_row
+                    . ',MATCH(D' . $r . ',Items!$B$2:$B$' . $items_last_row . ',0)),"")';
+                $boq_sheet->setCellValue('C' . $r, $formula);
+            }
+
+            // Light green background for auto-filled CRM ITEM ID cells
+            $autofill_cell_style = [
+                'fill' => [
+                    'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                    'startColor' => ['rgb' => 'E8F8F5'],
+                ],
+                'font' => ['color' => ['rgb' => '7F8C8D']],
+            ];
+            $boq_sheet->getStyle('C2:C' . ($template_rows + 1))->applyFromArray($autofill_cell_style);
+
+            // Protect the CRM ITEM ID column cells (formula-only, no manual edit)
+            $boq_sheet->getProtection()->setSheet(true);
+            $boq_sheet->getProtection()->setPassword('boqtemplate');
+
+            // Unlock all editable cells (everything except column C)
+            $unlock_style = ['protection' => ['locked' => \PhpOffice\PhpSpreadsheet\Style\Protection::PROTECTION_UNPROTECTED]];
+            $boq_sheet->getStyle('A2:B' . ($template_rows + 1))->applyFromArray($unlock_style);
+            $boq_sheet->getStyle('D2:U' . ($template_rows + 1))->applyFromArray($unlock_style);
+            // Also unlock headers for column A,B,D-U (keep them unlocked for usability)
+            $boq_sheet->getStyle('A1:B1')->applyFromArray($unlock_style);
+            $boq_sheet->getStyle('D1:U1')->applyFromArray($unlock_style);
+        }
+
+        // Freeze header row
+        $boq_sheet->freezePane('A2');
+
+        // Set active sheet to BOQ format
+        $spreadsheet->setActiveSheetIndex(0);
+
+        // ── Output ──
+        $filename = 'BOQ_Template_P' . $project_id . '.xlsx';
+
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        header('Cache-Control: max-age=0');
+
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+        $writer->save('php://output');
+
+        $spreadsheet->disconnectWorksheets();
+        unset($spreadsheet);
         exit;
     }
 

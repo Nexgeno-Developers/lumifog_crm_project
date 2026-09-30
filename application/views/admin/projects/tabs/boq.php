@@ -23,10 +23,20 @@ $items_grouped  = isset($boq_items_grouped) ? $boq_items_grouped : [];
         </button>
         <?php } ?>
         <?php if ($can_view_items) { ?>
+        <button type="button" class="btn btn-default" id="project-boq-import-csv">
+            <i class="fa-regular fa-file-excel tw-mr-1"></i>
+            <?= _l('project_boq_import_csv'); ?>
+        </button>
+        <input type="file" id="project-boq-csv-file" accept=".csv, .xlsx, .xls" style="display:none">
         <button type="button" class="btn btn-default" id="project-boq-purchase-request">
             <i class="fa-regular fa-file-lines tw-mr-1"></i>
             <?= _l('project_boq_purchase_request'); ?>
         </button>
+        <a href="<?= admin_url('project_boq/download_template/' . $project->id); ?>"
+           class="btn btn-default" id="project-boq-download-template">
+            <i class="fa-regular fa-file-excel tw-mr-1"></i>
+            <?= _l('project_boq_download_template'); ?>
+        </a>
         <?php } ?>
     </div>
 
