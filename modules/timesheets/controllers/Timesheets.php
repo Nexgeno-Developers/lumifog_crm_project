@@ -5786,8 +5786,16 @@ public function check_in_ts() {
 			}
 
 			$list = $this->timesheets_model->get_data_attendance_export($month_filter, $department_filter, $role_filter, $staff_filter);
-			$month = date('m');
-			$month_year = date('Y');
+			$month_year = (int) date('Y');
+			$month = (int) date('n');
+			if (preg_match('/^(\d{4})-(\d{1,2})/', (string) $month_filter, $month_matches)) {
+				$month_year = (int) $month_matches[1];
+				$month = (int) $month_matches[2];
+			}
+			if ($month < 1 || $month > 12) {
+				$month_year = (int) date('Y');
+				$month = (int) date('n');
+			}
 			$days_in_month = cal_days_in_month(CAL_GREGORIAN, $month, $month_year);
 
 			$set_col_tk = [];
