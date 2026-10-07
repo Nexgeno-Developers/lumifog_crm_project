@@ -5828,19 +5828,18 @@ public function check_in_ts() {
 					$writer->writeSheetRow('Sheet1', $list_add, $style2);
 				}
 			}
-			$files = glob(TIMESHEETS_PATH_EXPORT_FILE . '*');
-			foreach ($files as $file) {
-				if (is_file($file)) {
-					// delete file
-					unlink($file);
-				}
+			$export_dir = FCPATH . TIMESHEETS_PATH_EXPORT_FILE;
+			if (!is_dir($export_dir)) {
+				mkdir($export_dir, 0755, true);
 			}
 			$filename = 'attendance_' . $month_filter . '.xlsx';
-			$writer->writeToFile(str_replace($filename, TIMESHEETS_PATH_EXPORT_FILE . $filename, $filename));
-			echo json_encode([
-				'site_url' => site_url(),
-				'filename' => TIMESHEETS_PATH_EXPORT_FILE . $filename,
-			]);
+			$filepath = $export_dir . $filename;
+			$writer->writeToFile($filepath);
+			header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+			header('Content-Disposition: attachment; filename="' . $filename . '"');
+			header('Content-Length: ' . filesize($filepath));
+			header('Cache-Control: max-age=0');
+			readfile($filepath);
 			die;
 		}
 	}

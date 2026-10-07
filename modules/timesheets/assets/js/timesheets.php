@@ -165,32 +165,22 @@
      $('.save_time_sheet').addClass('hide');
    });
     $('.export_excel').click(function(){
-     var department = $('select[name="department_timesheets"]').val();
-     var role = $('select[name="job_position_timesheets"]').val();
-     var staff = $('select[name="staff_timesheets[]"]').val();
-
-     if(typeof department != 'undefined' && typeof department != undefined){
-        department = '';
+     var form = $('<form>', {
+      method: 'POST',
+      action: admin_url + 'timesheets/export_attendance_excel'
+     });
+     if (typeof csrfData !== 'undefined') {
+      form.append($('<input>', { type: 'hidden', name: csrfData.token_name, value: csrfData.hash }));
      }
-     if(typeof role != 'undefined' && typeof role != undefined){
-        role = '';
-     }
-     if(typeof staff != 'undefined' && typeof staff != undefined){
-        staff = '';
-     }
-
-     var data = {};
-     data.month = $('input[name="month_timesheets"]').val();
-     data.department = department;
-     data.role = role;
-     data.staff = staff;
-
-
-
-     $.post(admin_url+'timesheets/export_attendance_excel', data).done(function(response){
-      response = JSON.parse(response);
-      window.location.href = response.site_url+response.filename;
-    });
+     form.append($('<input>', { type: 'hidden', name: 'month', value: $('input[name="month_timesheets"]').val() }));
+     form.append($('<input>', { type: 'hidden', name: 'department', value: $('select[name="department_timesheets"]').val() || '' }));
+     form.append($('<input>', { type: 'hidden', name: 'role', value: $('select[name="job_position_timesheets"]').val() || '' }));
+     var staff = $('select[name="staff_timesheets[]"]').val() || [];
+     $.each(staff, function(_, id) {
+      form.append($('<input>', { type: 'hidden', name: 'staff[]', value: id }));
+     });
+     $('body').append(form);
+     form.get(0).submit();
    });
     $(window).load(function() {
       var d = new Date();
