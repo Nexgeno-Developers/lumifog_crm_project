@@ -498,4 +498,46 @@
         alert_float("danger", data.responseText || app.lang.something_went_wrong);
       });
   });
+
+  // Admin toggle for PO BOQ Restriction
+  $("body").on("change", "#project_boq_po_restriction_toggle", function () {
+    var $switch = $(this);
+    var projectId = $switch.data("project-id") || projectBoqProjectId();
+    var status = $switch.prop("checked") ? 1 : 0;
+
+    $switch.prop("disabled", true);
+
+    $.post(
+      admin_url + "project_boq/change_po_restriction_status",
+      projectBoqCsrfPayload({
+        project_id: projectId,
+        status: status,
+      })
+    )
+      .done(function (response) {
+        if (typeof response === "string") {
+          try {
+            response = JSON.parse(response);
+          } catch (e) {}
+        }
+        if (response && response.success) {
+          alert_float("success", response.message || "PO BOQ restriction updated.");
+        } else {
+          alert_float(
+            "danger",
+            response && response.message
+              ? response.message
+              : "Failed to update PO BOQ restriction."
+          );
+          $switch.prop("checked", !status);
+        }
+      })
+      .fail(function () {
+        alert_float("danger", "Failed to update PO BOQ restriction.");
+        $switch.prop("checked", !status);
+      })
+      .always(function () {
+        $switch.prop("disabled", false);
+      });
+  });
 })(jQuery);
