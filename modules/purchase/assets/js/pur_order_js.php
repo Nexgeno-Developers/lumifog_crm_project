@@ -141,9 +141,9 @@ $(function(){
             return;
         }
 
-        $.getJSON(admin_url + 'project_boq/available_items/' + projectId)
+        $.getJSON(admin_url + 'project_boq/available_items/' + projectId + '?for=po')
             .done(function (response) {
-                if (!response || response.success !== true || !$.isArray(response.data)) {
+                if (!response || response.success !== true || response.po_restriction_enabled === false || !$.isArray(response.data) || response.data.length === 0) {
                     poRestoreDefaultItemDropdown();
                     return;
                 }

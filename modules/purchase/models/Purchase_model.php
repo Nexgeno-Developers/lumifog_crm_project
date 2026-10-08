@@ -3680,6 +3680,9 @@ class Purchase_model extends App_Model
         if ($project_id < 1 || empty($lines) || !is_array($lines)) {
             return true;
         }
+        if (!$this->is_boq_po_restriction_enabled($project_id)) {
+            return true;
+        }
         if (!$this->db->table_exists(db_prefix() . 'project_boq_items')) {
             return true;
         }
@@ -3705,11 +3708,9 @@ class Purchase_model extends App_Model
             }
             $boq = $this->project_boq_model->get_by_project_and_item($project_id, $item_id);
             if (!$boq) {
-                return [
-                    'error'   => 'item_not_in_boq',
-                    'item_id' => $item_id,
-                    'message' => _l('pur_boq_item_not_in_boq', $item_id),
-                ];
+                // Temporary: allow a purchase order when the project is selected
+                // and this line item is not on that project's BOQ.
+                continue;
             }
             $remaining = $this->project_boq_model->get_remaining_qty($boq['id']);
             if ($qty > $remaining + 0.0000001) {
@@ -3822,6 +3823,22 @@ class Purchase_model extends App_Model
         }
 
         return false;
+    }
+
+    /**
+     * Check if Purchase Order BOQ restriction is enabled for a project.
+     *
+     * @param int $project_id
+     * @return bool
+     */
+    public function is_boq_po_restriction_enabled($project_id = null)
+    {
+        $val = get_option('boq_po_restriction');
+        if ($val === '' || $val === null) {
+            return true;
+        }
+
+        return (int) $val === 1;
     }
 
     /**
