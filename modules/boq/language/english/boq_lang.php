@@ -73,3 +73,5 @@ $lang['pur_boq_po_pending_approval_message']                = '%s has requested 
 $lang['pur_boq_po_rejected_message']                        = 'Your PO #%s was rejected due to BOQ overage.';
 $lang['pur_boq_qty_exceeds_remaining']                      = 'Quantity exceeds remaining BOQ quantity.';
 $lang['project_boq_download_template']                      = 'Download Template';
+$lang['project_boq_po_restriction']                          = 'PO BOQ Restriction (Master)';
+$lang['project_boq_po_restriction_updated']                  = 'Master Purchase Order BOQ restriction updated successfully.';

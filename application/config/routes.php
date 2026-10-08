@@ -188,6 +188,7 @@ $route['survey/(:num)/(:any)'] = 'surveys/participate/index/$1/$2';
 $route['admin/project_boq'] = 'admin/project_boq/index';
 $route['admin/project_boq/(:any)'] = 'admin/project_boq/$1';
 $route['admin/project_boq/(:any)/(:any)'] = 'admin/project_boq/$1/$2';
+$route['admin/project_boq/(:any)/(:any)/(:any)'] = 'admin/project_boq/$1/$2/$3';
 
 if (file_exists(APPPATH . 'config/my_routes.php')) {
     include_once(APPPATH . 'config/my_routes.php');

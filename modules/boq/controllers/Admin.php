@@ -78,9 +78,46 @@ class Admin extends AdminController
         }
         unset($item);
 
+        $po_restriction_enabled = method_exists($this->project_boq_model, 'is_po_restriction_enabled')
+            ? $this->project_boq_model->is_po_restriction_enabled()
+            : true;
+
+        $for_po = ($this->input->get('for') === 'po');
+        if ($for_po && !$po_restriction_enabled) {
+            $this->json_response([
+                'success'                => true,
+                'po_restriction_enabled' => false,
+                'data'                   => [],
+            ]);
+            return;
+        }
+
         $this->json_response([
-            'success' => true,
-            'data'    => array_values($grouped),
+            'success'                => true,
+            'po_restriction_enabled' => $po_restriction_enabled,
+            'data'                   => array_values($grouped),
+        ]);
+    }
+
+    public function change_po_restriction_status($arg1 = '', $arg2 = '')
+    {
+        if (! is_admin()) {
+            ajax_access_denied();
+        }
+
+        if ($arg2 !== '') {
+            $status = (int) $arg2;
+        } elseif ($arg1 !== '') {
+            $status = (int) $arg1;
+        } else {
+            $status = (int) $this->input->post('status');
+        }
+
+        $success = $this->project_boq_model->set_po_restriction($status);
+
+        $this->json_response([
+            'success' => (bool) $success,
+            'message' => _l('project_boq_po_restriction_updated'),
         ]);
     }
 

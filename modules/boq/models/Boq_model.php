@@ -260,4 +260,22 @@ class Boq_model extends App_Model
         $this->db->trans_complete();
         return true;
     }
+
+    public function is_po_restriction_enabled($project_id = null)
+    {
+        $val = get_option('boq_po_restriction');
+        if ($val === '' || $val === null) {
+            return true;
+        }
+
+        return (int) $val === 1;
+    }
+
+    public function set_po_restriction($enabled)
+    {
+        $val = ((int) $enabled === 1 || $enabled === true || $enabled === '1') ? 1 : 0;
+        update_option('boq_po_restriction', $val);
+
+        return true;
+    }
 }
