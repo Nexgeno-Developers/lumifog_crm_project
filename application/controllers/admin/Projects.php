@@ -329,6 +329,9 @@ class Projects extends AdminController
                 $data['boq_items_grouped'] = $this->invoice_items_model->get_grouped();
                 $data['can_edit_boq']      = staff_can('edit', 'projects');
                 $data['can_view_items']    = staff_can('view', 'items');
+                $data['po_restriction_enabled'] = method_exists($this->project_boq_model, 'is_po_restriction_enabled')
+                    ? $this->project_boq_model->is_po_restriction_enabled($id)
+                    : true;
                 if (is_admin()) {
                     $data['pending_requests'] = $this->project_boq_model->get_pending_requests($id);
                 } else {
