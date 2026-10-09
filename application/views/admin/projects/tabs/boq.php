@@ -4,15 +4,6 @@ $can_edit_boq   = isset($can_edit_boq) ? $can_edit_boq : false;
 $can_view_items = isset($can_view_items) ? $can_view_items : false;
 $boq_items      = isset($boq_items) ? $boq_items : [];
 $items_grouped  = isset($boq_items_grouped) ? $boq_items_grouped : [];
-if (!isset($po_restriction_enabled)) {
-    $CI = &get_instance();
-    if (!isset($CI->project_boq_model)) {
-        $CI->load->model('boq/Boq_model', 'project_boq_model');
-    }
-    $po_restriction_enabled = (isset($CI->project_boq_model) && method_exists($CI->project_boq_model, 'is_po_restriction_enabled'))
-        ? $CI->project_boq_model->is_po_restriction_enabled($project->id)
-        : true;
-}
 ?>
 <div id="project-boq-wrapper" class="project-boq-tab" data-project-id="<?= (int) $project->id; ?>"
     data-can-edit="<?= $can_edit_boq ? '1' : '0'; ?>"
@@ -23,7 +14,7 @@ if (!isset($po_restriction_enabled)) {
     </div>
     <?php } ?>
 
-    <div class="_buttons tw-mb-4 clearfix">
+    <div class="_buttons tw-mb-4">
         <?php if ($can_edit_boq && $can_view_items) { ?>
         <button type="button" class="btn btn-primary" id="project-boq-open-add" data-toggle="modal"
             data-target="#project_boq_modal">
@@ -46,25 +37,6 @@ if (!isset($po_restriction_enabled)) {
             <i class="fa-regular fa-file-excel tw-mr-1"></i>
             <?= _l('project_boq_download_template'); ?>
         </a>
-        <?php } ?>
-        <?php if (is_admin()) { ?>
-        <div class="pull-right tw-flex tw-items-center" style="margin-top: 5px;">
-            <label for="project_boq_po_restriction_toggle" class="tw-mb-0 tw-mr-2 text-muted" style="font-weight: 500; font-size: 13px; cursor: pointer; user-select: none;">
-                <i class="fa-solid fa-shield-halved tw-mr-1 text-primary"></i><?= _l('project_boq_po_restriction'); ?>
-            </label>
-            <div class="onoffswitch" style="display: inline-block; vertical-align: middle;">
-                <input type="checkbox" 
-                       name="project_boq_po_restriction" 
-                       class="onoffswitch-checkbox" 
-                       id="project_boq_po_restriction_toggle" 
-                       data-project-id="<?= (int) $project->id; ?>" 
-                       <?= $po_restriction_enabled ? 'checked' : ''; ?>>
-                <label class="onoffswitch-label" for="project_boq_po_restriction_toggle">
-                    <span class="onoffswitch-inner"></span>
-                    <span class="onoffswitch-switch"></span>
-                </label>
-            </div>
-        </div>
         <?php } ?>
     </div>
 

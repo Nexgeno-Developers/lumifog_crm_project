@@ -45,6 +45,13 @@ function boq_module_init()
             'edit' => _l('permission_edit'),
         ],
     ], _l('project_boq'));
+
+    $CI->app->add_settings_section_child('other', 'boq', [
+        'name'     => _l('project_boq'),
+        'view'     => 'boq/settings',
+        'position' => 25,
+        'icon'     => 'fa-solid fa-list-ol',
+    ]);
 }
 
 function boq_add_email_templates()
