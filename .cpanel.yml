@@ -2,4 +2,6 @@
 deployment:
   tasks:
     - export DEPLOYPATH=/home2/lumifognexgeno/public_html/
-    - /bin/rsync -av --exclude '.git*' --exclude '.cpanel.yml' --exclude 'application/config/app-config.php' --exclude '.htaccess*' --exclude 'uploads/' --exclude 'media/' --exclude 'temp/' --exclude 'ci_sessions/' --exclude 'application/cache/' --exclude 'application/logs/' ./ $DEPLOYPATH
+    - /bin/rsync -av --no-p --no-g --no-o --chmod=D755,F644 --exclude '.git*' --exclude '.cpanel.yml' --exclude 'application/config/app-config.php' --exclude '.htaccess*' --exclude 'uploads/' --exclude 'media/' --exclude 'temp/' --exclude 'ci_sessions/' --exclude 'application/cache/' --exclude 'application/logs/' ./ $DEPLOYPATH
+    - chmod 755 /home2/lumifognexgeno/public_html
+    - chmod 644 /home2/lumifognexgeno/public_html/index.php
