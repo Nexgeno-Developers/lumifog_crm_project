@@ -1,0 +1,5 @@
+---
+deployment:
+  tasks:
+    - export DEPLOYPATH=/home2/lumifognexgeno/public_html/
+    - /bin/rsync -av --exclude '.git*' --exclude '.cpanel.yml' --exclude 'application/config/app-config.php' --exclude '.htaccess*' --exclude 'uploads/' --exclude 'media/' --exclude 'temp/' --exclude 'ci_sessions/' --exclude 'application/cache/' --exclude 'application/logs/' ./ $DEPLOYPATH
