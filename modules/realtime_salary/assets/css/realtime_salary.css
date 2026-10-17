@@ -1,0 +1,429 @@
+/* ==========================================================================
+   Real-time Staff Salary Module Styles
+   ========================================================================== */
+
+.rs-container {
+    margin-top: 15px;
+    margin-bottom: 30px;
+    font-family: inherit;
+}
+
+/* Header & Controls */
+.rs-header-card {
+    background: #ffffff;
+    border-radius: 10px;
+    padding: 20px 24px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+    margin-bottom: 20px;
+    border: 1px solid #eef2f6;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.rs-header-titles h3 {
+    margin: 0 0 5px 0;
+    font-size: 22px;
+    font-weight: 700;
+    color: #1e293b;
+}
+
+.rs-header-titles p {
+    margin: 0;
+    color: #64748b;
+    font-size: 13px;
+}
+
+.rs-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+/* Month Navigation Pill */
+.rs-month-nav {
+    display: inline-flex;
+    align-items: center;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 4px;
+}
+
+.rs-month-nav .btn-nav {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    color: #334155;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 13px;
+    transition: all 0.2s ease;
+    text-decoration: none;
+}
+
+.rs-month-nav .btn-nav:hover:not(.disabled) {
+    background: #0284c7;
+    border-color: #0284c7;
+    color: #ffffff;
+}
+
+.rs-month-nav .btn-nav.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.rs-current-month-display {
+    padding: 6px 18px;
+    font-size: 15px;
+    font-weight: 700;
+    color: #0f172a;
+    min-width: 140px;
+    text-align: center;
+}
+
+/* Stat Cards */
+.rs-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.rs-stat-card {
+    background: #ffffff;
+    border-radius: 10px;
+    padding: 20px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.rs-stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+}
+
+.rs-stat-card.primary-accent {
+    border-left: 4px solid #10b981;
+    background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
+}
+
+.rs-stat-card.secondary-accent {
+    border-left: 4px solid #0284c7;
+    background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%);
+}
+
+.rs-stat-card.warning-accent {
+    border-left: 4px solid #f59e0b;
+}
+
+.rs-stat-card.info-accent {
+    border-left: 4px solid #6366f1;
+}
+
+.rs-stat-label {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #64748b;
+    margin-bottom: 8px;
+}
+
+.rs-stat-val {
+    font-size: 26px;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1.2;
+    margin-bottom: 6px;
+}
+
+.rs-stat-val.earned-highlight {
+    color: #059669;
+}
+
+.rs-stat-sub {
+    font-size: 12px;
+    color: #64748b;
+}
+
+/* Pill Badges for Summary Counter */
+.rs-counter-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 20px;
+    background: #ffffff;
+    padding: 14px 20px;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+}
+
+.rs-pill-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 20px;
+}
+
+.rs-pill-item.present {
+    background: #ecfdf5;
+    color: #065f46;
+    border: 1px solid #a7f3d0;
+}
+
+.rs-pill-item.leave {
+    background: #eff6ff;
+    color: #1e40af;
+    border: 1px solid #bfdbfe;
+}
+
+.rs-pill-item.absent {
+    background: #fef2f2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+}
+
+.rs-pill-item.ns {
+    background: #f1f5f9;
+    color: #475569;
+    border: 1px solid #cbd5e1;
+}
+
+.rs-pill-item.upcoming {
+    background: #eef2ff;
+    color: #3730a3;
+    border: 1px solid #c7d2fe;
+}
+
+/* Calendar Month Grid */
+.rs-month-grid-container {
+    background: #ffffff;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    padding: 20px;
+    margin-bottom: 25px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.rs-grid-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.rs-grid-header h4 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: #1e293b;
+}
+
+.rs-calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 8px;
+}
+
+.rs-grid-day-header {
+    text-align: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: #64748b;
+    padding: 8px 0;
+    text-transform: uppercase;
+}
+
+.rs-day-cell {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 10px 8px;
+    min-height: 80px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: all 0.2s ease;
+}
+
+.rs-day-cell:hover {
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
+    border-color: #cbd5e1;
+}
+
+.rs-day-cell.is-today {
+    border: 2px solid #0284c7;
+    background: #f0f9ff;
+}
+
+.rs-day-cell.status-present {
+    border-left: 4px solid #10b981;
+}
+
+.rs-day-cell.status-leave {
+    border-left: 4px solid #3b82f6;
+}
+
+.rs-day-cell.status-absent {
+    border-left: 4px solid #ef4444;
+    background: #fffafa;
+}
+
+.rs-day-cell.status-ns {
+    background: #f8fafc;
+    opacity: 0.75;
+}
+
+.rs-day-cell.status-upcoming {
+    border-left: 4px solid #a5b4fc;
+}
+
+.rs-cell-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.rs-cell-day-num {
+    font-weight: 700;
+    font-size: 14px;
+    color: #1e293b;
+}
+
+.rs-cell-badge {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+}
+
+.rs-cell-badge.badge-present {
+    background: #10b981;
+    color: #ffffff;
+}
+
+.rs-cell-badge.badge-leave {
+    background: #3b82f6;
+    color: #ffffff;
+}
+
+.rs-cell-badge.badge-absent {
+    background: #ef4444;
+    color: #ffffff;
+}
+
+.rs-cell-badge.badge-ns {
+    background: #94a3b8;
+    color: #ffffff;
+}
+
+.rs-cell-badge.badge-upcoming {
+    background: #818cf8;
+    color: #ffffff;
+}
+
+.rs-cell-bottom {
+    font-size: 11px;
+    margin-top: 6px;
+}
+
+.rs-cell-pay {
+    font-weight: 700;
+    color: #059669;
+}
+
+.rs-cell-note {
+    font-size: 10px;
+    color: #64748b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Detail Table */
+.rs-table-card {
+    background: #ffffff;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    overflow: hidden;
+}
+
+.rs-table-card .card-header {
+    padding: 16px 20px;
+    background: #fafbfc;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.rs-table-card .card-header h4 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: #1e293b;
+}
+
+.table.rs-table {
+    margin-bottom: 0;
+}
+
+.table.rs-table thead th {
+    background: #f8fafc;
+    border-bottom: 2px solid #e2e8f0;
+    color: #475569;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 12px 16px;
+}
+
+.table.rs-table tbody td {
+    padding: 12px 16px;
+    vertical-align: middle;
+    font-size: 13px;
+    border-top: 1px solid #f1f5f9;
+}
+
+.table.rs-table tbody tr.row-present {
+    background-color: #fafffc;
+}
+
+.table.rs-table tbody tr.row-leave {
+    background-color: #f7faff;
+}
+
+.table.rs-table tbody tr.row-absent {
+    background-color: #fff9f9;
+}
+
+.table.rs-table tbody tr.row-ns {
+    background-color: #fafafa;
+    color: #94a3b8;
+}
+
+/* Note Alert */
+.rs-info-box {
+    background: #f0fdf4;
+    border-left: 4px solid #10b981;
+    border-radius: 6px;
+    padding: 12px 16px;
+    margin-top: 20px;
+    font-size: 13px;
+    color: #166534;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
