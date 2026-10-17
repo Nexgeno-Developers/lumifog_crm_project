@@ -17,7 +17,7 @@ define('TIMESHEETS_CONTRACT_ATTACHMENTS_UPLOAD_FOLDER', module_dir_path(TIMESHEE
 define('TIMESHEETS_JOB_POSIITON_ATTACHMENTS_UPLOAD_FOLDER', module_dir_path(TIMESHEETS_MODULE_NAME, 'uploads/job_position/'));
 define('TIMESHEETS_PATH', 'modules/timesheets/uploads/');
 define('TIMESHEETS_PAYSLIPS', 'modules/timesheets/uploads/payslips/');
-define('TIMESHEETS_REVISION', 120);
+define('TIMESHEETS_REVISION', 121);
 define('TIMESHEETS_PATH_PLUGIN', 'modules/timesheets/assets/plugins');
 
 define('PAY_SLIP', FCPATH);
