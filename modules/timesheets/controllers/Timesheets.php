@@ -5791,6 +5791,9 @@ public function check_in_ts() {
 			if (preg_match('/^(\d{4})-(\d{1,2})/', (string) $month_filter, $month_matches)) {
 				$month_year = (int) $month_matches[1];
 				$month = (int) $month_matches[2];
+			} elseif (preg_match('/^(\d{1,2})-(\d{4})/', (string) $month_filter, $month_matches)) {
+				$month = (int) $month_matches[1];
+				$month_year = (int) $month_matches[2];
 			}
 			if ($month < 1 || $month > 12) {
 				$month_year = (int) date('Y');
@@ -5798,28 +5801,85 @@ public function check_in_ts() {
 			}
 			$days_in_month = cal_days_in_month(CAL_GREGORIAN, $month, $month_year);
 
+			$month_start = sprintf('%04d-%02d-01', $month_year, $month);
+			$month_end   = sprintf('%04d-%02d-%02d', $month_year, $month, $days_in_month);
+
+			// Batch query all check-ins and check-outs for this month
+			$checkin_query = $this->db->query("SELECT staff_id, DATE(date) as check_date, 
+				MIN(CASE WHEN type_check = 1 THEN date END) as min_check_in,
+				MAX(CASE WHEN type_check = 2 THEN date END) as max_check_out
+				FROM " . db_prefix() . "check_in_out 
+				WHERE date >= '$month_start 00:00:00' AND date <= '$month_end 23:59:59'
+				GROUP BY staff_id, DATE(date)")->result_array();
+
+			$checkin_data = [];
+			foreach ($checkin_query as $row) {
+				$checkin_data[(int) $row['staff_id']][$row['check_date']] = [
+					'in'  => !empty($row['min_check_in']) ? date('H:i', strtotime($row['min_check_in'])) : null,
+					'out' => !empty($row['max_check_out']) ? date('H:i', strtotime($row['max_check_out'])) : null,
+				];
+			}
+
+			$day_date_map = [];
 			$set_col_tk = [];
 			$set_col_tk[_l('staff_id')] = 'string';
 			$set_col_tk[_l('staff')] = 'string';
 			$widthst = [];
 			$widthst[] = 10;
-			$widthst[] = 40;
+			$widthst[] = 30;
 			for ($d = 1; $d <= $days_in_month; $d++) {
 				$time = mktime(12, 0, 0, $month, $d, $month_year);
 				if (date('m', $time) == $month) {
-					$set_col_tk[date('D d', $time)] = 'string';
-					$widthst[] = 10;
+					$col_name = date('D d', $time);
+					$set_col_tk[$col_name] = 'string';
+					$widthst[] = 18;
+					$day_date_map[$col_name] = sprintf('%04d-%02d-%02d', $month_year, $month, $d);
 				}
 			}
 			$writer_header = $set_col_tk;
 
 			$writer = new XLSXWriter();
-			$writer->writeSheetHeader('Sheet1', $writer_header, $col_options = ['widths' => $widthst, 'fill' => '#C65911', 'font-style' => 'bold', 'color' => '#FFFFFF', 'border' => 'left,right,top,bottom', 'height' => 25, 'border-color' => '#FFFFFF', 'font-size' => 13, 'font' => 'Calibri']);
-			$style1 = array('fill' => '#F8CBAD', 'height' => 25, 'border' => 'left,right,top,bottom', 'border-color' => '#FFFFFF', 'font-size' => 12, 'font' => 'Calibri', 'color' => '#000000');
-			$style2 = array('fill' => '#FCE4D6', 'height' => 25, 'border' => 'left,right,top,bottom', 'border-color' => '#FFFFFF', 'font-size' => 12, 'font' => 'Calibri', 'color' => '#000000');
+			$writer->writeSheetHeader('Sheet1', $writer_header, $col_options = [
+				'widths' => $widthst,
+				'fill' => '#C65911',
+				'font-style' => 'bold',
+				'color' => '#FFFFFF',
+				'border' => 'left,right,top,bottom',
+				'height' => 25,
+				'border-color' => '#FFFFFF',
+				'font-size' => 12,
+				'font' => 'Calibri',
+				'halign' => 'center',
+				'valign' => 'center'
+			]);
+
+			$style1 = array('fill' => '#F8CBAD', 'height' => 34, 'border' => 'left,right,top,bottom', 'border-color' => '#FFFFFF', 'font-size' => 11, 'font' => 'Calibri', 'color' => '#000000', 'wrap_text' => true, 'valign' => 'center');
+			$style2 = array('fill' => '#FCE4D6', 'height' => 34, 'border' => 'left,right,top,bottom', 'border-color' => '#FFFFFF', 'font-size' => 11, 'font' => 'Calibri', 'color' => '#000000', 'wrap_text' => true, 'valign' => 'center');
 			foreach ($list as $k => $value) {
+				$vals = array_values($value);
+				$staff_id = (int) $vals[0];
+
 				$list_add = [];
-				foreach ($value as $i => $item) {
+				foreach ($value as $col_key => $item) {
+					if (isset($day_date_map[$col_key])) {
+						$date_ymd = $day_date_map[$col_key];
+						if (isset($checkin_data[$staff_id][$date_ymd])) {
+							$ci = $checkin_data[$staff_id][$date_ymd];
+							$time_str = '';
+							if ($ci['in'] && $ci['out']) {
+								$time_str = $ci['in'] . ' - ' . $ci['out'];
+							} elseif ($ci['in']) {
+								$time_str = 'In: ' . $ci['in'];
+							} elseif ($ci['out']) {
+								$time_str = 'Out: ' . $ci['out'];
+							}
+
+							if ($time_str !== '') {
+								$orig = trim((string) $item);
+								$item = ($orig !== '') ? $orig . "\n(" . $time_str . ")" : '(' . $time_str . ')';
+							}
+						}
+					}
 					$list_add[] = $item;
 				}
 				if (($k % 2) == 0) {
