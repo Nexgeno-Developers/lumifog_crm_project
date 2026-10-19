@@ -564,6 +564,29 @@ class Project_boq extends AdminController
             return strtolower(trim((string)$h));
         }, $header);
 
+        // Check if header matches official template structure (21 columns)
+        // In the template, column index 4 is 'BOQ Description' and index 14 is '(internal)Description'.
+        // If users paste or type text into row 1 for these description columns, auto-detect them.
+        if (count($header) >= 20) {
+            $is_template_layout = (
+                isset($normalized[0]) && strpos($normalized[0], 'internal ref') !== false &&
+                isset($normalized[1]) && strpos($normalized[1], 'client ref') !== false &&
+                isset($normalized[3]) && strpos($normalized[3], 'crm item') !== false &&
+                isset($normalized[5]) && strpos($normalized[5], 'unit') !== false &&
+                isset($normalized[6]) && strpos($normalized[6], 'quantity') !== false
+            );
+            if ($is_template_layout) {
+                if (!isset($normalized[4]) || $normalized[4] !== 'boq description') {
+                    $header[4] = 'BOQ Description';
+                    $normalized[4] = 'boq description';
+                }
+                if (!isset($normalized[14]) || $normalized[14] !== '(internal)description') {
+                    $header[14] = '(internal)Description';
+                    $normalized[14] = '(internal)description';
+                }
+            }
+        }
+
         $required_keys = [
             'internal ref no', 'client ref no', 'crm item',
             'boq description', 'boq unit', 'order quantity',
@@ -575,11 +598,19 @@ class Project_boq extends AdminController
             '(internal)supply amount', '(internal)itc amount',
         ];
 
+        $missing_keys = [];
         foreach ($required_keys as $req) {
             if (!in_array($req, $normalized, true)) {
-                $this->json_response(['success' => false, 'message' => _l('project_boq_import_invalid_headers')]);
-                exit;
+                $missing_keys[] = $req;
             }
+        }
+
+        if (!empty($missing_keys)) {
+            $this->json_response([
+                'success' => false,
+                'message' => _l('project_boq_import_invalid_headers') . ' Missing column(s): ' . implode(', ', $missing_keys) . '.'
+            ]);
+            exit;
         }
 
         $imported = 0;
@@ -593,7 +624,17 @@ class Project_boq extends AdminController
 
             $data = [];
             foreach ($header as $idx => $col) {
-                $data[$col] = isset($row[$idx]) ? $row[$idx] : null;
+                $col_key = strtolower(trim((string)$col));
+                $data[$col_key] = isset($row[$idx]) ? $row[$idx] : null;
+                $data[$col]     = isset($row[$idx]) ? $row[$idx] : null;
+            }
+
+            // Positional fallback for descriptions if needed
+            if (!isset($data['boq description']) || $data['boq description'] === null) {
+                $data['boq description'] = $row[4] ?? null;
+            }
+            if (!isset($data['(internal)description']) || $data['(internal)description'] === null) {
+                $data['(internal)description'] = $row[14] ?? null;
             }
 
             // Check if entire row is blank
@@ -609,13 +650,16 @@ class Project_boq extends AdminController
             }
 
             $item_id = 0;
-            if (isset($data['CRM ITEM ID']) && is_numeric(trim((string)$data['CRM ITEM ID'])) && (int)$data['CRM ITEM ID'] > 0) {
-                $item_id = (int) $data['CRM ITEM ID'];
-            } elseif (isset($data['CRM Item']) && is_numeric(trim((string)$data['CRM Item'])) && (int)$data['CRM Item'] > 0) {
-                $item_id = (int) $data['CRM Item'];
-            } elseif (!empty($data['CRM Item'])) {
+            $crm_item_id_val = $data['crm item id'] ?? $data['CRM ITEM ID'] ?? ($row[2] ?? null);
+            $crm_item_val    = $data['crm item'] ?? $data['CRM Item'] ?? ($row[3] ?? null);
+
+            if ($crm_item_id_val !== null && is_numeric(trim((string)$crm_item_id_val)) && (int)$crm_item_id_val > 0) {
+                $item_id = (int) $crm_item_id_val;
+            } elseif ($crm_item_val !== null && is_numeric(trim((string)$crm_item_val)) && (int)$crm_item_val > 0) {
+                $item_id = (int) $crm_item_val;
+            } elseif (!empty($crm_item_val)) {
                 // If CRM Item contains description from dropdown lookup
-                $desc_clean = trim((string)$data['CRM Item']);
+                $desc_clean = trim((string)$crm_item_val);
                 $lookup_item = $this->db->select('id')
                     ->from(db_prefix() . 'items')
                     ->where('description', $desc_clean)
@@ -625,7 +669,8 @@ class Project_boq extends AdminController
                 }
             }
 
-            $order_qty = isset($data['Order Quantity']) && $data['Order Quantity'] !== '' ? (float) $data['Order Quantity'] : 0;
+            $order_qty_val = $data['order quantity'] ?? $data['Order Quantity'] ?? ($row[6] ?? 0);
+            $order_qty = ($order_qty_val !== '' && $order_qty_val !== null) ? (float) $order_qty_val : 0;
 
             // Silently skip pre-filled template rows that user didn't populate
             if ($item_id < 1 && $order_qty <= 0) {
@@ -633,7 +678,7 @@ class Project_boq extends AdminController
             }
 
             if ($item_id < 1 || $order_qty <= 0) {
-                $errors[] = _l('project_boq_import_invalid_row', $item_id > 0 ? $item_id : (string)($data['CRM Item'] ?? ''));
+                $errors[] = _l('project_boq_import_invalid_row', $item_id > 0 ? $item_id : (string)($crm_item_val ?? ''));
                 continue;
             }
 
@@ -643,27 +688,27 @@ class Project_boq extends AdminController
             }
 
             $boq_data = [
-                'internal_ref_no'          => $data['Internal Ref No'] ?? null,
-                'client_ref_no'            => $data['Client Ref No'] ?? null,
-                'boq_description'          => $data['BOQ Description'] ?? null,
-                'boq_unit'                 => $data['BOQ Unit'] ?? null,
+                'internal_ref_no'          => $data['internal ref no'] ?? $data['Internal Ref No'] ?? ($row[0] ?? null),
+                'client_ref_no'            => $data['client ref no'] ?? $data['Client Ref No'] ?? ($row[1] ?? null),
+                'boq_description'          => $data['boq description'] ?? $data['BOQ Description'] ?? ($row[4] ?? null),
+                'boq_unit'                 => $data['boq unit'] ?? $data['BOQ Unit'] ?? ($row[5] ?? null),
                 'planned_qty'              => $order_qty,
                 'revised_qty'              => $order_qty,
                 'order_quantity'           => $order_qty,
-                'supply_rate'              => isset($data['Supply Rate']) && $data['Supply Rate'] !== '' ? (float) $data['Supply Rate'] : null,
-                'itc_rate'                 => isset($data['ITC Rate']) && $data['ITC Rate'] !== '' ? (float) $data['ITC Rate'] : null,
-                'supply_amount'            => isset($data['Supply Amount']) && $data['Supply Amount'] !== '' ? (float) $data['Supply Amount'] : null,
-                'itc_amount'               => isset($data['ITC Amount']) && $data['ITC Amount'] !== '' ? (float) $data['ITC Amount'] : null,
-                'tax_rate'                 => isset($data['TAX']) && $data['TAX'] !== '' ? (float) $data['TAX'] : null,
-                'is_summary_item'          => isset($data['Summary Item']) && $data['Summary Item'] !== '' ? (int) $data['Summary Item'] : 0,
-                'internal_client_ref_no'   => $data['(internal)Client Ref No'] ?? null,
-                'internal_description'     => $data['(internal)Description'] ?? null,
-                'internal_unit'            => $data['(internal)Unit'] ?? null,
-                'internal_quantity'        => isset($data['(internal)Quantity']) && $data['(internal)Quantity'] !== '' ? (float) $data['(internal)Quantity'] : null,
-                'internal_material_rate'   => isset($data['(internal)Material Rate']) && $data['(internal)Material Rate'] !== '' ? (float) $data['(internal)Material Rate'] : null,
-                'internal_labour_rate'     => isset($data['(internal)Labour Rate']) && $data['(internal)Labour Rate'] !== '' ? (float) $data['(internal)Labour Rate'] : null,
-                'internal_supply_amount'   => isset($data['(internal)Supply Amount']) && $data['(internal)Supply Amount'] !== '' ? (float) $data['(internal)Supply Amount'] : null,
-                'internal_itc_amount'      => isset($data['(internal)ITC Amount']) && $data['(internal)ITC Amount'] !== '' ? (float) $data['(internal)ITC Amount'] : null,
+                'supply_rate'              => (isset($data['supply rate']) && $data['supply rate'] !== '') ? (float) $data['supply rate'] : ((isset($data['Supply Rate']) && $data['Supply Rate'] !== '') ? (float) $data['Supply Rate'] : null),
+                'itc_rate'                 => (isset($data['itc rate']) && $data['itc rate'] !== '') ? (float) $data['itc rate'] : ((isset($data['ITC Rate']) && $data['ITC Rate'] !== '') ? (float) $data['ITC Rate'] : null),
+                'supply_amount'            => (isset($data['supply amount']) && $data['supply amount'] !== '') ? (float) $data['supply amount'] : ((isset($data['Supply Amount']) && $data['Supply Amount'] !== '') ? (float) $data['Supply Amount'] : null),
+                'itc_amount'               => (isset($data['itc amount']) && $data['itc amount'] !== '') ? (float) $data['itc amount'] : ((isset($data['ITC Amount']) && $data['ITC Amount'] !== '') ? (float) $data['ITC Amount'] : null),
+                'tax_rate'                 => (isset($data['tax']) && $data['tax'] !== '') ? (float) $data['tax'] : ((isset($data['TAX']) && $data['TAX'] !== '') ? (float) $data['TAX'] : null),
+                'is_summary_item'          => (isset($data['summary item']) && $data['summary item'] !== '') ? (int) $data['summary item'] : ((isset($data['Summary Item']) && $data['Summary Item'] !== '') ? (int) $data['Summary Item'] : 0),
+                'internal_client_ref_no'   => $data['(internal)client ref no'] ?? $data['(internal)Client Ref No'] ?? ($row[13] ?? null),
+                'internal_description'     => $data['(internal)description'] ?? $data['(internal)Description'] ?? ($row[14] ?? null),
+                'internal_unit'            => $data['(internal)unit'] ?? $data['(internal)Unit'] ?? ($row[15] ?? null),
+                'internal_quantity'        => (isset($data['(internal)quantity']) && $data['(internal)quantity'] !== '') ? (float) $data['(internal)quantity'] : ((isset($data['(internal)Quantity']) && $data['(internal)Quantity'] !== '') ? (float) $data['(internal)Quantity'] : null),
+                'internal_material_rate'   => (isset($data['(internal)material rate']) && $data['(internal)material rate'] !== '') ? (float) $data['(internal)material rate'] : ((isset($data['(internal)Material Rate']) && $data['(internal)Material Rate'] !== '') ? (float) $data['(internal)Material Rate'] : null),
+                'internal_labour_rate'     => (isset($data['(internal)labour rate']) && $data['(internal)labour rate'] !== '') ? (float) $data['(internal)labour rate'] : ((isset($data['(internal)Labour Rate']) && $data['(internal)Labour Rate'] !== '') ? (float) $data['(internal)Labour Rate'] : null),
+                'internal_supply_amount'   => (isset($data['(internal)supply amount']) && $data['(internal)supply amount'] !== '') ? (float) $data['(internal)supply amount'] : ((isset($data['(internal)Supply Amount']) && $data['(internal)Supply Amount'] !== '') ? (float) $data['(internal)Supply Amount'] : null),
+                'internal_itc_amount'      => (isset($data['(internal)itc amount']) && $data['(internal)itc amount'] !== '') ? (float) $data['(internal)itc amount'] : ((isset($data['(internal)ITC Amount']) && $data['(internal)ITC Amount'] !== '') ? (float) $data['(internal)ITC Amount'] : null),
             ];
 
             $existing = $this->project_boq_model->get_by_project_and_item($project_id, $item_id);

@@ -134,6 +134,60 @@ $items_grouped  = isset($boq_items_grouped) ? $boq_items_grouped : [];
 </div>
 <?php } ?>
 
+<div class="modal fade" id="project_boq_import_progress_modal" tabindex="-1" role="dialog" data-backdrop="static" data-keyboard="false">
+    <div class="modal-dialog" role="document" style="max-width: 480px; margin-top: 15vh;">
+        <div class="modal-content" style="border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.25);">
+            <div class="modal-header" style="border-bottom: 1px solid #eef2f5; padding: 15px 20px;">
+                <h4 class="modal-title" style="font-weight: 600; font-size: 16px; margin: 0; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-cloud-arrow-up text-primary"></i>
+                    <span><?= _l('project_boq_import_csv'); ?></span>
+                </h4>
+            </div>
+            <div class="modal-body" style="padding: 24px 20px;">
+                <div class="text-center" style="margin-bottom: 16px;">
+                    <div id="project-boq-import-status" style="font-size: 14px; font-weight: 500; color: #333; margin-bottom: 6px;">
+                        Uploading file (0%)...
+                    </div>
+                    <div id="project-boq-import-filename" class="text-muted" style="font-size: 12px; word-break: break-all;">
+                    </div>
+                </div>
+                <div class="progress" style="height: 22px; border-radius: 11px; background-color: #f0f2f5; margin-bottom: 12px; overflow: hidden; box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);">
+                    <div id="project-boq-import-progress-bar"
+                         class="progress-bar progress-bar-primary progress-bar-striped active"
+                         role="progressbar"
+                         aria-valuenow="0"
+                         aria-valuemin="0"
+                         aria-valuemax="100"
+                         style="width: 0%; font-size: 12px; line-height: 22px; font-weight: 600; transition: width 0.3s ease;">
+                        0%
+                    </div>
+                </div>
+                <p class="text-center text-muted" style="font-size: 12px; margin-bottom: 0;">
+                    <i class="fa-regular fa-clock tw-mr-1"></i>
+                    <span id="project-boq-import-hint">Please keep this window open while the file is processed.</span>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+#project-boq-table th,
+#project-boq-table td {
+    vertical-align: middle !important;
+    overflow-wrap: break-word !important;
+    word-wrap: break-word !important;
+    word-break: break-word !important;
+}
+#project-boq-table .project-boq-item-label {
+    white-space: normal !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+    line-height: 1.4 !important;
+    font-weight: 500;
+}
+</style>
+
 <script>
 var projectBoqLang = <?= json_encode([
     'confirm_delete' => _l('confirm_action_prompt'),

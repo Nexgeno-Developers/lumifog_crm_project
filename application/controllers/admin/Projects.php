@@ -339,7 +339,7 @@ class Projects extends AdminController
                 }
                 $this->app_scripts->add(
                     'project-boq-js',
-                    module_dir_url('boq', 'assets/js/project_boq.js') . '?v=' . $this->app_scripts->core_version(),
+                    module_dir_url('boq', 'assets/js/project_boq.js') . '?v=' . (file_exists(module_dir_path('boq', 'assets/js/project_boq.js')) ? filemtime(module_dir_path('boq', 'assets/js/project_boq.js')) : $this->app_scripts->core_version()),
                     'admin',
                     ['app-js']
                 );
