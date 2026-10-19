@@ -38,43 +38,62 @@ $items_grouped  = isset($boq_items_grouped) ? $boq_items_grouped : [];
             <?= _l('project_boq_download_template'); ?>
         </a>
         <?php } ?>
+        <?php
+        $revised_count = 0;
+        foreach ($boq_items as $bItem) {
+            $bPlan = (float) ($bItem['planned_qty'] ?? 0);
+            $bOrd  = (isset($bItem['order_quantity']) && (float) $bItem['order_quantity'] > 0) ? (float) $bItem['order_quantity'] : $bPlan;
+            $bRev  = (float) ($bItem['_revised_for_display'] ?? $bItem['revised_qty'] ?? $bOrd);
+            if (abs($bRev - $bOrd) > 0.0001) {
+                $revised_count++;
+            }
+        }
+        ?>
+        <span id="project-boq-revised-summary" class="label label-warning" style="display: <?= $revised_count > 0 ? 'inline-flex' : 'none'; ?>; align-items: center; gap: 5px; font-size: 12px; padding: 6px 11px; border-radius: 4px; vertical-align: middle; background-color: #fef3c7; color: #b45309; border: 1px solid #fcd34d; font-weight: 600; margin-left: 6px;">
+            <i class="fa-solid fa-arrows-rotate"></i>
+            <span class="boq-revised-count-text">
+                <?= sprintf($revised_count === 1 ? _l('project_boq_items_revised_summary') : _l('project_boq_items_revised_summary_plural'), $revised_count); ?>
+            </span>
+        </span>
     </div>
 
     <div class="panel_s">
         <div class="panel-body">
-            <div class="table-responsive" style="overflow-x:auto;">
-                <table class="table table-bordered table-hover" id="project-boq-table" style="min-width:2200px; white-space:nowrap;">
+            <div class="table-responsive project-boq-table-responsive" style="overflow-x:auto;">
+                <table class="table table-bordered table-hover" id="project-boq-table" style="table-layout:fixed; width:3090px; min-width:3090px;">
                     <thead>
                         <tr>
                             <?php if ($can_view_items) { ?>
-                            <th class="text-center" style="width:40px;">
+                            <th class="text-center col-boq-check" style="width:45px;">
                                 <input type="checkbox" id="project-boq-check-all" aria-label="<?= e(_l('project_boq_select_rows')); ?>">
                             </th>
                             <?php } ?>
-                            <th><?= _l('project_boq_item'); ?></th>
-                            <th class="text-right"><?= _l('project_boq_planned_qty'); ?></th>
-                            <th class="text-right"><?= _l('project_boq_revised_qty'); ?></th>
-                            <th><?= _l('project_boq_internal_ref_no'); ?></th>
-                            <th><?= _l('project_boq_client_ref_no'); ?></th>
-                            <th><?= _l('project_boq_unit'); ?></th>
-                            <th class="text-right"><?= _l('project_boq_supply_rate'); ?></th>
-                            <th class="text-right"><?= _l('project_boq_itc_rate'); ?></th>
-                            <th class="text-right"><?= _l('project_boq_supply_amount'); ?></th>
-                            <th class="text-right"><?= _l('project_boq_itc_amount'); ?></th>
-                            <th class="text-right"><?= _l('project_boq_tax_rate'); ?></th>
-                            <th class="text-center"><?= _l('project_boq_summary_item'); ?></th>
-                            <th class="boq-internal-col"><?= _l('project_boq_internal_client_ref_no'); ?></th>
-                            <th class="boq-internal-col"><?= _l('project_boq_internal_description'); ?></th>
-                            <th class="boq-internal-col"><?= _l('project_boq_internal_unit'); ?></th>
-                            <th class="text-right boq-internal-col"><?= _l('project_boq_internal_quantity'); ?></th>
-                            <th class="text-right boq-internal-col"><?= _l('project_boq_internal_material_rate'); ?></th>
-                            <th class="text-right boq-internal-col"><?= _l('project_boq_internal_labour_rate'); ?></th>
-                            <th class="text-right boq-internal-col"><?= _l('project_boq_internal_supply_amount'); ?></th>
-                            <th class="text-right boq-internal-col"><?= _l('project_boq_internal_itc_amount'); ?></th>
-                            <th class="text-right"><?= _l('project_boq_purchased_qty'); ?></th>
-                            <th class="text-right"><?= _l('project_boq_remaining_qty'); ?></th>
-                            <?php if ($can_edit_boq && $can_view_items) { ?>
-                            <th width="11%"><?= _l('options'); ?></th>
+                            <th class="col-boq-internal-ref" style="width:115px;"><?= _l('project_boq_internal_ref_no'); ?></th>
+                            <th class="col-boq-client-ref" style="width:115px;"><?= _l('project_boq_client_ref_no'); ?></th>
+                            <th class="text-center col-boq-crm-item-id" style="width:90px;"><?= _l('project_boq_crm_item_id'); ?></th>
+                            <th class="col-boq-item" style="width:220px;"><?= _l('project_boq_crm_item'); ?></th>
+                            <th class="col-boq-desc" style="width:240px;"><?= _l('project_boq_description'); ?></th>
+                            <th class="col-boq-unit" style="width:85px;"><?= _l('project_boq_unit'); ?></th>
+                            <th class="text-right col-boq-order-qty" style="width:110px;"><?= _l('project_boq_order_quantity'); ?></th>
+                            <th class="text-right col-boq-supply-rate" style="width:110px;"><?= _l('project_boq_supply_rate'); ?></th>
+                            <th class="text-right col-boq-itc-rate" style="width:100px;"><?= _l('project_boq_itc_rate'); ?></th>
+                            <th class="text-right col-boq-supply-amount" style="width:125px;"><?= _l('project_boq_supply_amount'); ?></th>
+                            <th class="text-right col-boq-itc-amount" style="width:125px;"><?= _l('project_boq_itc_amount'); ?></th>
+                            <th class="text-right col-boq-tax-rate" style="width:85px;"><?= _l('project_boq_tax_rate'); ?></th>
+                            <th class="text-center col-boq-summary" style="width:95px;"><?= _l('project_boq_summary_item'); ?></th>
+                            <th class="boq-internal-col col-boq-int-client-ref" style="width:115px;"><?= _l('project_boq_internal_client_ref_no'); ?></th>
+                            <th class="boq-internal-col col-boq-int-desc" style="width:220px;"><?= _l('project_boq_internal_description'); ?></th>
+                            <th class="boq-internal-col col-boq-int-unit" style="width:85px;"><?= _l('project_boq_internal_unit'); ?></th>
+                            <th class="text-right boq-internal-col col-boq-int-qty" style="width:105px;"><?= _l('project_boq_internal_quantity'); ?></th>
+                            <th class="text-right boq-internal-col col-boq-int-mat-rate" style="width:110px;"><?= _l('project_boq_internal_material_rate'); ?></th>
+                            <th class="text-right boq-internal-col col-boq-int-lab-rate" style="width:110px;"><?= _l('project_boq_internal_labour_rate'); ?></th>
+                            <th class="text-right boq-internal-col col-boq-int-supply-amt" style="width:125px;"><?= _l('project_boq_internal_supply_amount'); ?></th>
+                            <th class="text-right boq-internal-col col-boq-int-itc-amt" style="width:125px;"><?= _l('project_boq_internal_itc_amount'); ?></th>
+                            <th class="text-right col-boq-purchased" style="width:110px;"><?= _l('project_boq_purchased_qty'); ?></th>
+                            <th class="text-right col-boq-remaining" style="width:110px;"><?= _l('project_boq_remaining_qty'); ?></th>
+                            <th class="text-right col-boq-revised" style="width:110px;"><?= _l('project_boq_revised_qty'); ?></th>
+                            <?php if ($can_view_items) { ?>
+                            <th class="text-center col-boq-options" style="width:90px;"><?= _l('options'); ?></th>
                             <?php } ?>
                         </tr>
                     </thead>
@@ -95,7 +114,50 @@ $items_grouped  = isset($boq_items_grouped) ? $boq_items_grouped : [];
         </div>
     </div>
 
+    <!-- Floating / Sticky Horizontal Scrollbar (Excel-like bottom bar) -->
+    <div id="project-boq-floating-scroll" style="display: none; position: fixed; bottom: 0; z-index: 999; height: 16px; overflow-x: auto; overflow-y: hidden; background: #f8fafc; border-top: 1px solid #cbd5e1; box-shadow: 0 -4px 12px rgba(0,0,0,0.15);">
+        <div id="project-boq-floating-scroll-inner" style="height: 1px; width: 3090px;"></div>
+    </div>
+
     <style>
+    /* Excel-style Floating Horizontal Scrollbar */
+    #project-boq-floating-scroll,
+    .project-boq-table-responsive {
+        scrollbar-width: thin;
+        scrollbar-color: #94a3b8 #f1f5f9;
+    }
+    #project-boq-floating-scroll::-webkit-scrollbar,
+    .project-boq-table-responsive::-webkit-scrollbar {
+        height: 14px !important;
+    }
+    #project-boq-floating-scroll::-webkit-scrollbar-track,
+    .project-boq-table-responsive::-webkit-scrollbar-track {
+        background: #f1f5f9 !important;
+        border-radius: 4px;
+    }
+    #project-boq-floating-scroll::-webkit-scrollbar-thumb,
+    .project-boq-table-responsive::-webkit-scrollbar-thumb {
+        background: #94a3b8 !important;
+        border-radius: 4px;
+        border: 2px solid #f1f5f9 !important;
+    }
+    #project-boq-floating-scroll::-webkit-scrollbar-thumb:hover,
+    .project-boq-table-responsive::-webkit-scrollbar-thumb:hover {
+        background: #64748b !important;
+    }
+    #project-boq-table {
+        table-layout: fixed !important;
+        width: 3090px !important;
+        min-width: 3090px !important;
+        margin-bottom: 0 !important;
+    }
+    #project-boq-table th,
+    #project-boq-table td {
+        vertical-align: middle !important;
+        overflow-wrap: break-word !important;
+        word-wrap: break-word !important;
+        word-break: break-word !important;
+    }
     #project-boq-table.table > thead > tr > th {
         background-color: #2c3e50 !important;
         color: #ffffff !important;
@@ -105,7 +167,9 @@ $items_grouped  = isset($boq_items_grouped) ? $boq_items_grouped : [];
         font-size: 11px;
         letter-spacing: 0.5px;
         padding: 10px 8px;
-        white-space: nowrap;
+        white-space: normal !important;
+        vertical-align: middle !important;
+        line-height: 1.3 !important;
     }
     #project-boq-table thead th .selectpicker {
         background-color: #34495e;
@@ -125,6 +189,59 @@ $items_grouped  = isset($boq_items_grouped) ? $boq_items_grouped : [];
     }
     #project-boq-table .boq-internal-col:first-child {
         border-left: none;
+    }
+    #project-boq-table td {
+        padding: 8px 10px !important;
+        white-space: normal !important;
+        font-size: 13px !important;
+        line-height: 1.4 !important;
+    }
+    #project-boq-table td.text-right {
+        white-space: nowrap !important;
+    }
+    #project-boq-table .project-boq-item-label {
+        white-space: normal !important;
+        word-break: break-word !important;
+        overflow-wrap: break-word !important;
+        line-height: 1.4 !important;
+        font-weight: 500;
+    }
+    #project-boq-table .project-boq-desc-cell {
+        white-space: normal !important;
+        word-break: break-word !important;
+        overflow-wrap: break-word !important;
+        line-height: 1.4 !important;
+    }
+    #project-boq-table .project-boq-internal-desc-cell {
+        white-space: normal !important;
+        word-break: break-word !important;
+        overflow-wrap: break-word !important;
+        line-height: 1.4 !important;
+    }
+    #project-boq-table tr.boq-row-revised {
+        background-color: #fffdf5 !important;
+    }
+    #project-boq-table tr.boq-row-revised:hover {
+        background-color: #fef9c3 !important;
+    }
+    #project-boq-table tr.boq-row-revised > td:first-child {
+        border-left: 4px solid #f59e0b !important;
+    }
+    #project-boq-table td.boq-revised-cell-highlight {
+        background-color: #fef9c3 !important;
+    }
+    .boq-revised-chip,
+    .boq-revised-subbadge {
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        white-space: nowrap;
+    }
+    #project-boq-table th.col-boq-revised,
+    #project-boq-table td.project-boq-revised-cell {
+        width: 110px !important;
+        min-width: 110px !important;
+        max-width: 110px !important;
+        white-space: nowrap !important;
+        box-sizing: border-box !important;
     }
     </style>
 
@@ -426,14 +543,55 @@ $items_grouped  = isset($boq_items_grouped) ? $boq_items_grouped : [];
 </div>
 <?php } ?>
 
+<div class="modal fade" id="project_boq_import_progress_modal" tabindex="-1" role="dialog" data-backdrop="static" data-keyboard="false">
+    <div class="modal-dialog" role="document" style="max-width: 480px; margin-top: 15vh;">
+        <div class="modal-content" style="border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.25);">
+            <div class="modal-header" style="border-bottom: 1px solid #eef2f5; padding: 15px 20px;">
+                <h4 class="modal-title" style="font-weight: 600; font-size: 16px; margin: 0; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-cloud-arrow-up text-primary"></i>
+                    <span><?= _l('project_boq_import_csv'); ?></span>
+                </h4>
+            </div>
+            <div class="modal-body" style="padding: 24px 20px;">
+                <div class="text-center" style="margin-bottom: 16px;">
+                    <div id="project-boq-import-status" style="font-size: 14px; font-weight: 500; color: #333; margin-bottom: 6px;">
+                        Uploading file (0%)...
+                    </div>
+                    <div id="project-boq-import-filename" class="text-muted" style="font-size: 12px; word-break: break-all;">
+                    </div>
+                </div>
+                <div class="progress" style="height: 22px; border-radius: 11px; background-color: #f0f2f5; margin-bottom: 12px; overflow: hidden; box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);">
+                    <div id="project-boq-import-progress-bar"
+                         class="progress-bar progress-bar-primary progress-bar-striped active"
+                         role="progressbar"
+                         aria-valuenow="0"
+                         aria-valuemin="0"
+                         aria-valuemax="100"
+                         style="width: 0%; font-size: 12px; line-height: 22px; font-weight: 600; transition: width 0.3s ease;">
+                        0%
+                    </div>
+                </div>
+                <p class="text-center text-muted" style="font-size: 12px; margin-bottom: 0;">
+                    <i class="fa-regular fa-clock tw-mr-1"></i>
+                    <span id="project-boq-import-hint">Please keep this window open while the file is processed.</span>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 var projectBoqLang = <?= json_encode([
-    'confirm_delete'      => _l('confirm_action_prompt'),
-    'add_title'           => _l('project_boq_add_line'),
-    'edit_title'          => _l('project_boq_edit_line'),
-    'select_at_least_one' => _l('project_boq_select_at_least_one_line'),
-    'review_notes'        => _l('project_boq_review_notes'),
-    'request_edit'        => _l('project_boq_request_edit'),
-    'request_add_item'    => _l('project_boq_request_add_item'),
+    'confirm_delete'              => _l('confirm_action_prompt'),
+    'add_title'                   => _l('project_boq_add_line'),
+    'edit_title'                  => _l('project_boq_edit_line'),
+    'select_at_least_one'         => _l('project_boq_select_at_least_one_line'),
+    'review_notes'                => _l('project_boq_review_notes'),
+    'request_edit'                => _l('project_boq_request_edit'),
+    'request_add_item'            => _l('project_boq_request_add_item'),
+    'revised_badge'               => _l('project_boq_revised_badge'),
+    'revised_tooltip'             => _l('project_boq_revised_tooltip'),
+    'items_revised_summary'        => _l('project_boq_items_revised_summary'),
+    'items_revised_summary_plural' => _l('project_boq_items_revised_summary_plural'),
 ]); ?>;
 </script>
