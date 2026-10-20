@@ -20,6 +20,32 @@
     var second_attendance = $('input[name="second_attendance"]').val();
     server_time(hour_attendance, minute_attendance, second_attendance);
     get_route_point();
+
+    // Fast pre-fetch: if geolocation permission was previously granted, begin acquiring coordinates immediately
+    var locFlag = $('input[name="enable_get_location"]').val();
+    if (locFlag == '1' || locFlag == true || locFlag == 'true') {
+      if (navigator.permissions && navigator.permissions.query) {
+        try {
+          navigator.permissions.query({ name: 'geolocation' }).then(function (result) {
+            if (result.state === 'granted') {
+              ts_request_location();
+            }
+          });
+        } catch (e) {}
+      }
+    }
+  });
+
+  // Reset modal state if closed
+  $(document).on('hidden.bs.modal', '#clock_attendance_modal', function () {
+    ts_submitting = false;
+    $('#clock_attendance_modal .bottom_co_btn button').each(function () {
+      var orig = $(this).data('original-html');
+      if (orig) {
+        $(this).html(orig);
+      }
+      $(this).prop('disabled', false);
+    });
   });
 })(jQuery);
 var html_progress = '<div class="text-center">';
@@ -44,19 +70,20 @@ function setDate(hour, minute, second) {
  */
 function open_check_in_out() {
   "use strict";
-  if ($('input[name="enable_get_location"]').val() == true) {
-    getLocation();
+  var locFlag = $('input[name="enable_get_location"]').val();
+  if (locFlag == '1' || locFlag == true || locFlag == 'true') {
+    ts_request_location();
   }
   $("#clock_attendance_modal .curr_date .form-group").slideUp(1);
   $('#clock_attendance_modal').modal('show');
   appValidateForm($('#timesheets-form-check-in'), {
     staff_id: 'required',
     date: 'required'
-  })
+  }, handle_attendance_submit);
   appValidateForm($('#timesheets-form-check-out'), {
     staff_id: 'required',
     date: 'required'
-  })
+  }, handle_attendance_submit);
   $(".btn-close-edit-datetime").click();
 }
 /**
@@ -173,32 +200,231 @@ function get_route_point() {
     });
   }
 }
+var ts_geo_promise = null;
+var ts_geo_status = 'idle'; // 'idle' | 'fetching' | 'ready' | 'error'
+var ts_geo_coords = null;
+var ts_geo_error = null;
+var ts_submitting = false;
+
+/**
+ * Request or return user's geolocation promise
+ * @param {boolean} forceFresh
+ * @returns {Promise}
+ */
+function ts_request_location(forceFresh) {
+  "use strict";
+  if (!forceFresh && ts_geo_status === 'ready' && ts_geo_coords) {
+    return Promise.resolve(ts_geo_coords);
+  }
+
+  if (!forceFresh && ts_geo_status === 'fetching' && ts_geo_promise) {
+    return ts_geo_promise;
+  }
+
+  var $indicator = $('#ts_location_indicator');
+  var $alert = $('#ts_location_alert');
+
+  if ($indicator.length) {
+    $indicator.removeClass('hide')
+      .css('background-color', '#eff6ff').css('color', '#1d4ed8')
+      .html('<i class="fa fa-spinner fa-spin text-info"></i> <span>Detecting location...</span>');
+    $alert.addClass('hide').html('');
+  }
+
+  ts_geo_status = 'fetching';
+  ts_geo_promise = new Promise(function (resolve, reject) {
+    if (!navigator.geolocation) {
+      ts_geo_status = 'error';
+      ts_geo_error = { code: 0, message: 'Geolocation is not supported by your browser.' };
+      if ($indicator.length) {
+        $indicator.removeClass('hide')
+          .css('background-color', '#fef2f2').css('color', '#991b1b')
+          .html('<i class="fa fa-exclamation-triangle text-danger"></i> <span>Geolocation unsupported</span>');
+      }
+      reject(ts_geo_error);
+      return;
+    }
+
+    var geoOptions = {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 60000
+    };
+
+    navigator.geolocation.getCurrentPosition(
+      function (position) {
+        var lat = position.coords.latitude;
+        var lng = position.coords.longitude;
+        ts_geo_coords = { lat: lat, lng: lng };
+        ts_geo_status = 'ready';
+        ts_geo_error = null;
+
+        // Populate modal hidden coordinates
+        $('#clock_attendance_modal input[name="location_user"]').val(lat + ',' + lng);
+
+        // Update status badge
+        if ($indicator.length) {
+          $indicator.removeClass('hide')
+            .css('background-color', '#f0fdf4').css('color', '#166534')
+            .html('<i class="fa fa-check-circle text-success"></i> <span>Location ready</span>');
+          $alert.addClass('hide');
+        }
+
+        try {
+          sessionStorage.setItem('ts_cached_lat', lat);
+          sessionStorage.setItem('ts_cached_lng', lng);
+          sessionStorage.setItem('ts_cached_time', Date.now());
+        } catch (e) {}
+
+        get_route_point();
+        resolve(ts_geo_coords);
+      },
+      function (err) {
+        ts_geo_status = 'error';
+        ts_geo_error = err;
+
+        var message = 'Unable to retrieve location.';
+        var advice = 'Please ensure device location is enabled.';
+        if (err.code === 1) {
+          message = 'Location permission denied.';
+          advice = 'Please allow location permissions in your browser address bar (lock/tune icon) to take attendance.';
+        } else if (err.code === 2) {
+          message = 'Location signal unavailable.';
+          advice = 'Please make sure your GPS / Wi-Fi location is turned on in your device settings.';
+        } else if (err.code === 3) {
+          message = 'Location request timed out.';
+          advice = 'Securing location took too long. Please check your network and try again.';
+        }
+
+        if ($indicator.length) {
+          $indicator.removeClass('hide')
+            .css('background-color', '#fef2f2').css('color', '#991b1b')
+            .html('<i class="fa fa-exclamation-triangle text-danger"></i> <span>' + message + '</span>');
+          $alert.removeClass('hide').html('<i class="fa fa-info-circle"></i> ' + advice);
+        }
+
+        reject(err);
+      },
+      geoOptions
+    );
+  });
+
+  return ts_geo_promise;
+}
+
+/**
+ * Backward compatibility for existing calls
+ */
+function getLocation() {
+  return ts_request_location();
+}
+
+/**
+ * Intercept and handle attendance submit on the first click
+ * @param {HTMLFormElement} form
+ * @returns {boolean}
+ */
+function handle_attendance_submit(form) {
+  "use strict";
+  if (ts_submitting) {
+    return false;
+  }
+
+  var $form = $(form);
+  var $btn = $form.find('button[type="submit"], .check_in, .check_out');
+  var isCheckIn = ($form.attr('id') === 'timesheets-form-check-in');
+  var actionText = isCheckIn ? 'Checking in...' : 'Checking out...';
+
+  // Cache initial button HTML
+  if (!$btn.data('original-html')) {
+    $btn.data('original-html', $btn.html());
+  }
+  var originalHtml = $btn.data('original-html');
+
+  // Check form validation
+  if (typeof $form.valid === 'function') {
+    if (!$form.valid()) {
+      return false;
+    }
+  }
+
+  var locationFlag = $('input[name="enable_get_location"]').val();
+  var locationRequired = (locationFlag == '1' || locationFlag == true || locationFlag == 'true');
+
+  function finalizeAndSubmit() {
+    ts_submitting = true;
+    get_data();
+    $btn.html('<i class="fa fa-spinner fa-spin"></i> ' + actionText);
+    $('#clock_attendance_modal .bottom_co_btn button').prop('disabled', true);
+    // Submit native form DOM directly to bypass validation recursion
+    form.submit();
+  }
+
+  function restoreButtons() {
+    ts_submitting = false;
+    $('#clock_attendance_modal .bottom_co_btn button').prop('disabled', false);
+    $btn.html(originalHtml);
+  }
+
+  if (!locationRequired) {
+    finalizeAndSubmit();
+    return false;
+  }
+
+  // Check if location is already stored
+  var currentLoc = $form.find('input[name="location_user"]').val();
+  if (!currentLoc) {
+    currentLoc = $('#clock_attendance_modal input[name="location_user"]').val();
+  }
+
+  if (currentLoc && currentLoc.indexOf(',') !== -1) {
+    var parts = currentLoc.split(',');
+    if (parts[0] && parts[1]) {
+      $form.find('input[name="location_user"]').val(currentLoc);
+      finalizeAndSubmit();
+      return false;
+    }
+  }
+
+  // Location not ready yet -> Show animated spinner on button and await location
+  $btn.html('<i class="fa fa-spinner fa-spin"></i> Fetching location...');
+  $('#clock_attendance_modal .bottom_co_btn button').prop('disabled', true);
+
+  var $indicator = $('#ts_location_indicator');
+  if ($indicator.length) {
+    $indicator.removeClass('hide')
+      .css('background-color', '#eff6ff').css('color', '#1d4ed8')
+      .html('<i class="fa fa-spinner fa-spin text-info"></i> <span>Securing GPS coordinates...</span>');
+  }
+
+  ts_request_location().then(function (coords) {
+    $form.find('input[name="location_user"]').val(coords.lat + ',' + coords.lng);
+    $('#clock_attendance_modal input[name="location_user"]').val(coords.lat + ',' + coords.lng);
+    finalizeAndSubmit();
+  }).catch(function (err) {
+    restoreButtons();
+    var errText = 'Location access is required to take attendance. Please allow location access in your browser.';
+    if (err && err.code === 1) {
+      errText = 'Location permission was denied. Tap the lock icon next to the website address in your browser, allow Location access, and try again.';
+    } else if (err && err.code === 2) {
+      errText = 'Unable to detect your device location. Please ensure location services are enabled on your device.';
+    } else if (err && err.code === 3) {
+      errText = 'Location request timed out. Please check your network and try again.';
+    }
+    if (typeof alert_float === 'function') {
+      alert_float('danger', errText);
+    } else {
+      alert(errText);
+    }
+  });
+
+  return false;
+}
+
 function get_data() {
   "use strict";
   var route_point = $('#route_point').val();
   $('input[name="point_id"]').val(route_point);
-  $('#timesheets-form-check-in .check_in').attr('disabled', 'disabled');
-  $('#timesheets-form-check-out .check_out').attr('disabled', 'disabled');
-}
-
-function getLocation() {
-  "use strict";
-  function success(position) {
-    const latitude = position.coords.latitude;
-    const longitude = position.coords.longitude;
-    $('#clock_attendance_modal input[name="location_user"]').val(latitude + ',' + longitude);
-    get_route_point();
-  }
-
-  function error() {
-    alert('Unable to retrieve your location');
-  }
-
-  if (!navigator.geolocation) {
-    alert('Geolocation is not supported by your browser');
-  } else {
-    navigator.geolocation.getCurrentPosition(success, error);
-  }
 }
 
 /**
