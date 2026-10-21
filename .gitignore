@@ -32,5 +32,7 @@ error_log
 # Local KPI module notes (not for repo)
 modules/kpi_management/KPI_RECONCILE_GUIDE.txt
 
-# Agents
-.agents/*
+# AI Agents & Team Standards (ALWAYS TRACKED)
+!.agents/
+!.agents/**
+!AGENTS.md
