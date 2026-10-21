@@ -42,8 +42,6 @@ function reminder_module_init_menu_items()
     
     // Show main menu if user has at least one permission
     if (has_permission('reminder_amc', '', 'view') || 
-        has_permission('reminder_anniversary', '', 'view') || 
-        has_permission('reminder_birthday', '', 'view') || 
         has_permission('reminder_settings', '', 'view')) {
         
         $CI->app_menu->add_sidebar_menu_item('reminder', [
@@ -63,6 +61,8 @@ function reminder_module_init_menu_items()
             ]);
         }
 
+        // Anniversary and Birthday sub-menus hidden as requested
+        /*
         if (has_permission('reminder_anniversary', '', 'view')) {
             $CI->app_menu->add_sidebar_children_item('reminder', [
                 'slug'     => 'reminder-anniversary',
@@ -82,6 +82,7 @@ function reminder_module_init_menu_items()
                 'position' => 3,
             ]);
         }
+        */
 
         if (has_permission('reminder_settings', '', 'view')) {
             $CI->app_menu->add_sidebar_children_item('reminder', [
@@ -89,7 +90,7 @@ function reminder_module_init_menu_items()
                 'name'     => _l('settings'),
                 'icon'     => 'fa fa-cog',
                 'href'     => admin_url('reminder/settings'),
-                'position' => 4,
+                'position' => 2,
             ]);
         }
     }
