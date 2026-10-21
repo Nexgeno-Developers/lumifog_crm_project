@@ -252,6 +252,20 @@ class Project_boq_model extends App_Model
         return $this->db->get()->result_array();
     }
 
+    public function get_pending_requests_by_staff($project_id, $staff_id)
+    {
+        if (!$this->db->table_exists(db_prefix() . 'project_boq_edit_requests')) {
+            return [];
+        }
+        $this->db->select('*');
+        $this->db->from(db_prefix() . 'project_boq_edit_requests');
+        $this->db->where('project_id', (int) $project_id);
+        $this->db->where('requested_by', (int) $staff_id);
+        $this->db->where('status', 'pending');
+        $this->db->order_by('created_at', 'asc');
+        return $this->db->get()->result_array();
+    }
+
     public function process_edit_request($request_id, $status, $review_notes = '')
     {
         $request = $this->db->select('*')
@@ -279,11 +293,13 @@ class Project_boq_model extends App_Model
                 $new_data['is_manual_added'] = 1;
                 $this->merge_or_add_row($request->project_id, $new_data['item_id'], $new_data);
             } elseif ($request->request_type === 'change_qty') {
+                $revised_qty = isset($new_data['revised_qty']) ? (float)$new_data['revised_qty'] : (float)($new_data['order_quantity'] ?? 0);
+                $update_fields = [
+                    'revised_qty' => $revised_qty,
+                    'updated_at'  => date('Y-m-d H:i:s'),
+                ];
                 $this->db->where('id', (int) $request->boq_item_id);
-                $this->db->update(db_prefix() . 'project_boq_items', [
-                    'order_quantity' => (float) $new_data['order_quantity'],
-                    'updated_at'     => date('Y-m-d H:i:s'),
-                ]);
+                $this->db->update(db_prefix() . 'project_boq_items', $update_fields);
             }
         }
 

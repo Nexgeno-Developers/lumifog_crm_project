@@ -3,7 +3,11 @@
 $row            = $row ?? [];
 $can_edit_boq   = ! empty($can_edit_boq);
 $can_view_items = ! empty($can_view_items);
+$can_revise_boq = ! empty($can_revise_boq) || $can_edit_boq;
+$pending_revisions = $pending_revisions ?? [];
 $id             = (int) ($row['id'] ?? 0);
+$hasPendingRev  = isset($pending_revisions[$id]);
+$pendingRevQty  = $hasPendingRev ? (float)$pending_revisions[$id] : null;
 $planned        = (float) ($row['planned_qty'] ?? 0);
 $orderQty       = (isset($row['order_quantity']) && (float) $row['order_quantity'] > 0) ? (float) $row['order_quantity'] : $planned;
 $revised        = (float) ($row['_revised_for_display'] ?? $row['revised_qty'] ?? $orderQty);
@@ -119,8 +123,15 @@ if ($isManual) {
             (<?= e($diffFormatted); ?>)
         </div>
         <?php } ?>
+        <?php if ($hasPendingRev) { ?>
+        <div class="boq-pending-revision-badge" style="margin-top: 3px;">
+            <span class="label label-warning" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a; font-size:10px; font-weight:600; padding:1px 4px; display:inline-block;" title="<?= _l('project_boq_pending_approval_badge'); ?>">
+                <i class="fa fa-clock-o"></i> <?= _l('pending'); ?>: <?= app_format_number($pendingRevQty); ?>
+            </span>
+        </div>
+        <?php } ?>
     </td>
-    <?php if ($can_edit_boq && $can_view_items) { ?>
+    <?php if ($can_revise_boq && $can_view_items) { ?>
     <td class="text-center">
         <a href="#"
             class="btn btn-default btn-icon project-boq-edit"
@@ -133,24 +144,14 @@ if ($isManual) {
             title="<?= _l('edit'); ?>">
             <i class="fa-regular fa-pen-to-square"></i>
         </a>
+        <?php if ($can_edit_boq) { ?>
         <a href="#"
             class="btn btn-danger btn-icon project-boq-delete"
             data-boq-id="<?= e($id); ?>"
             title="<?= _l('delete'); ?>">
             <i class="fa-regular fa-trash-can"></i>
         </a>
-    </td>
-    <?php } elseif ($can_view_items) { ?>
-    <td class="text-center">
-        <button type="button"
-            class="btn btn-default btn-icon project-boq-request-edit"
-            data-boq-id="<?= e($id); ?>"
-            data-item-id="<?= (int) ($row['item_id'] ?? 0); ?>"
-            data-planned="<?= e($orderQty); ?>"
-            data-revised="<?= e($revised); ?>"
-            title="<?= _l('project_boq_request_edit'); ?>">
-            <i class="fa-regular fa-pen-to-square"></i>
-        </button>
+        <?php } ?>
     </td>
     <?php } ?>
 </tr>

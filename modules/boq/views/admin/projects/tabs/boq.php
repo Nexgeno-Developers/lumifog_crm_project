@@ -1,9 +1,13 @@
 <?php defined('BASEPATH') or exit('No direct script access allowed');
 
-$can_edit_boq   = isset($can_edit_boq) ? $can_edit_boq : false;
-$can_view_items = isset($can_view_items) ? $can_view_items : false;
-$boq_items      = isset($boq_items) ? $boq_items : [];
-$items_grouped  = isset($boq_items_grouped) ? $boq_items_grouped : [];
+$can_edit_boq      = isset($can_edit_boq) ? $can_edit_boq : false;
+$can_view_items    = isset($can_view_items) ? $can_view_items : false;
+$boq_items         = isset($boq_items) ? $boq_items : [];
+$items_grouped     = isset($boq_items_grouped) ? $boq_items_grouped : [];
+$can_approve_boq   = !empty($can_approve_boq) || is_boq_approver();
+$is_project_member = !empty($is_project_member) || (isset($project) && $this->projects_model->is_member($project->id));
+$can_revise_boq    = $can_edit_boq || $is_project_member;
+$pending_revisions = $pending_revisions ?? [];
 ?>
 <div id="project-boq-wrapper" class="project-boq-tab" data-project-id="<?= (int) $project->id; ?>"
     data-can-edit="<?= $can_edit_boq ? '1' : '0'; ?>"
@@ -100,9 +104,11 @@ $items_grouped  = isset($boq_items_grouped) ? $boq_items_grouped : [];
                     <tbody id="project-boq-tbody">
                         <?php foreach ($boq_items as $row) {
                             $this->load->view('boq/admin/projects/tabs/_boq_row', [
-                                'row'            => $row,
-                                'can_edit_boq'   => $can_edit_boq,
-                                'can_view_items' => $can_view_items,
+                                'row'               => $row,
+                                'can_edit_boq'      => $can_edit_boq,
+                                'can_view_items'    => $can_view_items,
+                                'can_revise_boq'    => $can_revise_boq,
+                                'pending_revisions' => $pending_revisions,
                             ]);
                         } ?>
                     </tbody>
@@ -261,39 +267,69 @@ $items_grouped  = isset($boq_items_grouped) ? $boq_items_grouped : [];
     }
     </style>
 
-    <?php if (is_admin() && !empty($pending_requests)): ?>
+    <?php if (!empty($pending_requests)): ?>
     <div class="panel_s tw-mt-4">
-        <div class="panel-heading"><?= _l('project_boq_pending_requests'); ?></div>
+        <div class="panel-heading" style="font-weight: 600; display: flex; align-items: center; justify-content: space-between;">
+            <span><i class="fa-solid fa-clock-rotate-left tw-mr-1 text-warning"></i> <?= _l('project_boq_pending_requests'); ?> (<?= count($pending_requests); ?>)</span>
+        </div>
         <div class="panel-body">
-            <table class="table table-bordered">
+            <table class="table table-bordered table-striped">
                 <thead>
                     <tr>
                         <th><?= _l('project_boq_item'); ?></th>
                         <th><?= _l('project_boq_request_type'); ?></th>
+                        <th><?= _l('project_boq_requested_details'); ?></th>
                         <th><?= _l('project_boq_requested_by'); ?></th>
                         <th><?= _l('project_boq_request_date'); ?></th>
-                        <th><?= _l('options'); ?></th>
+                        <th class="text-center"><?= $can_approve_boq ? _l('options') : _l('status'); ?></th>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach ($pending_requests as $req): ?>
+                    <?php foreach ($pending_requests as $req): 
+                        $reqData = json_decode($req['new_data'] ?? '{}', true);
+                    ?>
                     <tr>
                         <td>
                             <?php if ($req['boq_item_id']): ?>
-                                <?= e(get_boq_item_description($req['boq_item_id'])); ?>
+                                <strong><?= e(get_boq_item_description($req['boq_item_id'])); ?></strong>
                             <?php else: ?>
-                                <?= _l('project_boq_new_item'); ?>
-                                (<?= e(json_decode($req['new_data'], true)['item_id'] ?? ''); ?>)
+                                <span class="label label-info"><?= _l('project_boq_new_item'); ?></span>
+                                (Item #<?= e($reqData['item_id'] ?? ''); ?>)
                             <?php endif; ?>
                         </td>
-                        <td><?= e(_l('project_boq_request_type_' . $req['request_type'])); ?></td>
+                        <td>
+                            <?php if ($req['request_type'] === 'change_qty'): ?>
+                                <span class="label label-warning"><?= _l('project_boq_request_type_change_qty'); ?></span>
+                            <?php else: ?>
+                                <span class="label label-success"><?= _l('project_boq_request_type_add_item'); ?></span>
+                            <?php endif; ?>
+                        </td>
+                        <td>
+                            <?php if ($req['request_type'] === 'change_qty' && $req['boq_item_id']): 
+                                $boqItem = $this->project_boq_model->get($req['boq_item_id']);
+                                $curQty = $boqItem ? (float)$boqItem->revised_qty : 0;
+                                $reqQty = (float)($reqData['revised_qty'] ?? $reqData['order_quantity'] ?? 0);
+                            ?>
+                                <span>Current: <strong><?= app_format_number($curQty); ?></strong> &rarr; Requested: <strong class="text-primary"><?= app_format_number($reqQty); ?></strong></span>
+                            <?php elseif ($req['request_type'] === 'add_item'): ?>
+                                <span>Qty: <strong><?= app_format_number($reqData['order_quantity'] ?? 0); ?></strong></span>
+                            <?php endif; ?>
+                        </td>
                         <td><?= e(get_staff_full_name($req['requested_by'])); ?></td>
                         <td><?= e(_dt($req['created_at'])); ?></td>
-                        <td>
-                            <button class="btn btn-sm btn-success boq-approve-request"
-                                    data-request-id="<?= e($req['id']); ?>"><?= _l('approve'); ?></button>
-                            <button class="btn btn-sm btn-danger boq-reject-request"
-                                    data-request-id="<?= e($req['id']); ?>"><?= _l('reject'); ?></button>
+                        <td class="text-center">
+                            <?php if ($can_approve_boq): ?>
+                            <button class="btn btn-xs btn-success boq-approve-request"
+                                    data-request-id="<?= e($req['id']); ?>">
+                                <i class="fa fa-check"></i> <?= _l('approve'); ?>
+                            </button>
+                            <button class="btn btn-xs btn-danger boq-reject-request"
+                                    data-request-id="<?= e($req['id']); ?>">
+                                <i class="fa fa-times"></i> <?= _l('reject'); ?>
+                            </button>
+                            <?php else: ?>
+                            <span class="label label-warning"><?= _l('pending'); ?></span>
+                            <?php endif; ?>
                         </td>
                     </tr>
                     <?php endforeach; ?>
@@ -304,7 +340,7 @@ $items_grouped  = isset($boq_items_grouped) ? $boq_items_grouped : [];
     <?php endif; ?>
 </div>
 
-<?php if ($can_edit_boq && $can_view_items) { ?>
+<?php if ($can_revise_boq && $can_view_items) { ?>
 <div class="modal fade" id="project_boq_modal" tabindex="-1" role="dialog">
     <div class="modal-dialog" role="document">
         <?= form_open('#', ['id' => 'project-boq-modal-form']); ?>
@@ -315,6 +351,9 @@ $items_grouped  = isset($boq_items_grouped) ? $boq_items_grouped : [];
                 <h4 class="modal-title" id="project-boq-modal-title"><?= _l('project_boq_add_line'); ?></h4>
             </div>
             <div class="modal-body">
+                <div class="alert alert-info" id="project-boq-modal-approval-notice" style="margin-bottom:12px; font-size:12px; padding:8px 12px; display:none;">
+                    <i class="fa fa-info-circle"></i> <?= _l('project_boq_revision_approval_notice'); ?>
+                </div>
                 <input type="hidden" name="boq_id" id="project-boq-modal-id" value="">
                 <div class="form-group">
                     <label for="project-boq-modal-item"><?= _l('project_boq_item'); ?></label>
@@ -629,6 +668,7 @@ $items_grouped  = isset($boq_items_grouped) ? $boq_items_grouped : [];
 </div>
 
 <script>
+var projectBoqCanApprove = <?= $can_approve_boq ? 'true' : 'false'; ?>;
 var projectBoqLang = <?= json_encode([
     'confirm_delete'              => _l('confirm_action_prompt'),
     'add_title'                   => _l('project_boq_add_line'),
@@ -641,5 +681,7 @@ var projectBoqLang = <?= json_encode([
     'revised_tooltip'             => _l('project_boq_revised_tooltip'),
     'items_revised_summary'        => _l('project_boq_items_revised_summary'),
     'items_revised_summary_plural' => _l('project_boq_items_revised_summary_plural'),
+    'pending'                     => _l('pending'),
+    'pending_approval_badge'      => _l('project_boq_pending_approval_badge'),
 ]); ?>;
 </script>
