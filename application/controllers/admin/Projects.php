@@ -329,14 +329,29 @@ class Projects extends AdminController
                 $data['boq_items_grouped'] = $this->invoice_items_model->get_grouped();
                 $data['can_edit_boq']      = staff_can('edit', 'projects');
                 $data['can_view_items']    = staff_can('view', 'items');
+                $data['is_project_member'] = $this->projects_model->is_member($id);
+                $data['can_approve_boq']   = is_boq_approver();
+                $data['can_revise_boq']    = $data['can_edit_boq'] || $data['is_project_member'];
                 $data['po_restriction_enabled'] = method_exists($this->project_boq_model, 'is_po_restriction_enabled')
                     ? $this->project_boq_model->is_po_restriction_enabled($id)
                     : true;
-                if (is_admin()) {
-                    $data['pending_requests'] = $this->project_boq_model->get_pending_requests($id);
+
+                $all_pending = $this->project_boq_model->get_pending_requests($id);
+                if ($data['can_approve_boq'] || is_admin()) {
+                    $data['pending_requests'] = $all_pending;
                 } else {
-                    $data['pending_requests'] = [];
+                    $data['pending_requests'] = $this->project_boq_model->get_pending_requests_by_staff($id, get_staff_user_id());
                 }
+
+                $pending_revisions = [];
+                foreach ($all_pending as $pr) {
+                    if ($pr['request_type'] === 'change_qty' && !empty($pr['boq_item_id'])) {
+                        $pdata = json_decode($pr['new_data'] ?? '{}', true);
+                        $pending_revisions[(int)$pr['boq_item_id']] = (float)($pdata['revised_qty'] ?? $pdata['order_quantity'] ?? 0);
+                    }
+                }
+                $data['pending_revisions'] = $pending_revisions;
+
                 $this->app_scripts->add(
                     'project-boq-js',
                     module_dir_url('boq', 'assets/js/project_boq.js') . '?v=' . (file_exists(module_dir_path('boq', 'assets/js/project_boq.js')) ? filemtime(module_dir_path('boq', 'assets/js/project_boq.js')) : $this->app_scripts->core_version()),

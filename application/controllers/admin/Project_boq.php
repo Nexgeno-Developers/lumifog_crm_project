@@ -211,7 +211,7 @@ class Project_boq extends AdminController
             exit;
         }
 
-        if (! $this->can_edit_project($project_id)) {
+        if (! $this->can_access_project($project_id)) {
             ajax_access_denied();
         }
 
@@ -228,6 +228,38 @@ class Project_boq extends AdminController
             $this->json_response(['success' => false, 'message' => _l('project_boq_invalid_item')]);
 
             exit;
+        }
+
+        $is_approver = is_boq_approver();
+
+        if (! $is_approver) {
+            $request_data = [
+                'project_id'   => $project_id,
+                'boq_item_id'  => $id,
+                'requested_by' => get_staff_user_id(),
+                'request_type' => 'change_qty',
+                'new_data'     => [
+                    'item_id'     => $item_id,
+                    'revised_qty' => $revised,
+                ],
+            ];
+
+            $request_id = $this->project_boq_model->add_edit_request($request_data);
+            if ($request_id) {
+                $this->notify_admins_boq_edit_request($request_id, $project_id, 'change_qty');
+
+                $this->json_response([
+                    'success'           => true,
+                    'approval_required' => true,
+                    'message'           => _l('project_boq_revision_submitted_for_approval'),
+                    'boq_id'            => $id,
+                    'revised_qty'       => $revised,
+                ]);
+                exit;
+            } else {
+                $this->json_response(['success' => false, 'message' => _l('something_went_wrong')]);
+                exit;
+            }
         }
 
         $data = ['revised_qty' => $revised];
@@ -780,7 +812,7 @@ class Project_boq extends AdminController
                 $this->json_response(['success' => false, 'message' => $validation]);
                 exit;
             }
-            $data['new_data'] = ['order_quantity' => $new_qty];
+            $data['new_data'] = ['revised_qty' => $new_qty];
         } elseif ($request_type === 'add_item') {
             $item_id   = (int) $this->input->post('item_id');
             $order_qty = $this->normalize_qty($this->input->post('order_quantity'));
@@ -857,7 +889,7 @@ class Project_boq extends AdminController
             show_404();
         }
 
-        if (! is_admin() && ! staff_can('purchase_order_change_approve_status', '', 'edit')) {
+        if (! is_boq_approver() && ! is_admin() && ! staff_can('purchase_order_change_approve_status', '', 'edit')) {
             ajax_access_denied();
         }
 
@@ -892,6 +924,7 @@ class Project_boq extends AdminController
         }
 
         $requester = $this->staff_model->get($request->requested_by);
+        $project   = $this->projects_model->get($project_id);
         $item_label = '';
         if ($request->boq_item_id) {
             $boq = $this->project_boq_model->get((int) $request->boq_item_id);
@@ -901,26 +934,50 @@ class Project_boq extends AdminController
             $item_label = _l('project_boq_new_item') . ' (Item #' . ($new_data['item_id'] ?? '') . ')';
         }
 
-        $message = _l(
-            'pur_boq_po_pending_approval_message',
-            $requester->firstname . ' ' . $requester->lastname,
-            $request_id,
-            $item_label
-        );
+        $requester_name = $requester ? ($requester->firstname . ' ' . $requester->lastname) : 'Staff';
+        $project_name   = $project ? $project->name : ('Project #' . $project_id);
 
-        $admins = $this->db->select('staffid, firstname, lastname, email')
+        if ($request_type === 'change_qty') {
+            $message = sprintf(_l('project_boq_revision_notification_admin'), $requester_name, $item_label, $project_name);
+        } else {
+            $message = _l(
+                'pur_boq_po_pending_approval_message',
+                $requester_name,
+                $request_id,
+                $item_label
+            );
+        }
+
+        $approver_ids = get_boq_approver_ids();
+        $this->db->select('staffid, firstname, lastname, email')
             ->from(db_prefix() . 'staff')
-            ->where('admin', 1)
             ->where('active', 1)
-            ->get()->result_array();
+            ->group_start()
+                ->where('admin', 1);
+        if (!empty($approver_ids)) {
+            $this->db->or_where_in('staffid', $approver_ids);
+        }
+        $this->db->group_end();
+        $notified_staff = $this->db->get()->result_array();
 
-        foreach ($admins as $admin) {
+        foreach ($notified_staff as $staff_member) {
             add_notification([
                 'description' => $message,
-                'touserid'    => $admin['staffid'],
-                'fromuserid'  => $requester->staffid,
+                'touserid'    => $staff_member['staffid'],
+                'fromuserid'  => $requester ? $requester->staffid : get_staff_user_id(),
                 'link'        => 'projects/view/' . $project_id . '?group=project_boq',
             ]);
+            try {
+                if (!empty($staff_member['email'])) {
+                    send_mail_template('boq_po_pending_approval', $staff_member['email'], $requester, [
+                        'message'      => $message,
+                        'pur_order_id' => $request_id,
+                        'item_names'   => $item_label,
+                    ]);
+                }
+            } catch (Throwable $e) {
+                log_message('error', 'BOQ revision email notification failed: ' . $e->getMessage());
+            }
         }
     }
 
@@ -935,11 +992,12 @@ class Project_boq extends AdminController
             return;
         }
 
+        $requester  = $this->staff_model->get($request->requested_by);
         $project    = $this->projects_model->get($request->project_id);
         $type_label = _l('project_boq_request_type_' . $request->request_type);
         $message    = _l(
             'project_boq_edit_request_notification',
-            $project->name,
+            $project ? $project->name : ('Project #' . $request->project_id),
             $type_label,
             _l('project_boq_edit_' . $status)
         );
@@ -950,6 +1008,19 @@ class Project_boq extends AdminController
             'fromuserid'  => get_staff_user_id(),
             'link'        => 'projects/view/' . $request->project_id . '?group=project_boq',
         ]);
+
+        $template_slug = $status === 'approved' ? 'boq_edit_approved' : 'boq_edit_rejected';
+        try {
+            if ($requester && !empty($requester->email)) {
+                send_mail_template($template_slug, $requester->email, $requester, [
+                    'project_name'  => $project ? $project->name : '',
+                    'request_type'  => $type_label,
+                    'review_notes'  => $request->review_notes,
+                ]);
+            }
+        } catch (Throwable $e) {
+            log_message('error', 'BOQ review result email failed: ' . $e->getMessage());
+        }
     }
 
     protected function json_response($data)
