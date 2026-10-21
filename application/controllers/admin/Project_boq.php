@@ -453,6 +453,18 @@ class Project_boq extends AdminController
                 $formula = '=IFERROR(INDEX(Items!$A$2:$A$' . $items_last_row
                     . ',MATCH(D' . $r . ',Items!$B$2:$B$' . $items_last_row . ',0)),"")';
                 $boq_sheet->setCellValue('C' . $r, $formula);
+
+                // Auto-calculation formulas (blank-aware, user-editable)
+                // Supply Amount = Order Quantity * Supply Rate
+                $boq_sheet->setCellValue('J' . $r, '=IF(OR(G' . $r . '="",H' . $r . '=""),"",G' . $r . '*H' . $r . ')');
+                // ITC Amount = Order Quantity * ITC Rate
+                $boq_sheet->setCellValue('K' . $r, '=IF(OR(G' . $r . '="",I' . $r . '=""),"",G' . $r . '*I' . $r . ')');
+                // TAX = (Supply Amount + ITC Amount) * 18%
+                $boq_sheet->setCellValue('L' . $r, '=IF(AND(J' . $r . '="",K' . $r . '=""),"",SUM(J' . $r . ',K' . $r . ')*18%)');
+                // (internal)Supply Amount = (internal)Quantity * (internal)Material Rate
+                $boq_sheet->setCellValue('T' . $r, '=IF(OR(Q' . $r . '="",R' . $r . '=""),"",Q' . $r . '*R' . $r . ')');
+                // (internal)ITC Amount = (internal)Quantity * (internal)Labour Rate
+                $boq_sheet->setCellValue('U' . $r, '=IF(OR(Q' . $r . '="",S' . $r . '=""),"",Q' . $r . '*S' . $r . ')');
             }
 
             // Light green background for auto-filled CRM ITEM ID cells
@@ -785,6 +797,9 @@ class Project_boq extends AdminController
             $data['new_data'] = [
                 'item_id'                  => $item_id,
                 'order_quantity'           => $order_qty,
+                'planned_qty'              => $order_qty,
+                'revised_qty'              => $order_qty,
+                'is_manual_added'          => 1,
                 'boq_description'          => $this->input->post('boq_description'),
                 'boq_unit'                 => $this->input->post('boq_unit'),
                 'internal_ref_no'          => $this->input->post('internal_ref_no'),
@@ -804,6 +819,26 @@ class Project_boq extends AdminController
                 'internal_supply_amount'   => $this->normalize_qty_or_null($this->input->post('internal_supply_amount')),
                 'internal_itc_amount'      => $this->normalize_qty_or_null($this->input->post('internal_itc_amount')),
             ];
+
+            if ($this->can_edit_project($project_id)) {
+                $boq_row_id = $this->project_boq_model->merge_or_add_row($project_id, $item_id, $data['new_data']);
+                if ($boq_row_id) {
+                    $data['status']       = 'approved';
+                    $data['reviewed_by']  = get_staff_user_id();
+                    $data['reviewed_at']  = date('Y-m-d H:i:s');
+                    $data['review_notes'] = 'Added manually by ' . get_staff_full_name(get_staff_user_id());
+                    $this->project_boq_model->add_edit_request($data);
+
+                    $row = $this->project_boq_model->get($boq_row_id);
+                    $this->json_response([
+                        'success' => true,
+                        'message' => _l('added_successfully', _l('project_boq_line')),
+                        'row'     => $row,
+                        'direct'  => true,
+                    ]);
+                    exit;
+                }
+            }
         }
 
         $request_id = $this->project_boq_model->add_edit_request($data);
