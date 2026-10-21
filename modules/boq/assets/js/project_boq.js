@@ -254,6 +254,12 @@
       $("#project-boq-modal-planned-readonly").val(btn.data("planned"));
       $("#project-boq-modal-revised-group").removeClass("hide");
       $("#project-boq-modal-revised").val(btn.data("revised"));
+
+      if (window.projectBoqCanApprove) {
+        $("#project-boq-modal-approval-notice").hide();
+      } else {
+        $("#project-boq-modal-approval-notice").show();
+      }
     } else if (btn.attr("id") === "project-boq-open-add") {
       $("#project-boq-modal-title").text(projectBoqLang.add_title);
       $("#project-boq-modal-id").val("");
@@ -262,6 +268,7 @@
       $("#project-boq-modal-planned").attr("required", "required").val("0");
       $("#project-boq-modal-planned-readonly-group").addClass("hide");
       $("#project-boq-modal-revised-group").addClass("hide");
+      $("#project-boq-modal-approval-notice").hide();
     }
   });
 
@@ -303,21 +310,43 @@
           alert_float("danger", app.lang.something_went_wrong);
           return;
         }
-        if (response.success && response.row) {
-          if (boqId) {
-            var $tr = $('tr[data-boq-id="' + boqId + '"]');
-            projectBoqRefreshRow($tr, response.row);
-          } else {
-            var $appended = $(projectBoqRowFromServer(response.row));
-            $("#project-boq-tbody").append($appended);
-            if ($.fn.tooltip) {
-              $appended.find('[data-toggle="tooltip"]').tooltip({ container: "body" });
+        if (response.success) {
+          if (response.approval_required) {
+            $("#project_boq_modal").modal("hide");
+            alert_float("success", response.message);
+            if (boqId) {
+              var $tr = $('tr[data-boq-id="' + boqId + '"]');
+              var $cell = $tr.find(".project-boq-revised-cell");
+              if ($cell.length) {
+                $cell.find(".boq-pending-revision-badge").remove();
+                $cell.append(
+                  '<div class="boq-pending-revision-badge" style="margin-top: 3px;">' +
+                    '<span class="label label-warning" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a; font-size:10px; font-weight:600; padding:1px 4px; display:inline-block;" title="' + (projectBoqLang.pending_approval_badge || 'Pending Approval') + '">' +
+                      '<i class="fa fa-clock-o"></i> ' + (projectBoqLang.pending || 'Pending') + ': ' + projectBoqFormatNumber(payload.revised_qty) +
+                    '</span>' +
+                  '</div>'
+                );
+              }
             }
-            projectBoqToggleEmptyState();
-            projectBoqUpdateRevisedSummary();
+            return;
           }
-          $("#project_boq_modal").modal("hide");
-          alert_float("success", response.message);
+
+          if (response.row) {
+            if (boqId) {
+              var $tr = $('tr[data-boq-id="' + boqId + '"]');
+              projectBoqRefreshRow($tr, response.row);
+            } else {
+              var $appended = $(projectBoqRowFromServer(response.row));
+              $("#project-boq-tbody").append($appended);
+              if ($.fn.tooltip) {
+                $appended.find('[data-toggle="tooltip"]').tooltip({ container: "body" });
+              }
+              projectBoqToggleEmptyState();
+              projectBoqUpdateRevisedSummary();
+            }
+            $("#project_boq_modal").modal("hide");
+            alert_float("success", response.message);
+          }
         } else if (response.message) {
           alert_float("danger", response.message);
         }
