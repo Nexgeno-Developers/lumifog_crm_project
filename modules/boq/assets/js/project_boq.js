@@ -82,7 +82,8 @@
     var diffFormatted = diffSign + projectBoqFormatNumber(diff);
     var badgeLabel = (typeof projectBoqLang !== "undefined" && projectBoqLang.revised_badge) ? projectBoqLang.revised_badge : "Revised";
     var tooltipText = "Original: " + projectBoqFormatNumber(orderQty) + " &rarr; Revised: " + projectBoqFormatNumber(revised) + " (" + diffFormatted + ")";
-    var rowClass = isRevised ? "boq-row-revised" : "";
+    var isManual = (row.is_manual_added == "1" || row.is_manual_added === 1 || row.is_manual_added === true);
+    var rowClass = (isRevised ? "boq-row-revised " : "") + (isManual ? "boq-row-manual " : "");
 
     var intRef = $("<div>").text(row.internal_ref_no || "").html();
     var cliRef = $("<div>").text(row.client_ref_no || "").html();
@@ -128,10 +129,19 @@
         ? '<td class="text-center project-boq-select-cell"><input type="checkbox" class="project-boq-select" aria-label=""></td>'
         : "";
 
+    var manualChip = isManual
+      ? '<span class="label boq-manual-chip" data-toggle="tooltip" data-placement="top" data-container="body" title="Added Manually via Add Line form" style="font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; background-color: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; cursor: help;"><i class="fa-solid fa-plus-circle tw-mr-1"></i>Manual</span>'
+      : '';
+    var revisedChip = isRevised
+      ? '<span class="label label-warning boq-revised-chip" data-toggle="tooltip" data-placement="top" data-container="body" data-html="true" title="' + tooltipText + '" style="flex-shrink: 0; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; background-color: #fef3c7; color: #b45309; border: 1px solid #fcd34d; cursor: help;"><i class="fa-solid fa-arrows-rotate tw-mr-1"></i>' + badgeLabel + '</span>'
+      : '';
+
     var itemCellHtml = '<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 4px;">' +
       '<span>' + crmItemDesc + '</span>' +
-      (isRevised ? ' <span class="label label-warning boq-revised-chip" data-toggle="tooltip" data-placement="top" data-container="body" data-html="true" title="' + tooltipText + '" style="flex-shrink: 0; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; background-color: #fef3c7; color: #b45309; border: 1px solid #fcd34d; cursor: help;"><i class="fa-solid fa-arrows-rotate tw-mr-1"></i>' + badgeLabel + '</span>' : '') +
-      '</div>';
+      '<div style="display: flex; align-items: center; gap: 4px; flex-shrink: 0;">' +
+      manualChip +
+      revisedChip +
+      '</div></div>';
 
     var orderQtyDisplay = row.order_qty_display || projectBoqFormatNumber(orderQty);
     var orderQtyCellHtml = '<td class="text-right">' +
@@ -147,7 +157,7 @@
       '</td>';
 
     return (
-      '<tr class="' + rowClass + '" data-boq-id="' + id + '" data-purchased="' + purchased + '" data-revised="' + revised + '" data-is-revised="' + (isRevised ? "1" : "0") + '" data-item-id="' + (row.item_id || 0) + '" data-item-description="">' +
+      '<tr class="' + rowClass.trim() + '" data-boq-id="' + id + '" data-purchased="' + purchased + '" data-revised="' + revised + '" data-is-revised="' + (isRevised ? "1" : "0") + '" data-is-manual="' + (isManual ? "1" : "0") + '" data-item-id="' + (row.item_id || 0) + '" data-item-description="">' +
       chkCell +
       '<td>' + intRef + '</td>' +
       '<td>' + cliRef + '</td>' +
@@ -582,6 +592,99 @@
     $("#project_boq_request_modal").modal("show");
   });
 
+  // Auto-calculate formula amounts in manual Add Line modal
+  function calculateBoqManualAmounts() {
+    var qtyVal = $("#project-boq-request-planned-qty").val();
+    var hasQty = qtyVal !== "" && qtyVal !== null && !isNaN(qtyVal);
+    var qty = parseFloat(qtyVal) || 0;
+
+    // Supply Amount = Order Quantity * Supply Rate
+    var sRateVal = $("#project-boq-request-supply-rate").val();
+    if (hasQty && sRateVal !== "" && sRateVal !== null && !isNaN(sRateVal)) {
+      var sRate = parseFloat(sRateVal) || 0;
+      var sAmt = qty * sRate;
+      $("#project-boq-request-supply-amount").val(Number.isInteger(sAmt) ? sAmt : sAmt.toFixed(2));
+    }
+
+    // ITC Amount = Order Quantity * ITC Rate
+    var iRateVal = $("#project-boq-request-itc-rate").val();
+    if (hasQty && iRateVal !== "" && iRateVal !== null && !isNaN(iRateVal)) {
+      var iRate = parseFloat(iRateVal) || 0;
+      var iAmt = qty * iRate;
+      $("#project-boq-request-itc-amount").val(Number.isInteger(iAmt) ? iAmt : iAmt.toFixed(2));
+    }
+
+    calculateBoqManualTax();
+
+    // Internal Calculations:
+    var intQtyVal = $("#project-boq-request-int-qty").val();
+    var hasIntQty = intQtyVal !== "" && intQtyVal !== null && !isNaN(intQtyVal);
+    var intQty = parseFloat(intQtyVal) || 0;
+
+    // (internal)Supply Amount = (internal)Quantity * (internal)Material Rate
+    var mRateVal = $("#project-boq-request-int-mat-rate").val();
+    if (hasIntQty && mRateVal !== "" && mRateVal !== null && !isNaN(mRateVal)) {
+      var mRate = parseFloat(mRateVal) || 0;
+      var intSAmt = intQty * mRate;
+      $("#project-boq-request-int-supply-amt").val(Number.isInteger(intSAmt) ? intSAmt : intSAmt.toFixed(2));
+    }
+
+    // (internal)ITC Amount = (internal)Quantity * (internal)Labour Rate
+    var lRateVal = $("#project-boq-request-int-lab-rate").val();
+    if (hasIntQty && lRateVal !== "" && lRateVal !== null && !isNaN(lRateVal)) {
+      var lRate = parseFloat(lRateVal) || 0;
+      var intIAmt = intQty * lRate;
+      $("#project-boq-request-int-itc-amt").val(Number.isInteger(intIAmt) ? intIAmt : intIAmt.toFixed(2));
+    }
+  }
+
+  function calculateBoqManualTax() {
+    var sAmtVal = $("#project-boq-request-supply-amount").val();
+    var iAmtVal = $("#project-boq-request-itc-amount").val();
+    if ((sAmtVal !== "" && sAmtVal !== null) || (iAmtVal !== "" && iAmtVal !== null)) {
+      var sAmt = parseFloat(sAmtVal) || 0;
+      var iAmt = parseFloat(iAmtVal) || 0;
+      var tax = (sAmt + iAmt) * 0.18;
+      $("#project-boq-request-tax-rate").val(tax.toFixed(2));
+    }
+  }
+
+  // Trigger calculation on input/change
+  $("body").on(
+    "input change",
+    "#project-boq-request-planned-qty, #project-boq-request-supply-rate, #project-boq-request-itc-rate, #project-boq-request-int-qty, #project-boq-request-int-mat-rate, #project-boq-request-int-lab-rate",
+    calculateBoqManualAmounts
+  );
+
+  // Recalculate tax if user manually modifies supply amount or ITC amount
+  $("body").on(
+    "input change",
+    "#project-boq-request-supply-amount, #project-boq-request-itc-amount",
+    calculateBoqManualTax
+  );
+
+  // When CRM Item dropdown is changed, update CRM ITEM ID and auto-suggest defaults
+  $("body").on("change", "#project-boq-request-item-id", function () {
+    var itemId = $(this).val();
+    $("#project-boq-request-crm-item-id").val(itemId ? itemId : "");
+    var $opt = $(this).find("option:selected");
+    if ($opt.length && itemId) {
+      var rate = $opt.data("rate");
+      var unit = $opt.data("unit");
+      var desc = $opt.data("desc");
+      if (unit && !$("#project-boq-request-unit").val()) {
+        $("#project-boq-request-unit").val(unit);
+      }
+      if (rate && !$("#project-boq-request-supply-rate").val()) {
+        $("#project-boq-request-supply-rate").val(rate);
+        calculateBoqManualAmounts();
+      }
+      if (desc && !$("#project-boq-request-description").val()) {
+        $("#project-boq-request-description").val(desc);
+      }
+    }
+  });
+
   $("#project-boq-open-add").on("click", function () {
     $("#project-boq-request-type").val("add_item");
     $("#project-boq-request-boq-id").val("");
@@ -589,6 +692,11 @@
     $("#project-boq-request-add-fields").removeClass("hide");
     $("#project-boq-request-edit-fields").addClass("hide");
     $("#project-boq-request-form")[0].reset();
+    $("#project-boq-request-crm-item-id").val("");
+    if ($.fn.selectpicker) {
+      $("#project-boq-request-item-id").selectpicker("val", "");
+      $("#project-boq-request-summary-item").selectpicker("val", "0");
+    }
   });
 
   $("#project-boq-request-form").on("submit", function (e) {
@@ -635,6 +743,21 @@
         if (response.success) {
           alert_float("success", response.message);
           $("#project_boq_request_modal").modal("hide");
+          if (response.direct && response.row) {
+            var $appended = $(projectBoqRowFromServer(response.row));
+            $("#project-boq-tbody").append($appended);
+            if ($.fn.tooltip) {
+              $appended.find('[data-toggle="tooltip"]').tooltip({ container: "body" });
+            }
+            projectBoqToggleEmptyState();
+            $('html, body').animate({
+              scrollTop: $appended.offset().top - 150
+            }, 400);
+          } else {
+            setTimeout(function() {
+              window.location.reload();
+            }, 600);
+          }
         } else {
           alert_float("danger", response.message);
         }

@@ -85,3 +85,8 @@ $lang['project_boq_revised_badge']                           = 'Revised';
 $lang['project_boq_revised_tooltip']                         = 'Original: %s &rarr; Revised: %s (%s)';
 $lang['project_boq_items_revised_summary']                   = '%s item has revised quantity';
 $lang['project_boq_items_revised_summary_plural']            = '%s items have revised quantities';
+$lang['project_boq_manual_badge']                            = 'Manual';
+$lang['project_boq_manual_tooltip']                          = 'Added manually via Add Line form';
+$lang['project_boq_order_qty']                               = 'Order Quantity';
+$lang['project_boq_crm_item_id']                             = 'CRM ITEM ID';
+

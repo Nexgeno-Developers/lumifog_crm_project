@@ -163,7 +163,7 @@ class Project_boq_model extends App_Model
             }
             $fields = [
                 'boq_description', 'boq_unit', 'supply_rate', 'itc_rate',
-                'supply_amount', 'itc_amount', 'tax_rate', 'is_summary_item',
+                'supply_amount', 'itc_amount', 'tax_rate', 'is_summary_item', 'is_manual_added',
                 'internal_ref_no', 'client_ref_no', 'internal_client_ref_no',
                 'internal_description', 'internal_unit', 'internal_quantity',
                 'internal_material_rate', 'internal_labour_rate',
@@ -188,7 +188,7 @@ class Project_boq_model extends App_Model
         ];
         $fields = [
             'boq_description', 'boq_unit', 'order_quantity', 'planned_qty', 'revised_qty',
-            'supply_rate', 'itc_rate', 'supply_amount', 'itc_amount', 'tax_rate', 'is_summary_item',
+            'supply_rate', 'itc_rate', 'supply_amount', 'itc_amount', 'tax_rate', 'is_summary_item', 'is_manual_added',
             'internal_ref_no', 'client_ref_no', 'internal_client_ref_no',
             'internal_description', 'internal_unit', 'internal_quantity',
             'internal_material_rate', 'internal_labour_rate',
@@ -276,6 +276,7 @@ class Project_boq_model extends App_Model
         if ($status === 'approved') {
             $new_data = json_decode($request->new_data, true);
             if ($request->request_type === 'add_item') {
+                $new_data['is_manual_added'] = 1;
                 $this->merge_or_add_row($request->project_id, $new_data['item_id'], $new_data);
             } elseif ($request->request_type === 'change_qty') {
                 $this->db->where('id', (int) $request->boq_item_id);

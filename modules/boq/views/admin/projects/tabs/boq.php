@@ -227,11 +227,27 @@ $items_grouped  = isset($boq_items_grouped) ? $boq_items_grouped : [];
     #project-boq-table tr.boq-row-revised > td:first-child {
         border-left: 4px solid #f59e0b !important;
     }
+    #project-boq-table tr.boq-row-manual {
+        background-color: #f0fdf4 !important;
+    }
+    #project-boq-table tr.boq-row-manual:hover {
+        background-color: #dcfce7 !important;
+    }
+    #project-boq-table tr.boq-row-manual > td:first-child {
+        border-left: 4px solid #10b981 !important;
+    }
+    #project-boq-table tr.boq-row-manual.boq-row-revised > td:first-child {
+        border-left: 4px solid #f59e0b !important;
+    }
     #project-boq-table td.boq-revised-cell-highlight {
         background-color: #fef9c3 !important;
     }
     .boq-revised-chip,
     .boq-revised-subbadge {
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        white-space: nowrap;
+    }
+    .boq-manual-chip {
         box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         white-space: nowrap;
     }
@@ -359,159 +375,191 @@ $items_grouped  = isset($boq_items_grouped) ? $boq_items_grouped : [];
                 <input type="hidden" name="request_type" id="project-boq-request-type" value="add_item">
 
                 <div id="project-boq-request-add-fields">
-                    <div class="row">
-                        <div class="col-md-4">
-                            <div class="form-group">
-                                <label><?= _l('project_boq_internal_ref_no'); ?></label>
-                                <input type="text" class="form-control" name="internal_ref_no" id="project-boq-request-internal-ref-no">
-                            </div>
+                    <!-- SECTION 1: CLIENT / BOQ FORMAT (Columns A - M) -->
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px 14px 4px 14px; margin-bottom: 14px;">
+                        <div style="font-weight: 700; font-size: 13px; color: #1e293b; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
+                            <span><i class="fa-solid fa-table tw-mr-1 text-primary"></i> BOQ Item &amp; Client Pricing (Columns A – M)</span>
+                            <span class="text-muted" style="font-size: 11px; font-weight: normal;">Matches Excel Columns</span>
                         </div>
-                        <div class="col-md-4">
-                            <div class="form-group">
-                                <label><?= _l('project_boq_client_ref_no'); ?></label>
-                                <input type="text" class="form-control" name="client_ref_no" id="project-boq-request-client-ref-no">
+
+                        <!-- Row 1: Internal Ref No (A), Client Ref No (B), CRM ITEM ID (C), CRM Item (D) -->
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label><?= _l('project_boq_internal_ref_no'); ?> <small class="text-muted">(Col A)</small></label>
+                                    <input type="text" class="form-control" name="internal_ref_no" id="project-boq-request-internal-ref-no" placeholder="Internal Ref">
+                                </div>
                             </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="form-group">
-                                <label><?= _l('project_boq_item'); ?> <span class="text-danger">*</span></label>
-                                <select id="project-boq-request-item-id" name="item_id" class="selectpicker" data-width="100%"
-                                    data-live-search="true" data-none-selected-text="<?= _l('dropdown_non_selected_tex'); ?>" required>
-                                    <option value=""></option>
-                                    <?php foreach ($items_grouped as $group_id => $_items) { ?>
-                                    <optgroup label="<?= e($_items[0]['group_name'] ?? ''); ?>">
-                                        <?php foreach ($_items as $item) { ?>
-                                        <option value="<?= (int) $item['id']; ?>">
-                                            <?= e($item['description']); ?>
-                                        </option>
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label><?= _l('project_boq_client_ref_no'); ?> <small class="text-muted">(Col B)</small></label>
+                                    <input type="text" class="form-control" name="client_ref_no" id="project-boq-request-client-ref-no" placeholder="Client Ref">
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="form-group">
+                                    <label>CRM ITEM ID <small class="text-muted">(Col C)</small></label>
+                                    <input type="text" class="form-control" id="project-boq-request-crm-item-id" readonly placeholder="Auto" style="background:#e8f8f5; font-weight:700; color:#16a34a; text-align:center;">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label><?= _l('project_boq_item'); ?> <small class="text-muted">(Col D)</small> <span class="text-danger">*</span></label>
+                                    <select id="project-boq-request-item-id" name="item_id" class="selectpicker" data-width="100%"
+                                        data-live-search="true" data-none-selected-text="<?= _l('dropdown_non_selected_tex'); ?>" required>
+                                        <option value=""></option>
+                                        <?php foreach ($items_grouped as $group_id => $_items) { ?>
+                                        <optgroup label="<?= e($_items[0]['group_name'] ?? ''); ?>">
+                                            <?php foreach ($_items as $item) { ?>
+                                            <option value="<?= (int) $item['id']; ?>"
+                                                data-rate="<?= e($item['rate'] ?? ''); ?>"
+                                                data-unit="<?= e($item['unit'] ?? ''); ?>"
+                                                data-desc="<?= e($item['description'] ?? ''); ?>">
+                                                <?= e($item['description']); ?>
+                                            </option>
+                                            <?php } ?>
+                                        </optgroup>
                                         <?php } ?>
-                                    </optgroup>
-                                    <?php } ?>
-                                </select>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Row 2: BOQ Description (E), BOQ Unit (F), Order Quantity (G) -->
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label><?= _l('project_boq_description'); ?> <small class="text-muted">(Col E)</small></label>
+                                    <input type="text" class="form-control" name="boq_description" id="project-boq-request-description" placeholder="Description of item">
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label><?= _l('project_boq_unit'); ?> <small class="text-muted">(Col F)</small></label>
+                                    <input type="text" class="form-control" name="boq_unit" id="project-boq-request-unit" placeholder="e.g. Nos, Mtr">
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label><?= _l('project_boq_order_qty'); ?> <small class="text-muted">(Col G)</small> <span class="text-danger">*</span></label>
+                                    <input type="number" class="form-control" name="order_quantity" id="project-boq-request-planned-qty"
+                                        step="any" min="0" value="0" required placeholder="0">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Row 3: Rates and Auto Amounts (H, I, J, K) -->
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label><?= _l('project_boq_supply_rate'); ?> <small class="text-muted">(Col H)</small></label>
+                                    <input type="number" class="form-control" name="supply_rate" id="project-boq-request-supply-rate" step="any" min="0" placeholder="0.00">
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label><?= _l('project_boq_supply_amount'); ?> <small class="text-muted">(Col J = G*H)</small></label>
+                                    <input type="number" class="form-control" name="supply_amount" id="project-boq-request-supply-amount" step="any" min="0" placeholder="Auto" style="background:#f1f5f9; font-weight:600;">
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label><?= _l('project_boq_itc_rate'); ?> <small class="text-muted">(Col I)</small></label>
+                                    <input type="number" class="form-control" name="itc_rate" id="project-boq-request-itc-rate" step="any" min="0" placeholder="0.00">
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label><?= _l('project_boq_itc_amount'); ?> <small class="text-muted">(Col K = G*I)</small></label>
+                                    <input type="number" class="form-control" name="itc_amount" id="project-boq-request-itc-amount" step="any" min="0" placeholder="Auto" style="background:#f1f5f9; font-weight:600;">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Row 4: TAX (L) and Summary Item (M) -->
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>TAX (18%) <small class="text-muted">(Col L = (J+K)*18%)</small></label>
+                                    <input type="number" class="form-control" name="tax_rate" id="project-boq-request-tax-rate" step="any" min="0" placeholder="Auto: (Supply + ITC) * 18%" style="background:#f1f5f9; font-weight:600;">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label><?= _l('project_boq_summary_item'); ?> <small class="text-muted">(Col M)</small></label>
+                                    <select name="is_summary_item" id="project-boq-request-summary-item" class="selectpicker" data-width="100%">
+                                        <option value="0"><?= _l('no'); ?></option>
+                                        <option value="1"><?= _l('yes'); ?></option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="form-group">
-                                <label><?= _l('project_boq_description'); ?></label>
-                                <input type="text" class="form-control" name="boq_description" id="project-boq-request-description">
-                            </div>
+                    <!-- SECTION 2: INTERNAL ESTIMATES (Columns N - U) -->
+                    <div style="background: #fefce8; border: 1px solid #fef08a; border-radius: 6px; padding: 12px 14px 4px 14px; margin-bottom: 6px;">
+                        <div style="font-weight: 700; font-size: 13px; color: #854d0e; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
+                            <span><i class="fa-solid fa-lock tw-mr-1" style="color: #ca8a04;"></i> Internal Estimates (Columns N – U)</span>
+                            <span class="text-muted" style="font-size: 11px; font-weight: normal; color: #a16207;">Internal Only</span>
                         </div>
-                        <div class="col-md-3">
-                            <div class="form-group">
-                                <label><?= _l('project_boq_unit'); ?></label>
-                                <input type="text" class="form-control" name="boq_unit" id="project-boq-request-unit">
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="form-group">
-                                <label><?= _l('project_boq_planned_qty'); ?> <span class="text-danger">*</span></label>
-                                <input type="number" class="form-control" name="order_quantity" id="project-boq-request-planned-qty"
-                                    step="any" min="0" value="0" required>
-                            </div>
-                        </div>
-                    </div>
 
-                    <div class="row">
-                        <div class="col-md-4">
-                            <div class="form-group">
-                                <label><?= _l('project_boq_supply_rate'); ?></label>
-                                <input type="number" class="form-control" name="supply_rate" id="project-boq-request-supply-rate" step="any" min="0">
+                        <!-- Row 5: (internal)Client Ref (N), (internal)Description (O), (internal)Unit (P) -->
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label><?= _l('project_boq_internal_client_ref_no'); ?> <small class="text-muted">(Col N)</small></label>
+                                    <input type="text" class="form-control" name="internal_client_ref_no" id="project-boq-request-int-client-ref" placeholder="Internal Client Ref">
+                                </div>
+                            </div>
+                            <div class="col-md-5">
+                                <div class="form-group">
+                                    <label><?= _l('project_boq_internal_description'); ?> <small class="text-muted">(Col O)</small></label>
+                                    <input type="text" class="form-control" name="internal_description" id="project-boq-request-int-desc" placeholder="Internal Description">
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label><?= _l('project_boq_internal_unit'); ?> <small class="text-muted">(Col P)</small></label>
+                                    <input type="text" class="form-control" name="internal_unit" id="project-boq-request-int-unit" placeholder="Unit">
+                                </div>
                             </div>
                         </div>
-                        <div class="col-md-4">
-                            <div class="form-group">
-                                <label><?= _l('project_boq_itc_rate'); ?></label>
-                                <input type="number" class="form-control" name="itc_rate" id="project-boq-request-itc-rate" step="any" min="0">
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="form-group">
-                                <label><?= _l('project_boq_tax_rate'); ?></label>
-                                <input type="number" class="form-control" name="tax_rate" id="project-boq-request-tax-rate" step="any" min="0">
-                            </div>
-                        </div>
-                    </div>
 
-                    <div class="row">
-                        <div class="col-md-4">
-                            <div class="form-group">
-                                <label><?= _l('project_boq_supply_amount'); ?></label>
-                                <input type="number" class="form-control" name="supply_amount" id="project-boq-request-supply-amount" step="any" min="0">
+                        <!-- Row 6: (internal)Quantity (Q), (internal)Material Rate (R), (internal)Labour Rate (S) -->
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label><?= _l('project_boq_internal_quantity'); ?> <small class="text-muted">(Col Q)</small></label>
+                                    <input type="number" class="form-control" name="internal_quantity" id="project-boq-request-int-qty" step="any" min="0" placeholder="0">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label><?= _l('project_boq_internal_material_rate'); ?> <small class="text-muted">(Col R)</small></label>
+                                    <input type="number" class="form-control" name="internal_material_rate" id="project-boq-request-int-mat-rate" step="any" min="0" placeholder="0.00">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label><?= _l('project_boq_internal_labour_rate'); ?> <small class="text-muted">(Col S)</small></label>
+                                    <input type="number" class="form-control" name="internal_labour_rate" id="project-boq-request-int-lab-rate" step="any" min="0" placeholder="0.00">
+                                </div>
                             </div>
                         </div>
-                        <div class="col-md-4">
-                            <div class="form-group">
-                                <label><?= _l('project_boq_itc_amount'); ?></label>
-                                <input type="number" class="form-control" name="itc_amount" id="project-boq-request-itc-amount" step="any" min="0">
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="form-group">
-                                <label><?= _l('project_boq_summary_item'); ?></label>
-                                <select name="is_summary_item" id="project-boq-request-summary-item" class="selectpicker" data-width="100%">
-                                    <option value="0"><?= _l('no'); ?></option>
-                                    <option value="1"><?= _l('yes'); ?></option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
 
-                    <div class="row">
-                        <div class="col-md-4">
-                            <div class="form-group">
-                                <label><?= _l('project_boq_internal_client_ref_no'); ?></label>
-                                <input type="text" class="form-control" name="internal_client_ref_no" id="project-boq-request-int-client-ref">
+                        <!-- Row 7: (internal)Supply Amount (T = Q*R), (internal)ITC Amount (U = Q*S) -->
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label><?= _l('project_boq_internal_supply_amount'); ?> <small class="text-muted">(Col T = Q*R)</small></label>
+                                    <input type="number" class="form-control" name="internal_supply_amount" id="project-boq-request-int-supply-amt" step="any" min="0" placeholder="Auto" style="background:#fef9c3; font-weight:600;">
+                                </div>
                             </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="form-group">
-                                <label><?= _l('project_boq_internal_description'); ?></label>
-                                <input type="text" class="form-control" name="internal_description" id="project-boq-request-int-desc">
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="form-group">
-                                <label><?= _l('project_boq_internal_unit'); ?></label>
-                                <input type="text" class="form-control" name="internal_unit" id="project-boq-request-int-unit">
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="row">
-                        <div class="col-md-4">
-                            <div class="form-group">
-                                <label><?= _l('project_boq_internal_quantity'); ?></label>
-                                <input type="number" class="form-control" name="internal_quantity" id="project-boq-request-int-qty" step="any" min="0">
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="form-group">
-                                <label><?= _l('project_boq_internal_material_rate'); ?></label>
-                                <input type="number" class="form-control" name="internal_material_rate" id="project-boq-request-int-mat-rate" step="any" min="0">
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="form-group">
-                                <label><?= _l('project_boq_internal_labour_rate'); ?></label>
-                                <input type="number" class="form-control" name="internal_labour_rate" id="project-boq-request-int-lab-rate" step="any" min="0">
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="form-group">
-                                <label><?= _l('project_boq_internal_supply_amount'); ?></label>
-                                <input type="number" class="form-control" name="internal_supply_amount" id="project-boq-request-int-supply-amt" step="any" min="0">
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="form-group">
-                                <label><?= _l('project_boq_internal_itc_amount'); ?></label>
-                                <input type="number" class="form-control" name="internal_itc_amount" id="project-boq-request-int-itc-amt" step="any" min="0">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label><?= _l('project_boq_internal_itc_amount'); ?> <small class="text-muted">(Col U = Q*S)</small></label>
+                                    <input type="number" class="form-control" name="internal_itc_amount" id="project-boq-request-int-itc-amt" step="any" min="0" placeholder="Auto" style="background:#fef9c3; font-weight:600;">
+                                </div>
                             </div>
                         </div>
                     </div>

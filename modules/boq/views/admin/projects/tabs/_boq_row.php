@@ -22,6 +22,7 @@ $internalSupplyAmt = isset($row['internal_supply_amount']) && $row['internal_sup
 $internalItcAmt   = isset($row['internal_itc_amount']) && $row['internal_itc_amount'] !== null && $row['internal_itc_amount'] !== '' ? (float) $row['internal_itc_amount'] : null;
 
 $isRevised     = (abs($revised - $orderQty) > 0.0001);
+$isManual      = ! empty($row['is_manual_added']);
 $diff          = $revised - $orderQty;
 $diffFormatted = ($diff > 0 ? '+' : '') . app_format_number($diff);
 $tooltipText   = sprintf(
@@ -30,11 +31,19 @@ $tooltipText   = sprintf(
     app_format_number($revised),
     $diffFormatted
 );
+$rowClasses = [];
+if ($isRevised) {
+    $rowClasses[] = 'boq-row-revised';
+}
+if ($isManual) {
+    $rowClasses[] = 'boq-row-manual';
+}
 ?>
-<tr class="<?= $isRevised ? 'boq-row-revised' : ''; ?>"
+<tr class="<?= implode(' ', $rowClasses); ?>"
     data-boq-id="<?= e($id); ?>" data-purchased="<?= e($purchased); ?>"
     data-revised="<?= e($revised); ?>"
     data-is-revised="<?= $isRevised ? '1' : '0'; ?>"
+    data-is-manual="<?= $isManual ? '1' : '0'; ?>"
     data-item-id="<?= (int) ($row['item_id'] ?? 0); ?>"
     data-item-description="<?= e($row['item_description'] ?? ''); ?>">
     <?php if ($can_view_items) { ?>
@@ -48,11 +57,18 @@ $tooltipText   = sprintf(
     <td class="project-boq-item-label">
         <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 4px;">
             <span><?= e($row['item_description'] ?? ''); ?></span>
-            <?php if ($isRevised) { ?>
-            <span class="label label-warning boq-revised-chip" data-toggle="tooltip" data-placement="top" data-container="body" data-html="true" title="<?= e($tooltipText); ?>" style="flex-shrink: 0; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; background-color: #fef3c7; color: #b45309; border: 1px solid #fcd34d; cursor: help;">
-                <i class="fa-solid fa-arrows-rotate tw-mr-1"></i><?= _l('project_boq_revised_badge'); ?>
-            </span>
-            <?php } ?>
+            <div style="display: flex; align-items: center; gap: 4px; flex-shrink: 0;">
+                <?php if ($isManual) { ?>
+                <span class="label boq-manual-chip" data-toggle="tooltip" data-placement="top" data-container="body" title="<?= e(_l('project_boq_manual_tooltip')); ?>" style="font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; background-color: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; cursor: help;">
+                    <i class="fa-solid fa-plus-circle tw-mr-1"></i><?= _l('project_boq_manual_badge'); ?>
+                </span>
+                <?php } ?>
+                <?php if ($isRevised) { ?>
+                <span class="label label-warning boq-revised-chip" data-toggle="tooltip" data-placement="top" data-container="body" data-html="true" title="<?= e($tooltipText); ?>" style="font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; background-color: #fef3c7; color: #b45309; border: 1px solid #fcd34d; cursor: help;">
+                    <i class="fa-solid fa-arrows-rotate tw-mr-1"></i><?= _l('project_boq_revised_badge'); ?>
+                </span>
+                <?php } ?>
+            </div>
         </div>
         <?php if (! empty($row['item_unit'])) { ?>
         <span class="text-muted hide"> <?= e($row['item_unit']); ?></span>
