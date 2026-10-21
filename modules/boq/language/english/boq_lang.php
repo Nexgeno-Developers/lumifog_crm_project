@@ -89,4 +89,12 @@ $lang['project_boq_manual_badge']                            = 'Manual';
 $lang['project_boq_manual_tooltip']                          = 'Added manually via Add Line form';
 $lang['project_boq_order_qty']                               = 'Order Quantity';
 $lang['project_boq_crm_item_id']                             = 'CRM ITEM ID';
+$lang['project_boq_revision_approver']                       = 'Set Approver for BOQ Quantity Revision';
+$lang['project_boq_revision_approver_tooltip']               = 'Designate the staff member who can approve BOQ revised quantities requested by project members. If set to All Administrators, any system administrator can approve.';
+$lang['project_boq_revision_approver_admins']                = 'All System Administrators (Default)';
+$lang['project_boq_revision_submitted_for_approval']         = 'Revised quantity submitted for approval. It will reflect in the BOQ once approved by the approver.';
+$lang['project_boq_revision_approval_notice']                = 'Revising quantity requires approval. Once submitted, it will reflect in the BOQ after the approver approves it.';
+$lang['project_boq_pending_approval_badge']                 = 'Pending Approval';
+$lang['project_boq_requested_details']                       = 'Requested Change';
+$lang['project_boq_revision_notification_admin']             = '%s requested a BOQ quantity revision for "%s" in project "%s".';
 
