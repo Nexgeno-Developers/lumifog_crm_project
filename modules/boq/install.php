@@ -47,6 +47,7 @@ if (!$CI->db->table_exists($tables)) {
         'itc_amount'             => 'DECIMAL(25,4) NULL',
         'tax_rate'               => 'DECIMAL(25,4) NULL',
         'is_summary_item'        => 'TINYINT(1) NOT NULL DEFAULT 0',
+        'is_manual_added'        => 'TINYINT(1) NOT NULL DEFAULT 0',
         'internal_ref_no'        => 'VARCHAR(191) NULL',
         'client_ref_no'          => 'VARCHAR(191) NULL',
         'internal_client_ref_no' => 'VARCHAR(191) NULL',
