@@ -73,7 +73,7 @@ $total_expenses_with_tax = $basic_expenses + $tax_expenses;
 
 <hr class="tw-my-3 tw-border-neutral-200">
 
-<div class="tw-grid tw-grid-cols-1 tw-gap-3 sm:tw-grid-cols-3">
+<div class="tw-grid tw-gap-3" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem;">
     <div>
         <p class="tw-mb-0.5 tw-text-sm text-muted">
             <?= _l('basic_expenses', 'Basic Expenses'); ?>
