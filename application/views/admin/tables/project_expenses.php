@@ -35,9 +35,16 @@ return App_table::find('project_expenses')
             array_push($join, 'LEFT JOIN ' . db_prefix() . 'customfieldsvalues as ctable_' . $i . ' ON ' . db_prefix() . 'expenses.id = ctable_' . $i . '.relid AND ctable_' . $i . '.fieldto="' . $field['fieldto'] . '" AND ctable_' . $i . '.fieldid=' . $field['id']);
             $i++;
         }
-        //zaid
-        // Allow modules to extend the expenses table columns (e.g. add Vendor column)
-        $aColumns = hooks()->apply_filters('expenses_table_sql_columns', $aColumns);
+        // Join vendors and staff to display Vendor Name and Created By
+        if ($this->ci->db->table_exists(db_prefix() . 'pur_vendor')) {
+            $join[] = 'LEFT JOIN ' . db_prefix() . 'pur_vendor ON ' . db_prefix() . 'pur_vendor.userid = ' . db_prefix() . 'expenses.vendor';
+            $aColumns[] = db_prefix() . 'pur_vendor.company as vendor_name';
+        } else {
+            $aColumns[] = db_prefix() . 'expenses.vendor as vendor_name';
+        }
+
+        $join[] = 'LEFT JOIN ' . db_prefix() . 'staff ON ' . db_prefix() . 'staff.staffid = ' . db_prefix() . 'expenses.addedfrom';
+        $aColumns[] = 'CONCAT(' . db_prefix() . 'staff.firstname, " ", ' . db_prefix() . 'staff.lastname) as created_by_name';
 
         $where  = [];
        
@@ -59,6 +66,8 @@ return App_table::find('project_expenses')
             'currency',
             'tax',
             'tax2',
+            db_prefix() . 'expenses.vendor as vendor_id',
+            db_prefix() . 'expenses.addedfrom as addedfrom_id',
         ]);
         $output  = $result['output'];
         $rResult = $result['rResult'];
@@ -120,6 +129,39 @@ return App_table::find('project_expenses')
                     } else {
                         $_data = '';
                     }
+                } elseif (strpos($aColumns[$i], 'vendor_name') !== false) {
+                    $vendor_id = $aRow['vendor_id'] ?? ($aRow['vendor'] ?? null);
+                    $vendor_name = trim((string) $_data);
+                    if ($vendor_id && empty($vendor_name) && function_exists('get_vendor_company_name')) {
+                        $vendor_name = get_vendor_company_name($vendor_id);
+                    }
+                    if (!empty($vendor_name)) {
+                        if ($vendor_id && is_numeric($vendor_id) && $vendor_id > 0) {
+                            $_data = '<a href="' . admin_url('purchase/vendor/' . $vendor_id) . '">' . e($vendor_name) . '</a>';
+                        } else {
+                            $_data = e($vendor_name);
+                        }
+                    } else {
+                        $_data = '';
+                    }
+                } elseif (strpos($aColumns[$i], 'created_by_name') !== false) {
+                    $staff_id = $aRow['addedfrom_id'] ?? ($aRow['addedfrom'] ?? null);
+                    $staff_name = trim((string) $_data);
+                    if ($staff_id && empty($staff_name) && function_exists('get_staff_full_name')) {
+                        $staff_name = get_staff_full_name($staff_id);
+                    }
+                    if (!empty($staff_name)) {
+                        if ($staff_id && is_numeric($staff_id) && $staff_id > 0) {
+                            $profile_url = admin_url('staff/profile/' . $staff_id);
+                            $_data = '<a href="' . $profile_url . '">' . staff_profile_image($staff_id, [
+                                'staff-profile-image-xs mright5',
+                            ]) . '</a> <a href="' . $profile_url . '">' . e($staff_name) . '</a>';
+                        } else {
+                            $_data = e($staff_name);
+                        }
+                    } else {
+                        $_data = '';
+                    }
                 } else {
                     if (startsWith($aColumns[$i], 'ctable_') && is_date($_data)) {
                         $_data = _d($_data);
@@ -127,9 +169,6 @@ return App_table::find('project_expenses')
                 }
                 $row[] = $_data;
             }
-            //zaid
-            // Allow modules to append extra column data to match extra headers
-            $row = hooks()->apply_filters('expenses_table_row_data', $row, $aRow);
             $output['aaData'][] = $row;
         }
         return $output;

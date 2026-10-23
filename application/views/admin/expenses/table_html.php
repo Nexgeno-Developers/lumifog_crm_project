@@ -47,6 +47,11 @@ foreach ($custom_fields as $field) {
 }
 
 $table_data = hooks()->apply_filters('expenses_table_columns', $table_data);
+
+if (isset($project) || (isset($table_id) && $table_id === 'project_expenses')) {
+    $table_data[] = _l('created_by');
+}
+
 render_datatable($table_data, ($class ?? 'expenses'), [], [
     'data-last-order-identifier' => 'expenses',
     'data-default-order'         => get_table_last_order('expenses'),
