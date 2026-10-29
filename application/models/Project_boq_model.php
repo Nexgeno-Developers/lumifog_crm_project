@@ -71,6 +71,8 @@ class Project_boq_model extends App_Model
             'planned_qty'   => $planned,
             'revised_qty'   => $revised,
             'purchased_qty' => isset($data['purchased_qty']) ? $data['purchased_qty'] : 0,
+            'is_nt_item'    => isset($data['is_nt_item']) ? (int) $data['is_nt_item'] : 0,
+            'is_billable'   => isset($data['is_billable']) ? (int) $data['is_billable'] : 1,
             'created_at'    => date('Y-m-d H:i:s'),
         ];
 
@@ -164,6 +166,7 @@ class Project_boq_model extends App_Model
             $fields = [
                 'boq_description', 'boq_unit', 'supply_rate', 'itc_rate',
                 'supply_amount', 'itc_amount', 'tax_rate', 'is_summary_item', 'is_manual_added',
+                'is_nt_item', 'is_billable',
                 'internal_ref_no', 'client_ref_no', 'internal_client_ref_no',
                 'internal_description', 'internal_unit', 'internal_quantity',
                 'internal_material_rate', 'internal_labour_rate',
@@ -520,5 +523,74 @@ class Project_boq_model extends App_Model
             'unmatched_items'      => $unmatched_items,
             'message'              => sprintf(_l('project_boq_sync_success_message'), $synced_count, $already_synced_count),
         ];
+    }
+
+    /**
+     * Get list of approved PO items that are not in the project BOQ and not linked.
+     *
+     * @param int $project_id
+     * @return array
+     */
+    public function get_project_unmatched_po_items($project_id)
+    {
+        $project_id = (int) $project_id;
+        if ($project_id < 1 || !$this->db->table_exists(db_prefix() . 'pur_orders')) {
+            return [];
+        }
+
+        $this->db->select('po.id as pur_order_id, po.pur_order_number, pod.id as purchase_item_id, pod.item_code, pod.quantity, pod.description');
+        $this->db->from(db_prefix() . 'pur_orders po');
+        $this->db->join(db_prefix() . 'pur_order_detail pod', 'pod.pur_order = po.id', 'inner');
+        $this->db->where('po.project', $project_id);
+        $this->db->where('po.approve_status', 2);
+        $po_items = $this->db->get()->result_array();
+
+        if (empty($po_items)) {
+            return [];
+        }
+
+        $this->db->select('purchase_item_id');
+        $this->db->from(db_prefix() . 'boq_purchase_links');
+        $existing_links = $this->db->get()->result_array();
+        $linked_map     = array_flip(array_column($existing_links, 'purchase_item_id'));
+
+        $this->db->select('id, item_id');
+        $this->db->from(db_prefix() . 'project_boq_items');
+        $this->db->where('project_id', $project_id);
+        $boq_items = $this->db->get()->result_array();
+
+        $boq_by_item = [];
+        foreach ($boq_items as $bItem) {
+            $iId = (int) $bItem['item_id'];
+            if ($iId > 0 && !isset($boq_by_item[$iId])) {
+                $boq_by_item[$iId] = true;
+            }
+        }
+
+        $unmatched = [];
+        foreach ($po_items as $line) {
+            $purchase_item_id = (int) ($line['purchase_item_id'] ?? 0);
+            $item_id          = (int) ($line['item_code'] ?? 0);
+            $qty              = (float) ($line['quantity'] ?? 0);
+
+            if ($purchase_item_id < 1 || $qty <= 0) {
+                continue;
+            }
+
+            if (isset($linked_map[$purchase_item_id])) {
+                continue;
+            }
+
+            if ($item_id <= 0 || !isset($boq_by_item[$item_id])) {
+                $unmatched[] = [
+                    'pur_order_number' => $line['pur_order_number'],
+                    'item_code'        => $item_id,
+                    'description'      => !empty($line['description']) ? $line['description'] : ('Item #' . $item_id),
+                    'quantity'         => $qty,
+                ];
+            }
+        }
+
+        return $unmatched;
     }
 }

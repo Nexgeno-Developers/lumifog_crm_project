@@ -129,6 +129,15 @@
         ? '<td class="text-center project-boq-select-cell"><input type="checkbox" class="project-boq-select" aria-label=""></td>'
         : "";
 
+    var isNt = (row.is_nt_item == "1" || row.is_nt_item === 1 || row.is_nt_item === true);
+    var isBillable = !(row.is_billable == "0" || row.is_billable === 0 || row.is_billable === false);
+
+    var ntChip = isNt
+      ? '<span class="label boq-nt-chip" data-toggle="tooltip" data-placement="top" data-container="body" title="Non-Tender (NT) Item" style="font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; background-color: #f3e8ff; color: #6b21a8; border: 1px solid #d8b4fe; cursor: help;"><i class="fa-solid fa-tag tw-mr-1"></i>NT Item</span>'
+      : '';
+    var nonBillableChip = !isBillable
+      ? '<span class="label boq-nonbillable-chip" data-toggle="tooltip" data-placement="top" data-container="body" title="Non-Billable Item" style="font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; background-color: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; cursor: help;"><i class="fa-solid fa-ban tw-mr-1"></i>Non-Billable</span>'
+      : '';
     var manualChip = isManual
       ? '<span class="label boq-manual-chip" data-toggle="tooltip" data-placement="top" data-container="body" title="Added Manually via Add Line form" style="font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; background-color: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; cursor: help;"><i class="fa-solid fa-plus-circle tw-mr-1"></i>Manual</span>'
       : '';
@@ -138,7 +147,9 @@
 
     var itemCellHtml = '<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 4px;">' +
       '<span>' + crmItemDesc + '</span>' +
-      '<div style="display: flex; align-items: center; gap: 4px; flex-shrink: 0;">' +
+      '<div style="display: flex; align-items: center; gap: 4px; flex-shrink: 0; flex-wrap: wrap;">' +
+      ntChip +
+      nonBillableChip +
       manualChip +
       revisedChip +
       '</div></div>';
@@ -156,8 +167,10 @@
       (isRevised ? '<div style="font-size: 10px; font-weight: 600; color: #b45309; line-height: 1.1; margin-top: 1px;">(' + diffFormatted + ')</div>' : '') +
       '</td>';
 
+    var rowClasses = rowClass.trim() + (isNt ? ' boq-row-nt' : '') + (!isBillable ? ' boq-row-nonbillable' : '');
+
     return (
-      '<tr class="' + rowClass.trim() + '" data-boq-id="' + id + '" data-purchased="' + purchased + '" data-revised="' + revised + '" data-is-revised="' + (isRevised ? "1" : "0") + '" data-is-manual="' + (isManual ? "1" : "0") + '" data-item-id="' + (row.item_id || 0) + '" data-item-description="">' +
+      '<tr class="' + rowClasses + '" data-boq-id="' + id + '" data-purchased="' + purchased + '" data-revised="' + revised + '" data-is-revised="' + (isRevised ? "1" : "0") + '" data-is-manual="' + (isManual ? "1" : "0") + '" data-is-nt="' + (isNt ? "1" : "0") + '" data-is-billable="' + (isBillable ? "1" : "0") + '" data-item-id="' + (row.item_id || 0) + '" data-item-description="">' +
       chkCell +
       '<td>' + intRef + '</td>' +
       '<td>' + cliRef + '</td>' +
@@ -224,6 +237,7 @@
           $tr.remove();
           projectBoqToggleEmptyState();
           projectBoqUpdateRevisedSummary();
+          updateBoqFilterCounts();
           alert_float("success", response.message);
         } else if (response.message) {
           alert_float("danger", response.message);
@@ -248,6 +262,12 @@
         "val",
         btn.data("item-id").toString()
       );
+      var $tr = $('tr[data-boq-id="' + btn.data("boq-id") + '"]');
+      var isNt = $tr.data("is-nt") !== undefined ? String($tr.data("is-nt")) : "0";
+      var isBillable = $tr.data("is-billable") !== undefined ? String($tr.data("is-billable")) : "1";
+      $("#project-boq-modal-is-nt").selectpicker("val", isNt);
+      $("#project-boq-modal-is-billable").selectpicker("val", isBillable);
+
       $("#project-boq-modal-planned-group").addClass("hide");
       $("#project-boq-modal-planned").removeAttr("required");
       $("#project-boq-modal-planned-readonly-group").removeClass("hide");
@@ -264,6 +284,8 @@
       $("#project-boq-modal-title").text(projectBoqLang.add_title);
       $("#project-boq-modal-id").val("");
       $("#project-boq-modal-item").selectpicker("val", "");
+      $("#project-boq-modal-is-nt").selectpicker("val", "0");
+      $("#project-boq-modal-is-billable").selectpicker("val", "1");
       $("#project-boq-modal-planned-group").removeClass("hide");
       $("#project-boq-modal-planned").attr("required", "required").val("0");
       $("#project-boq-modal-planned-readonly-group").addClass("hide");
@@ -281,6 +303,8 @@
     var boqId = $("#project-boq-modal-id").val();
     var itemId = $("#project-boq-modal-item").val();
     var projectId = projectBoqProjectId();
+    var isNt = $("#project-boq-modal-is-nt").val() || "0";
+    var isBillable = $("#project-boq-modal-is-billable").val() || "1";
 
     var payload;
     var url;
@@ -292,6 +316,8 @@
         project_id: projectId,
         item_id: itemId,
         revised_qty: $("#project-boq-modal-revised").val(),
+        is_nt_item: isNt,
+        is_billable: isBillable,
       };
     } else {
       url = admin_url + "project_boq/add";
@@ -299,6 +325,8 @@
         project_id: projectId,
         item_id: itemId,
         planned_qty: $("#project-boq-modal-planned").val(),
+        is_nt_item: isNt,
+        is_billable: isBillable,
       };
     }
 
@@ -344,6 +372,7 @@
               projectBoqToggleEmptyState();
               projectBoqUpdateRevisedSummary();
             }
+            updateBoqFilterCounts();
             $("#project_boq_modal").modal("hide");
             alert_float("success", response.message);
           }
@@ -978,10 +1007,130 @@
       });
   });
 
+  // View Unmatched Past PO Items (without re-syncing)
+  $(document).on("click", "#project-boq-view-unmatched-pos", function (e) {
+    e.preventDefault();
+    var projectId = projectBoqProjectId();
+    if (!projectId) return;
+
+    var $btn = $(this);
+    var originalHtml = $btn.html();
+    $btn.prop("disabled", true).html('<i class="fa fa-spinner fa-spin tw-mr-1"></i> Loading...');
+
+    $.ajax({
+      url: admin_url + "project_boq/get_unmatched_pos/" + projectId,
+      type: "GET",
+      dataType: "json",
+    })
+      .done(function (res) {
+        if (res && res.success && $.isArray(res.items)) {
+          var $modal = $("#project_boq_sync_result_modal");
+          $("#project-boq-sync-summary-alert").text("Found " + res.count + " unmatched purchase order item(s) not in this BOQ.");
+
+          var $tbody = $("#project-boq-sync-unmatched-table tbody");
+          $tbody.empty();
+          $.each(res.items, function (i, item) {
+            var tr = "<tr>" +
+              "<td><code>" + $("<div>").text(item.pur_order_number || "").html() + "</code></td>" +
+              "<td>" + $("<div>").text(item.description || ("Item #" + item.item_code)).html() + "</td>" +
+              "<td class='text-right font-weight-bold'>" + projectBoqFormatNumber(item.quantity) + "</td>" +
+              "</tr>";
+            $tbody.append(tr);
+          });
+
+          $("#project-boq-sync-unmatched-wrapper").show();
+          $modal.modal("show");
+        } else {
+          alert_float("danger", "Could not fetch unmatched items.");
+        }
+      })
+      .fail(function () {
+        alert_float("danger", "Network error fetching unmatched items.");
+      })
+      .always(function () {
+        $btn.prop("disabled", false).html(originalHtml);
+      });
+  });
+
+  // Export Unmatched Items to CSV
+  $(document).on("click", "#project-boq-export-unmatched-csv", function (e) {
+    e.preventDefault();
+    var rows = [];
+    rows.push(["PO Number", "Item Description", "Purchased Quantity"]);
+
+    $("#project-boq-sync-unmatched-table tbody tr").each(function () {
+      var $tds = $(this).find("td");
+      if ($tds.length >= 3) {
+        var po = $($tds[0]).text().trim();
+        var desc = $($tds[1]).text().trim();
+        var qty = $($tds[2]).text().trim();
+        rows.push([po, desc, qty]);
+      }
+    });
+
+    if (rows.length <= 1) {
+      alert_float("warning", "No unmatched items to export.");
+      return;
+    }
+
+    var csvContent = "data:text/csv;charset=utf-8," + rows.map(function (e) {
+      return e.map(function (cell) {
+        return '"' + String(cell).replace(/"/g, '""') + '"';
+      }).join(",");
+    }).join("\n");
+
+    var encodedUri = encodeURI(csvContent);
+    var link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "unmatched_po_items_project_" + (projectBoqProjectId() || "export") + ".csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  });
+
+  // BOQ Filter Tabs (All / Tender / NT / Billable / Non-Billable)
+  function updateBoqFilterCounts() {
+    var $rows = $("#project-boq-tbody tr[data-boq-id]");
+    var allCount = $rows.length;
+    var tenderCount = $rows.filter('[data-is-nt="0"]').length;
+    var ntCount = $rows.filter('[data-is-nt="1"]').length;
+    var billableCount = $rows.filter('[data-is-billable="1"]').length;
+    var nonBillableCount = $rows.filter('[data-is-billable="0"]').length;
+
+    $("#boq-count-all").text(allCount);
+    $("#boq-count-tender").text(tenderCount);
+    $("#boq-count-nt").text(ntCount);
+    $("#boq-count-billable").text(billableCount);
+    $("#boq-count-nonbillable").text(nonBillableCount);
+  }
+
+  $(document).on("click", ".boq-filter-btn", function (e) {
+    e.preventDefault();
+    var $btn = $(this);
+    var filter = $btn.data("filter");
+
+    $(".boq-filter-btn").removeClass("active btn-primary").addClass("btn-default");
+    $btn.addClass("active btn-primary").removeClass("btn-default");
+
+    var $rows = $("#project-boq-tbody tr[data-boq-id]");
+    if (filter === "all") {
+      $rows.show();
+    } else if (filter === "tender") {
+      $rows.hide().filter('[data-is-nt="0"]').show();
+    } else if (filter === "nt") {
+      $rows.hide().filter('[data-is-nt="1"]').show();
+    } else if (filter === "billable") {
+      $rows.hide().filter('[data-is-billable="1"]').show();
+    } else if (filter === "nonbillable") {
+      $rows.hide().filter('[data-is-billable="0"]').show();
+    }
+  });
+
   $(function () {
     if ($.fn.tooltip) {
       $("#project-boq-wrapper [data-toggle='tooltip']").tooltip({ container: "body" });
     }
+    updateBoqFilterCounts();
     initProjectBoqScrollbars();
   });
 })(jQuery);

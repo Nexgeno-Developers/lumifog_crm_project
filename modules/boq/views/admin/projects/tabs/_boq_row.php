@@ -27,6 +27,8 @@ $internalItcAmt   = isset($row['internal_itc_amount']) && $row['internal_itc_amo
 
 $isRevised     = (abs($revised - $orderQty) > 0.0001);
 $isManual      = ! empty($row['is_manual_added']);
+$isNt          = ! empty($row['is_nt_item']);
+$isBillable    = isset($row['is_billable']) ? ((int)$row['is_billable'] === 1) : true;
 $diff          = $revised - $orderQty;
 $diffFormatted = ($diff > 0 ? '+' : '') . app_format_number($diff);
 $tooltipText   = sprintf(
@@ -42,12 +44,24 @@ if ($isRevised) {
 if ($isManual) {
     $rowClasses[] = 'boq-row-manual';
 }
+if ($isNt) {
+    $rowClasses[] = 'boq-row-nt';
+} else {
+    $rowClasses[] = 'boq-row-tender';
+}
+if (! $isBillable) {
+    $rowClasses[] = 'boq-row-nonbillable';
+} else {
+    $rowClasses[] = 'boq-row-billable';
+}
 ?>
 <tr class="<?= implode(' ', $rowClasses); ?>"
     data-boq-id="<?= e($id); ?>" data-purchased="<?= e($purchased); ?>"
     data-revised="<?= e($revised); ?>"
     data-is-revised="<?= $isRevised ? '1' : '0'; ?>"
     data-is-manual="<?= $isManual ? '1' : '0'; ?>"
+    data-is-nt="<?= $isNt ? '1' : '0'; ?>"
+    data-is-billable="<?= $isBillable ? '1' : '0'; ?>"
     data-item-id="<?= (int) ($row['item_id'] ?? 0); ?>"
     data-item-description="<?= e($row['item_description'] ?? ''); ?>">
     <?php if ($can_view_items) { ?>
@@ -61,7 +75,17 @@ if ($isManual) {
     <td class="project-boq-item-label">
         <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 4px;">
             <span><?= e($row['item_description'] ?? ''); ?></span>
-            <div style="display: flex; align-items: center; gap: 4px; flex-shrink: 0;">
+            <div style="display: flex; align-items: center; gap: 4px; flex-shrink: 0; flex-wrap: wrap;">
+                <?php if ($isNt) { ?>
+                <span class="label boq-nt-chip" data-toggle="tooltip" data-placement="top" data-container="body" title="<?= e(_l('project_boq_nt_tooltip')); ?>" style="font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; background-color: #ede9fe; color: #6d28d9; border: 1px solid #ddd6fe; cursor: help;">
+                    <i class="fa-solid fa-tag tw-mr-1"></i><?= _l('project_boq_nt_badge'); ?>
+                </span>
+                <?php } ?>
+                <?php if (! $isBillable) { ?>
+                <span class="label boq-nonbillable-chip" data-toggle="tooltip" data-placement="top" data-container="body" title="<?= e(_l('project_boq_nonbillable_tooltip')); ?>" style="font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; background-color: #fee2e2; color: #991b1b; border: 1px solid #fecaca; cursor: help;">
+                    <i class="fa-solid fa-ban tw-mr-1"></i><?= _l('project_boq_nonbillable_badge'); ?>
+                </span>
+                <?php } ?>
                 <?php if ($isManual) { ?>
                 <span class="label boq-manual-chip" data-toggle="tooltip" data-placement="top" data-container="body" title="<?= e(_l('project_boq_manual_tooltip')); ?>" style="font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; background-color: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; cursor: help;">
                     <i class="fa-solid fa-plus-circle tw-mr-1"></i><?= _l('project_boq_manual_badge'); ?>

@@ -19,6 +19,11 @@ $project_restriction_val = method_exists($CI->project_boq_model, 'get_project_po
 $global_restriction_enabled = method_exists($CI->project_boq_model, 'is_po_restriction_enabled')
     ? $CI->project_boq_model->is_po_restriction_enabled(null)
     : true;
+$unmatched_pos = [];
+if (is_admin() && method_exists($CI->project_boq_model, 'get_project_unmatched_po_items')) {
+    $unmatched_pos = $CI->project_boq_model->get_project_unmatched_po_items($project->id);
+}
+$unmatched_pos_count = count($unmatched_pos);
 ?>
 <div id="project-boq-wrapper" class="project-boq-tab" data-project-id="<?= (int) $project->id; ?>"
     data-can-edit="<?= $can_edit_boq ? '1' : '0'; ?>"
@@ -105,6 +110,14 @@ $global_restriction_enabled = method_exists($CI->project_boq_model, 'is_po_restr
         }
         </style>
         <div class="pull-right tw-flex tw-items-center" style="margin-top: 5px; gap: 10px;">
+            <?php if ($unmatched_pos_count > 0) { ?>
+            <button type="button" class="btn btn-warning btn-xs" id="project-boq-view-unmatched-pos" data-toggle="tooltip"
+                data-placement="top" title="<?= _l('project_boq_unmatched_pos_tooltip'); ?>" style="padding: 4px 10px; font-size: 12px; font-weight: 500;">
+                <i class="fa fa-exclamation-triangle tw-mr-1"></i>
+                <?= _l('project_boq_unmatched_pos_btn'); ?> (<?= $unmatched_pos_count; ?>)
+            </button>
+            <?php } ?>
+
             <button type="button" class="btn btn-info btn-xs" id="project-boq-sync-pos" data-toggle="tooltip"
                 data-placement="top" title="<?= _l('project_boq_sync_past_pos_tooltip'); ?>" style="padding: 4px 10px; font-size: 12px; font-weight: 500;">
                 <i class="fa fa-sync tw-mr-1"></i>
@@ -133,8 +146,91 @@ $global_restriction_enabled = method_exists($CI->project_boq_model, 'is_po_restr
         <?php } ?>
     </div>
 
+    <?php if (!empty($pending_requests)): ?>
+    <div class="panel_s tw-mb-4" id="project-boq-pending-panel" style="border-left: 4px solid #f59e0b;">
+        <div class="panel-heading" style="font-weight: 600; display: flex; align-items: center; justify-content: space-between; background: #fffbeb;">
+            <span style="color: #92400e;"><i class="fa-solid fa-clock-rotate-left tw-mr-1 text-warning"></i> <?= _l('project_boq_pending_requests'); ?> (<?= count($pending_requests); ?>)</span>
+            <small class="text-muted">Requires approval before updating live BOQ</small>
+        </div>
+        <div class="panel-body" style="padding: 10px 15px;">
+            <table class="table table-bordered table-striped tw-mb-0">
+                <thead>
+                    <tr>
+                        <th><?= _l('project_boq_item'); ?></th>
+                        <th><?= _l('project_boq_request_type'); ?></th>
+                        <th><?= _l('project_boq_requested_details'); ?></th>
+                        <th><?= _l('project_boq_requested_by'); ?></th>
+                        <th><?= _l('project_boq_request_date'); ?></th>
+                        <th class="text-center"><?= $can_approve_boq ? _l('options') : _l('status'); ?></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($pending_requests as $req): 
+                        $reqData = json_decode($req['new_data'] ?? '{}', true);
+                    ?>
+                    <tr>
+                        <td>
+                            <?php if ($req['boq_item_id']): ?>
+                                <strong><?= e(get_boq_item_description($req['boq_item_id'])); ?></strong>
+                            <?php else: ?>
+                                <span class="label label-info"><?= _l('project_boq_new_item'); ?></span>
+                                (Item #<?= e($reqData['item_id'] ?? ''); ?>)
+                            <?php endif; ?>
+                        </td>
+                        <td>
+                            <?php if ($req['request_type'] === 'change_qty'): ?>
+                                <span class="label label-warning"><?= _l('project_boq_request_type_change_qty'); ?></span>
+                            <?php else: ?>
+                                <span class="label label-success"><?= _l('project_boq_request_type_add_item'); ?></span>
+                            <?php endif; ?>
+                        </td>
+                        <td>
+                            <?php if ($req['request_type'] === 'change_qty' && $req['boq_item_id']): 
+                                $boqItem = $this->project_boq_model->get($req['boq_item_id']);
+                                $curQty = $boqItem ? (float)$boqItem->revised_qty : 0;
+                                $reqQty = (float)($reqData['revised_qty'] ?? $reqData['order_quantity'] ?? 0);
+                            ?>
+                                <span>Current: <strong><?= app_format_number($curQty); ?></strong> &rarr; Requested: <strong class="text-primary"><?= app_format_number($reqQty); ?></strong></span>
+                            <?php elseif ($req['request_type'] === 'add_item'): ?>
+                                <span>Qty: <strong><?= app_format_number($reqData['order_quantity'] ?? 0); ?></strong></span>
+                            <?php endif; ?>
+                        </td>
+                        <td><?= e(get_staff_full_name($req['requested_by'])); ?></td>
+                        <td><?= e(_dt($req['created_at'])); ?></td>
+                        <td class="text-center">
+                            <?php if ($can_approve_boq): ?>
+                            <button class="btn btn-xs btn-success boq-approve-request"
+                                    data-request-id="<?= e($req['id']); ?>">
+                                <i class="fa fa-check"></i> <?= _l('approve'); ?>
+                            </button>
+                            <button class="btn btn-xs btn-danger boq-reject-request"
+                                    data-request-id="<?= e($req['id']); ?>">
+                                <i class="fa fa-times"></i> <?= _l('reject'); ?>
+                            </button>
+                            <?php else: ?>
+                            <span class="label label-warning"><?= _l('pending'); ?></span>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <?php endif; ?>
+
     <div class="panel_s">
         <div class="panel-body">
+            <!-- Filter Pills (All / Tender / NT / Billable / Non-Billable) -->
+            <div class="boq-filter-tabs tw-mb-3" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                <span class="text-muted" style="font-size: 12px; font-weight: 600;"><i class="fa fa-filter tw-mr-1"></i> View:</span>
+                <button type="button" class="btn btn-xs btn-default boq-filter-btn active" data-filter="all"><?= _l('project_boq_filter_all'); ?> (<span id="boq-count-all">0</span>)</button>
+                <button type="button" class="btn btn-xs btn-default boq-filter-btn" data-filter="tender"><i class="fa fa-cube tw-mr-1 text-primary"></i> <?= _l('project_boq_filter_tender'); ?> (<span id="boq-count-tender">0</span>)</button>
+                <button type="button" class="btn btn-xs btn-default boq-filter-btn" data-filter="nt"><i class="fa fa-tag tw-mr-1" style="color: #8b5cf6;"></i> <?= _l('project_boq_filter_nt'); ?> (<span id="boq-count-nt">0</span>)</button>
+                <button type="button" class="btn btn-xs btn-default boq-filter-btn" data-filter="billable"><i class="fa fa-check-circle tw-mr-1 text-success"></i> <?= _l('project_boq_filter_billable'); ?> (<span id="boq-count-billable">0</span>)</button>
+                <button type="button" class="btn btn-xs btn-default boq-filter-btn" data-filter="nonbillable"><i class="fa fa-ban tw-mr-1 text-danger"></i> <?= _l('project_boq_filter_nonbillable'); ?> (<span id="boq-count-nonbillable">0</span>)</button>
+            </div>
+
             <div class="table-responsive project-boq-table-responsive" style="overflow-x:auto;">
                 <table class="table table-bordered table-hover" id="project-boq-table" style="table-layout:fixed; width:3090px; min-width:3090px;">
                     <thead>
@@ -338,78 +434,6 @@ $global_restriction_enabled = method_exists($CI->project_boq_model, 'is_po_restr
         box-sizing: border-box !important;
     }
     </style>
-
-    <?php if (!empty($pending_requests)): ?>
-    <div class="panel_s tw-mt-4">
-        <div class="panel-heading" style="font-weight: 600; display: flex; align-items: center; justify-content: space-between;">
-            <span><i class="fa-solid fa-clock-rotate-left tw-mr-1 text-warning"></i> <?= _l('project_boq_pending_requests'); ?> (<?= count($pending_requests); ?>)</span>
-        </div>
-        <div class="panel-body">
-            <table class="table table-bordered table-striped">
-                <thead>
-                    <tr>
-                        <th><?= _l('project_boq_item'); ?></th>
-                        <th><?= _l('project_boq_request_type'); ?></th>
-                        <th><?= _l('project_boq_requested_details'); ?></th>
-                        <th><?= _l('project_boq_requested_by'); ?></th>
-                        <th><?= _l('project_boq_request_date'); ?></th>
-                        <th class="text-center"><?= $can_approve_boq ? _l('options') : _l('status'); ?></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($pending_requests as $req): 
-                        $reqData = json_decode($req['new_data'] ?? '{}', true);
-                    ?>
-                    <tr>
-                        <td>
-                            <?php if ($req['boq_item_id']): ?>
-                                <strong><?= e(get_boq_item_description($req['boq_item_id'])); ?></strong>
-                            <?php else: ?>
-                                <span class="label label-info"><?= _l('project_boq_new_item'); ?></span>
-                                (Item #<?= e($reqData['item_id'] ?? ''); ?>)
-                            <?php endif; ?>
-                        </td>
-                        <td>
-                            <?php if ($req['request_type'] === 'change_qty'): ?>
-                                <span class="label label-warning"><?= _l('project_boq_request_type_change_qty'); ?></span>
-                            <?php else: ?>
-                                <span class="label label-success"><?= _l('project_boq_request_type_add_item'); ?></span>
-                            <?php endif; ?>
-                        </td>
-                        <td>
-                            <?php if ($req['request_type'] === 'change_qty' && $req['boq_item_id']): 
-                                $boqItem = $this->project_boq_model->get($req['boq_item_id']);
-                                $curQty = $boqItem ? (float)$boqItem->revised_qty : 0;
-                                $reqQty = (float)($reqData['revised_qty'] ?? $reqData['order_quantity'] ?? 0);
-                            ?>
-                                <span>Current: <strong><?= app_format_number($curQty); ?></strong> &rarr; Requested: <strong class="text-primary"><?= app_format_number($reqQty); ?></strong></span>
-                            <?php elseif ($req['request_type'] === 'add_item'): ?>
-                                <span>Qty: <strong><?= app_format_number($reqData['order_quantity'] ?? 0); ?></strong></span>
-                            <?php endif; ?>
-                        </td>
-                        <td><?= e(get_staff_full_name($req['requested_by'])); ?></td>
-                        <td><?= e(_dt($req['created_at'])); ?></td>
-                        <td class="text-center">
-                            <?php if ($can_approve_boq): ?>
-                            <button class="btn btn-xs btn-success boq-approve-request"
-                                    data-request-id="<?= e($req['id']); ?>">
-                                <i class="fa fa-check"></i> <?= _l('approve'); ?>
-                            </button>
-                            <button class="btn btn-xs btn-danger boq-reject-request"
-                                    data-request-id="<?= e($req['id']); ?>">
-                                <i class="fa fa-times"></i> <?= _l('reject'); ?>
-                            </button>
-                            <?php else: ?>
-                            <span class="label label-warning"><?= _l('pending'); ?></span>
-                            <?php endif; ?>
-                        </td>
-                    </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-    </div>
-    <?php endif; ?>
 </div>
 
 <?php if ($can_revise_boq && $can_view_items) { ?>
@@ -427,6 +451,26 @@ $global_restriction_enabled = method_exists($CI->project_boq_model, 'is_po_restr
                     <i class="fa fa-info-circle"></i> <?= _l('project_boq_revision_approval_notice'); ?>
                 </div>
                 <input type="hidden" name="boq_id" id="project-boq-modal-id" value="">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="project-boq-modal-is-nt"><?= _l('project_boq_item_type'); ?></label>
+                            <select id="project-boq-modal-is-nt" name="is_nt_item" class="form-control selectpicker" data-width="100%">
+                                <option value="0" selected><?= _l('project_boq_item_type_tender'); ?></option>
+                                <option value="1"><?= _l('project_boq_item_type_nt'); ?></option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="project-boq-modal-is-billable"><?= _l('project_boq_billable'); ?></label>
+                            <select id="project-boq-modal-is-billable" name="is_billable" class="form-control selectpicker" data-width="100%">
+                                <option value="1" selected><?= _l('project_boq_billable'); ?></option>
+                                <option value="0"><?= _l('project_boq_non_billable'); ?></option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
                 <div class="form-group">
                     <label for="project-boq-modal-item"><?= _l('project_boq_item'); ?></label>
                     <select id="project-boq-modal-item" name="item_id" class="selectpicker" data-width="100%"
@@ -491,6 +535,28 @@ $global_restriction_enabled = method_exists($CI->project_boq_model, 'is_po_restr
                         <div style="font-weight: 700; font-size: 13px; color: #1e293b; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
                             <span><i class="fa-solid fa-table tw-mr-1 text-primary"></i> BOQ Item &amp; Client Pricing (Columns A – M)</span>
                             <span class="text-muted" style="font-size: 11px; font-weight: normal;">Matches Excel Columns</span>
+                        </div>
+
+                        <!-- Row 0: Item Category (Tender / NT) & Billing Status (Billable / Non-Billable) -->
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label><?= _l('project_boq_item_type'); ?></label>
+                                    <select name="is_nt_item" id="project-boq-request-is-nt" class="form-control">
+                                        <option value="0"><?= _l('project_boq_item_type_tender'); ?></option>
+                                        <option value="1"><?= _l('project_boq_item_type_nt'); ?></option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label><?= _l('project_boq_billing_type'); ?></label>
+                                    <select name="is_billable" id="project-boq-request-is-billable" class="form-control">
+                                        <option value="1"><?= _l('project_boq_billable'); ?></option>
+                                        <option value="0"><?= _l('project_boq_non_billable'); ?></option>
+                                    </select>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Row 1: Internal Ref No (A), Client Ref No (B), CRM ITEM ID (C), CRM Item (D) -->
@@ -771,6 +837,9 @@ $global_restriction_enabled = method_exists($CI->project_boq_model, 'is_po_restr
                 </div>
             </div>
             <div class="modal-footer">
+                <button type="button" class="btn btn-info pull-left" id="project-boq-export-unmatched-csv">
+                    <i class="fa fa-file-excel-o tw-mr-1"></i> <?= _l('project_boq_export_unmatched_csv'); ?>
+                </button>
                 <button type="button" class="btn btn-primary" data-dismiss="modal"><?= _l('close'); ?></button>
             </div>
         </div>

@@ -165,6 +165,30 @@ class Admin extends AdminController
         $this->json_response($result);
     }
 
+    public function get_unmatched_pos($project_id = '')
+    {
+        if (! $this->input->is_ajax_request()) {
+            show_404();
+        }
+
+        if (! is_admin()) {
+            ajax_access_denied();
+        }
+
+        $project_id = (int) $project_id;
+        if ($project_id < 1 || ! $this->can_access_project($project_id)) {
+            ajax_access_denied();
+        }
+
+        $unmatched = $this->project_boq_model->get_project_unmatched_po_items($project_id);
+
+        $this->json_response([
+            'success' => true,
+            'count'   => count($unmatched),
+            'items'   => $unmatched,
+        ]);
+    }
+
     public function add()
     {
         if (! $this->input->is_ajax_request() || ! $this->input->post()) {
@@ -192,11 +216,16 @@ class Admin extends AdminController
             exit;
         }
 
+        $is_nt_item  = $this->input->post('is_nt_item') !== null ? (int) $this->input->post('is_nt_item') : 0;
+        $is_billable = $this->input->post('is_billable') !== null ? (int) $this->input->post('is_billable') : 1;
+
         $id = $this->project_boq_model->add([
             'project_id'  => $project_id,
             'item_id'     => $item_id,
             'planned_qty' => $planned,
             'revised_qty' => $planned,
+            'is_nt_item'  => $is_nt_item,
+            'is_billable' => $is_billable,
         ]);
 
         if (! $id) {
@@ -271,6 +300,7 @@ class Admin extends AdminController
             ];
 
             $request_id = $this->project_boq_model->add_edit_request($request_data);
+
             if ($request_id) {
                 $this->notify_admins_boq_edit_request($request_id, $project_id, 'change_qty');
 
@@ -291,6 +321,12 @@ class Admin extends AdminController
         $data = ['revised_qty' => $revised];
         if ($item_id !== null && $item_id > 0) {
             $data['item_id'] = $item_id;
+        }
+        if ($this->input->post('is_nt_item') !== null) {
+            $data['is_nt_item'] = (int) $this->input->post('is_nt_item');
+        }
+        if ($this->input->post('is_billable') !== null) {
+            $data['is_billable'] = (int) $this->input->post('is_billable');
         }
 
         $this->project_boq_model->update_row($id, $data);
@@ -521,6 +557,26 @@ class Admin extends AdminController
                 continue;
             }
 
+            // Item Type (Tender / Non-Tender) - default 0 (Tender)
+            $item_type_val = $data['item type'] ?? $data['Item Type'] ?? ($row[21] ?? null);
+            $is_nt = 0;
+            if ($item_type_val !== null) {
+                $cleaned_type = strtolower(trim((string)$item_type_val));
+                if (in_array($cleaned_type, ['nt', 'non tender', 'non-tender', '1', 'yes', 'true'], true)) {
+                    $is_nt = 1;
+                }
+            }
+
+            // Billable (Billable / Non-Billable) - default 1 (Billable)
+            $billable_val = $data['billable'] ?? $data['Billable'] ?? ($row[22] ?? null);
+            $is_billable = 1;
+            if ($billable_val !== null) {
+                $cleaned_bill = strtolower(trim((string)$billable_val));
+                if (in_array($cleaned_bill, ['0', 'no', 'false', 'non billable', 'non-billable', 'nonbillable'], true)) {
+                    $is_billable = 0;
+                }
+            }
+
             $boq_data = [
                 'internal_ref_no'          => $data['internal ref no'] ?? $data['Internal Ref No'] ?? ($row[0] ?? null),
                 'client_ref_no'            => $data['client ref no'] ?? $data['Client Ref No'] ?? ($row[1] ?? null),
@@ -529,6 +585,8 @@ class Admin extends AdminController
                 'planned_qty'              => $order_qty,
                 'revised_qty'              => $order_qty,
                 'order_quantity'           => $order_qty,
+                'is_nt_item'               => $is_nt,
+                'is_billable'              => $is_billable,
                 'supply_rate'              => (isset($data['supply rate']) && $data['supply rate'] !== '') ? (float) $data['supply rate'] : ((isset($data['Supply Rate']) && $data['Supply Rate'] !== '') ? (float) $data['Supply Rate'] : null),
                 'itc_rate'                 => (isset($data['itc rate']) && $data['itc rate'] !== '') ? (float) $data['itc rate'] : ((isset($data['ITC Rate']) && $data['ITC Rate'] !== '') ? (float) $data['ITC Rate'] : null),
                 'supply_amount'            => (isset($data['supply amount']) && $data['supply amount'] !== '') ? (float) $data['supply amount'] : ((isset($data['Supply Amount']) && $data['Supply Amount'] !== '') ? (float) $data['Supply Amount'] : null),
@@ -669,6 +727,8 @@ class Admin extends AdminController
             '(internal)Labour Rate',      // S
             '(internal)Supply Amount',    // T
             '(internal)ITC Amount',       // U
+            'Item Type',                  // V  (Tender / Non-Tender)
+            'Billable',                   // W  (Billable / Non-Billable)
         ];
 
         $boq_sheet->fromArray($boq_headers, null, 'A1');
@@ -687,7 +747,7 @@ class Admin extends AdminController
                 ],
             ],
         ];
-        $boq_sheet->getStyle('A1:U1')->applyFromArray($boq_header_style);
+        $boq_sheet->getStyle('A1:W1')->applyFromArray($boq_header_style);
 
         // Style internal columns (N-U) header with a different accent
         $internal_header_style = [
@@ -708,7 +768,7 @@ class Admin extends AdminController
         $boq_sheet->getStyle('C1')->applyFromArray($autofill_header_style);
 
         // Auto-size BOQ columns
-        foreach (range('A', 'U') as $col) {
+        foreach (range('A', 'W') as $col) {
             $boq_sheet->getColumnDimension($col)->setWidth(18);
         }
 
@@ -752,6 +812,22 @@ class Admin extends AdminController
                 $boq_sheet->setCellValue('T' . $r, '=IF(OR(Q' . $r . '="",R' . $r . '=""),"",Q' . $r . '*R' . $r . ')');
                 // (internal)ITC Amount = (internal)Quantity * (internal)Labour Rate
                 $boq_sheet->setCellValue('U' . $r, '=IF(OR(Q' . $r . '="",S' . $r . '=""),"",Q' . $r . '*S' . $r . ')');
+
+                // Item Type (V)
+                $type_val = $boq_sheet->getCell('V' . $r)->getDataValidation();
+                $type_val->setType(\PhpOffice\PhpSpreadsheet\Cell\DataValidation::TYPE_LIST);
+                $type_val->setAllowBlank(true);
+                $type_val->setShowDropDown(true);
+                $type_val->setFormula1('"Tender,Non-Tender"');
+                $boq_sheet->setCellValue('V' . $r, 'Tender');
+
+                // Billable (W)
+                $bill_val = $boq_sheet->getCell('W' . $r)->getDataValidation();
+                $bill_val->setType(\PhpOffice\PhpSpreadsheet\Cell\DataValidation::TYPE_LIST);
+                $bill_val->setAllowBlank(true);
+                $bill_val->setShowDropDown(true);
+                $bill_val->setFormula1('"Billable,Non-Billable"');
+                $boq_sheet->setCellValue('W' . $r, 'Billable');
             }
 
             // Light green background for auto-filled CRM ITEM ID cells
@@ -771,10 +847,10 @@ class Admin extends AdminController
             // Unlock all editable cells (everything except column C)
             $unlock_style = ['protection' => ['locked' => \PhpOffice\PhpSpreadsheet\Style\Protection::PROTECTION_UNPROTECTED]];
             $boq_sheet->getStyle('A2:B' . ($template_rows + 1))->applyFromArray($unlock_style);
-            $boq_sheet->getStyle('D2:U' . ($template_rows + 1))->applyFromArray($unlock_style);
-            // Also unlock headers for column A,B,D-U (keep them unlocked for usability)
+            $boq_sheet->getStyle('D2:W' . ($template_rows + 1))->applyFromArray($unlock_style);
+            // Also unlock headers for column A,B,D-W (keep them unlocked for usability)
             $boq_sheet->getStyle('A1:B1')->applyFromArray($unlock_style);
-            $boq_sheet->getStyle('D1:U1')->applyFromArray($unlock_style);
+            $boq_sheet->getStyle('D1:W1')->applyFromArray($unlock_style);
         }
 
         // Freeze header row
@@ -948,14 +1024,18 @@ class Admin extends AdminController
 
         $requester = $this->staff_model->get($request->requested_by);
         $project   = $this->projects_model->get($project_id);
-        $item_label = '';
+        $raw_item_label = '';
         if ($request->boq_item_id) {
             $boq = $this->project_boq_model->get((int) $request->boq_item_id);
-            $item_label = $boq->boq_description ?? ('BOQ #' . $request->boq_item_id);
+            $raw_item_label = $boq ? ($boq->boq_description ?: 'BOQ #' . $request->boq_item_id) : ('BOQ #' . $request->boq_item_id);
         } else {
             $new_data = json_decode($request->new_data, true);
-            $item_label = _l('project_boq_new_item') . ' (Item #' . ($new_data['item_id'] ?? '') . ')';
+            $raw_item_label = _l('project_boq_new_item') . ' (Item #' . ($new_data['item_id'] ?? '') . ')';
         }
+
+        $clean_label = trim(strip_tags(str_replace(['<br>', '<br/>', '<br />', '&nbsp;'], ' ', $raw_item_label)));
+        $clean_label = preg_replace('/\s+/', ' ', $clean_label);
+        $item_label  = mb_strlen($clean_label) > 85 ? (mb_substr($clean_label, 0, 82) . '...') : $clean_label;
 
         $requester_name = $requester ? ($requester->firstname . ' ' . $requester->lastname) : 'Staff';
         $project_name   = $project ? $project->name : ('Project #' . $project_id);
@@ -1017,14 +1097,23 @@ class Admin extends AdminController
 
         $requester = $this->staff_model->get($request->requested_by);
         $project   = $this->projects_model->get($request->project_id);
-        $type_label = _l('project_boq_request_type_' . $request->request_type);
 
-        $message = _l(
-            'project_boq_edit_request_notification',
-            $project ? $project->name : ('Project #' . $request->project_id),
-            $type_label,
-            _l('project_boq_edit_' . $status)
-        );
+        $raw_item_label = '';
+        if ($request->boq_item_id) {
+            $boq = $this->project_boq_model->get((int) $request->boq_item_id);
+            $raw_item_label = $boq ? ($boq->boq_description ?: 'BOQ #' . $request->boq_item_id) : ('BOQ #' . $request->boq_item_id);
+        } else {
+            $new_data = json_decode($request->new_data, true);
+            $raw_item_label = _l('project_boq_new_item') . ' (Item #' . ($new_data['item_id'] ?? '') . ')';
+        }
+        $clean_label = trim(strip_tags(str_replace(['<br>', '<br/>', '<br />', '&nbsp;'], ' ', $raw_item_label)));
+        $clean_label = preg_replace('/\s+/', ' ', $clean_label);
+        $item_label  = mb_strlen($clean_label) > 85 ? (mb_substr($clean_label, 0, 82) . '...') : $clean_label;
+
+        $type_label   = _l('project_boq_request_type_' . $request->request_type);
+        $status_text  = _l('project_boq_edit_' . $status);
+        $project_name = $project ? $project->name : ('Project #' . $request->project_id);
+        $message      = sprintf('Your BOQ revision for "%s" in project "%s" has been %s.', $item_label, $project_name, $status_text);
 
         add_notification([
             'description' => $message,
