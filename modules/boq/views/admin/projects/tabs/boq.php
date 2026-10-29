@@ -8,6 +8,17 @@ $can_approve_boq   = !empty($can_approve_boq) || is_boq_approver();
 $is_project_member = !empty($is_project_member) || (isset($project) && $this->projects_model->is_member($project->id));
 $can_revise_boq    = $can_edit_boq || $is_project_member;
 $pending_revisions = $pending_revisions ?? [];
+
+$CI = &get_instance();
+if (!isset($CI->project_boq_model)) {
+    $CI->load->model('boq/Boq_model', 'project_boq_model');
+}
+$project_restriction_val = method_exists($CI->project_boq_model, 'get_project_po_restriction_setting')
+    ? $CI->project_boq_model->get_project_po_restriction_setting($project->id)
+    : 'inherit';
+$global_restriction_enabled = method_exists($CI->project_boq_model, 'is_po_restriction_enabled')
+    ? $CI->project_boq_model->is_po_restriction_enabled(null)
+    : true;
 ?>
 <div id="project-boq-wrapper" class="project-boq-tab" data-project-id="<?= (int) $project->id; ?>"
     data-can-edit="<?= $can_edit_boq ? '1' : '0'; ?>"
@@ -18,7 +29,7 @@ $pending_revisions = $pending_revisions ?? [];
     </div>
     <?php } ?>
 
-    <div class="_buttons tw-mb-4">
+    <div class="_buttons tw-mb-4 clearfix">
         <?php if ($can_view_items) { ?>
         <button type="button" class="btn btn-primary" id="project-boq-open-add" data-toggle="modal"
             data-target="#project_boq_request_modal" data-request-mode="add_item">
@@ -42,6 +53,13 @@ $pending_revisions = $pending_revisions ?? [];
             <?= _l('project_boq_download_template'); ?>
         </a>
         <?php } ?>
+        <?php if ($can_view_items && ($can_edit_boq || is_admin() || staff_can('edit', 'projects'))) { ?>
+        <button type="button" class="btn btn-info" id="project-boq-sync-pos" data-toggle="tooltip"
+            data-placement="top" title="<?= _l('project_boq_sync_past_pos_tooltip'); ?>">
+            <i class="fa fa-sync tw-mr-1"></i>
+            <?= _l('project_boq_sync_past_pos'); ?>
+        </button>
+        <?php } ?>
         <?php
         $revised_count = 0;
         foreach ($boq_items as $bItem) {
@@ -59,6 +77,25 @@ $pending_revisions = $pending_revisions ?? [];
                 <?= sprintf($revised_count === 1 ? _l('project_boq_items_revised_summary') : _l('project_boq_items_revised_summary_plural'), $revised_count); ?>
             </span>
         </span>
+
+        <?php if (is_admin() || staff_can('edit', 'projects')) { ?>
+        <div class="pull-right tw-flex tw-items-center" style="margin-top: 5px; gap: 8px;">
+            <label class="tw-mb-0 text-muted" style="font-weight: 500; font-size: 13px;" data-toggle="tooltip" data-placement="left" title="<?= _l('project_boq_po_restriction_tooltip'); ?>">
+                <i class="fa-solid fa-shield-halved tw-mr-1 text-primary"></i><?= _l('project_boq_po_restriction'); ?>:
+            </label>
+            <select id="project_boq_project_restriction_select" class="selectpicker" data-width="auto" data-style="btn-default btn-xs">
+                <option value="inherit" <?= $project_restriction_val === 'inherit' ? 'selected' : ''; ?>>
+                    <?= _l('project_boq_restriction_inherit'); ?> (<?= $global_restriction_enabled ? _l('project_boq_restriction_enforced') : _l('project_boq_restriction_disabled'); ?>)
+                </option>
+                <option value="1" <?= $project_restriction_val === '1' ? 'selected' : ''; ?>>
+                    <?= _l('project_boq_restriction_enforce_always'); ?>
+                </option>
+                <option value="0" <?= $project_restriction_val === '0' ? 'selected' : ''; ?>>
+                    <?= _l('project_boq_restriction_exempt'); ?>
+                </option>
+            </select>
+        </div>
+        <?php } ?>
     </div>
 
     <div class="panel_s">
@@ -667,6 +704,44 @@ $pending_revisions = $pending_revisions ?? [];
     </div>
 </div>
 
+<div class="modal fade" id="project_boq_sync_result_modal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                <h4 class="modal-title">
+                    <i class="fa fa-sync text-primary tw-mr-1"></i>
+                    <?= _l('project_boq_sync_past_pos'); ?>
+                </h4>
+            </div>
+            <div class="modal-body">
+                <div id="project-boq-sync-summary-alert" class="alert alert-success"></div>
+                <div id="project-boq-sync-unmatched-wrapper" style="display:none;">
+                    <div class="alert alert-warning">
+                        <strong><i class="fa fa-exclamation-triangle tw-mr-1"></i> <?= _l('project_boq_sync_unmatched_notice'); ?></strong>
+                        <p class="tw-mb-0"><?= _l('project_boq_sync_unmatched_desc'); ?></p>
+                    </div>
+                    <div class="table-responsive" style="max-height: 250px; overflow-y: auto;">
+                        <table class="table table-bordered table-striped" id="project-boq-sync-unmatched-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 25%;"><?= _l('project_boq_sync_po_number'); ?></th>
+                                    <th><?= _l('project_boq_sync_item_name'); ?></th>
+                                    <th class="text-right" style="width: 20%;"><?= _l('project_boq_sync_quantity'); ?></th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-dismiss="modal"><?= _l('close'); ?></button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 var projectBoqCanApprove = <?= $can_approve_boq ? 'true' : 'false'; ?>;
 var projectBoqLang = <?= json_encode([
@@ -683,5 +758,7 @@ var projectBoqLang = <?= json_encode([
     'items_revised_summary_plural' => _l('project_boq_items_revised_summary_plural'),
     'pending'                     => _l('pending'),
     'pending_approval_badge'      => _l('project_boq_pending_approval_badge'),
+    'sync_confirm'                => _l('project_boq_sync_confirm'),
+    'syncing'                     => _l('project_boq_syncing'),
 ]); ?>;
 </script>

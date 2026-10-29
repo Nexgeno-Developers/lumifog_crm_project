@@ -275,8 +275,75 @@ class Boq_model extends App_Model
         return true;
     }
 
+    public function get_project_po_restriction_setting($project_id)
+    {
+        $project_id = (int) $project_id;
+        if ($project_id < 1) {
+            return 'inherit';
+        }
+
+        if (!$this->db->table_exists(db_prefix() . 'project_settings')) {
+            return 'inherit';
+        }
+
+        $this->db->where('project_id', $project_id);
+        $this->db->where('name', 'boq_enforce_restriction');
+        $row = $this->db->get(db_prefix() . 'project_settings')->row();
+
+        if ($row && in_array((string) $row->value, ['inherit', '1', '0'], true)) {
+            return (string) $row->value;
+        }
+
+        return 'inherit';
+    }
+
+    public function set_project_po_restriction_setting($project_id, $value)
+    {
+        $project_id = (int) $project_id;
+        if ($project_id < 1) {
+            return false;
+        }
+
+        $valid_values = ['inherit', '1', '0'];
+        if (!in_array((string) $value, $valid_values, true)) {
+            $value = 'inherit';
+        }
+
+        if (!$this->db->table_exists(db_prefix() . 'project_settings')) {
+            return false;
+        }
+
+        $this->db->where('project_id', $project_id);
+        $this->db->where('name', 'boq_enforce_restriction');
+        $existing = $this->db->get(db_prefix() . 'project_settings')->row();
+
+        if ($existing) {
+            $this->db->where('id', $existing->id);
+            $this->db->update(db_prefix() . 'project_settings', ['value' => (string) $value]);
+        } else {
+            $this->db->insert(db_prefix() . 'project_settings', [
+                'project_id' => $project_id,
+                'name'       => 'boq_enforce_restriction',
+                'value'      => (string) $value,
+            ]);
+        }
+
+        return true;
+    }
+
     public function is_po_restriction_enabled($project_id = null)
     {
+        if ($project_id && (int) $project_id > 0) {
+            $project_setting = $this->get_project_po_restriction_setting($project_id);
+            if ($project_setting === '1') {
+                return true;
+            }
+            if ($project_setting === '0') {
+                return false;
+            }
+            // 'inherit' falls back to global setting below
+        }
+
         $val = get_option('boq_po_restriction');
         if ($val === '' || $val === null) {
             return true;
@@ -291,5 +358,135 @@ class Boq_model extends App_Model
         update_option('boq_po_restriction', $val);
 
         return true;
+    }
+
+    /**
+     * Scan approved POs for this project and reconcile purchased_qty with BOQ lines.
+     *
+     * @param int $project_id
+     * @return array
+     */
+    public function sync_project_past_pos($project_id)
+    {
+        $project_id = (int) $project_id;
+        if ($project_id < 1) {
+            return [
+                'success' => false,
+                'message' => 'Invalid project ID',
+            ];
+        }
+
+        if (!$this->db->table_exists(db_prefix() . 'project_boq_items') || !$this->db->table_exists(db_prefix() . 'boq_purchase_links')) {
+            return [
+                'success' => false,
+                'message' => 'BOQ database tables do not exist',
+            ];
+        }
+
+        // 1. Get all approved Purchase Orders for this project
+        $this->db->select('po.id as pur_order_id, po.pur_order_number, pod.id as purchase_item_id, pod.item_code, pod.quantity, pod.description');
+        $this->db->from(db_prefix() . 'pur_orders po');
+        $this->db->join(db_prefix() . 'pur_order_detail pod', 'pod.pur_order = po.id', 'inner');
+        $this->db->where('po.project', $project_id);
+        $this->db->where('po.approve_status', 2);
+        $po_items = $this->db->get()->result_array();
+
+        if (empty($po_items)) {
+            return [
+                'success'              => true,
+                'synced_count'         => 0,
+                'already_synced_count' => 0,
+                'unmatched_count'      => 0,
+                'unmatched_items'      => [],
+                'message'              => _l('project_boq_sync_no_approved_pos'),
+            ];
+        }
+
+        // 2. Get existing links
+        $this->db->select('purchase_item_id');
+        $this->db->from(db_prefix() . 'boq_purchase_links');
+        $existing_links = $this->db->get()->result_array();
+        $linked_map     = array_flip(array_column($existing_links, 'purchase_item_id'));
+
+        // 3. Get all BOQ items for this project
+        $this->db->select('id, item_id, planned_qty, revised_qty, purchased_qty, boq_description');
+        $this->db->from(db_prefix() . 'project_boq_items');
+        $this->db->where('project_id', $project_id);
+        $boq_items = $this->db->get()->result_array();
+
+        $boq_by_item = [];
+        foreach ($boq_items as $bItem) {
+            $iId = (int) $bItem['item_id'];
+            if ($iId > 0 && !isset($boq_by_item[$iId])) {
+                $boq_by_item[$iId] = $bItem;
+            }
+        }
+
+        $synced_count         = 0;
+        $already_synced_count = 0;
+        $unmatched_items      = [];
+        $qty_to_add_by_boq_id = [];
+
+        $this->db->trans_start();
+
+        foreach ($po_items as $line) {
+            $purchase_item_id = (int) ($line['purchase_item_id'] ?? 0);
+            $item_id          = (int) ($line['item_code'] ?? 0);
+            $qty              = (float) ($line['quantity'] ?? 0);
+
+            if ($purchase_item_id < 1 || $qty <= 0) {
+                continue;
+            }
+
+            // Idempotency: skip if already linked
+            if (isset($linked_map[$purchase_item_id])) {
+                $already_synced_count++;
+                continue;
+            }
+
+            if ($item_id > 0 && isset($boq_by_item[$item_id])) {
+                $boq_row     = $boq_by_item[$item_id];
+                $boq_item_id = (int) $boq_row['id'];
+
+                $this->db->insert(db_prefix() . 'boq_purchase_links', [
+                    'purchase_item_id' => $purchase_item_id,
+                    'boq_item_id'      => $boq_item_id,
+                    'purchase_id'      => (int) $line['pur_order_id'],
+                    'qty'              => number_format($qty, 4, '.', ''),
+                    'created_at'       => date('Y-m-d H:i:s'),
+                ]);
+
+                if (!isset($qty_to_add_by_boq_id[$boq_item_id])) {
+                    $qty_to_add_by_boq_id[$boq_item_id] = 0;
+                }
+                $qty_to_add_by_boq_id[$boq_item_id] += $qty;
+                $synced_count++;
+            } else {
+                $unmatched_items[] = [
+                    'pur_order_number' => $line['pur_order_number'],
+                    'item_code'        => $item_id,
+                    'description'      => !empty($line['description']) ? $line['description'] : ('Item #' . $item_id),
+                    'quantity'         => $qty,
+                ];
+            }
+        }
+
+        // Apply accumulated purchased_qty updates to project_boq_items
+        foreach ($qty_to_add_by_boq_id as $boq_id => $add_qty) {
+            $this->db->set('purchased_qty', 'purchased_qty + ' . (float) $add_qty, false);
+            $this->db->where('id', $boq_id);
+            $this->db->update(db_prefix() . 'project_boq_items');
+        }
+
+        $this->db->trans_complete();
+
+        return [
+            'success'              => true,
+            'synced_count'         => $synced_count,
+            'already_synced_count' => $already_synced_count,
+            'unmatched_count'      => count($unmatched_items),
+            'unmatched_items'      => $unmatched_items,
+            'message'              => sprintf(_l('project_boq_sync_success_message'), $synced_count, $already_synced_count),
+        ];
     }
 }

@@ -877,6 +877,107 @@
     }, 150);
   }
 
+  // Reconcile / Sync Past POs
+  $(document).on("click", "#project-boq-sync-pos", function (e) {
+    e.preventDefault();
+    var projectId = projectBoqProjectId();
+    if (!projectId) return;
+
+    var confirmMsg = (typeof projectBoqLang !== "undefined" && projectBoqLang.sync_confirm)
+      ? projectBoqLang.sync_confirm
+      : "Reconcile past approved Purchase Orders with this BOQ?";
+
+    if (!confirm(confirmMsg)) {
+      return;
+    }
+
+    var $btn = $(this);
+    var originalHtml = $btn.html();
+    var syncingText = (typeof projectBoqLang !== "undefined" && projectBoqLang.syncing)
+      ? projectBoqLang.syncing
+      : "Syncing POs...";
+
+    $btn.prop("disabled", true).html('<i class="fa fa-spinner fa-spin tw-mr-1"></i> ' + syncingText);
+
+    $.ajax({
+      url: admin_url + "project_boq/sync_past_pos/" + projectId,
+      type: "POST",
+      dataType: "json",
+      data: projectBoqCsrfPayload(),
+    })
+      .done(function (res) {
+        if (!res || !res.success) {
+          alert_float("danger", res && res.message ? res.message : "Sync failed.");
+          return;
+        }
+
+        alert_float("success", res.message);
+
+        if (res.unmatched_count > 0 && $.isArray(res.unmatched_items)) {
+          var $modal = $("#project_boq_sync_result_modal");
+          $("#project-boq-sync-summary-alert").text(res.message);
+
+          var $tbody = $("#project-boq-sync-unmatched-table tbody");
+          $tbody.empty();
+          $.each(res.unmatched_items, function (i, item) {
+            var tr = "<tr>" +
+              "<td><code>" + $("<div>").text(item.pur_order_number || "").html() + "</code></td>" +
+              "<td>" + $("<div>").text(item.description || ("Item #" + item.item_code)).html() + "</td>" +
+              "<td class='text-right font-weight-bold'>" + projectBoqFormatNumber(item.quantity) + "</td>" +
+              "</tr>";
+            $tbody.append(tr);
+          });
+
+          $("#project-boq-sync-unmatched-wrapper").show();
+          $modal.modal("show");
+
+          $modal.one("hidden.bs.modal", function () {
+            if (res.synced_count > 0) {
+              window.location.reload();
+            }
+          });
+        } else if (res.synced_count > 0) {
+          setTimeout(function () {
+            window.location.reload();
+          }, 1000);
+        }
+      })
+      .fail(function (xhr) {
+        var msg = "Network error while syncing purchase orders.";
+        if (xhr.responseJSON && xhr.responseJSON.message) {
+          msg = xhr.responseJSON.message;
+        }
+        alert_float("danger", msg);
+      })
+      .always(function () {
+        $btn.prop("disabled", false).html(originalHtml);
+      });
+  });
+
+  // Project-level PO BOQ restriction setting
+  $(document).on("change", "#project_boq_project_restriction_select", function () {
+    var projectId = projectBoqProjectId();
+    if (!projectId) return;
+
+    var statusVal = $(this).val();
+    $.ajax({
+      url: admin_url + "project_boq/change_project_po_restriction/" + projectId,
+      type: "POST",
+      dataType: "json",
+      data: projectBoqCsrfPayload({ status: statusVal }),
+    })
+      .done(function (res) {
+        if (res && res.success) {
+          alert_float("success", res.message);
+        } else {
+          alert_float("danger", res && res.message ? res.message : "Failed to update project restriction setting.");
+        }
+      })
+      .fail(function () {
+        alert_float("danger", "Network error updating project restriction setting.");
+      });
+  });
+
   $(function () {
     if ($.fn.tooltip) {
       $("#project-boq-wrapper [data-toggle='tooltip']").tooltip({ container: "body" });

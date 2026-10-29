@@ -79,7 +79,7 @@ class Admin extends AdminController
         unset($item);
 
         $po_restriction_enabled = method_exists($this->project_boq_model, 'is_po_restriction_enabled')
-            ? $this->project_boq_model->is_po_restriction_enabled()
+            ? $this->project_boq_model->is_po_restriction_enabled($project_id)
             : true;
 
         $for_po = ($this->input->get('for') === 'po');
@@ -119,6 +119,50 @@ class Admin extends AdminController
             'success' => (bool) $success,
             'message' => _l('project_boq_po_restriction_updated'),
         ]);
+    }
+
+    public function change_project_po_restriction($project_id = '')
+    {
+        if (! $this->input->is_ajax_request() || ! $this->input->post()) {
+            show_404();
+        }
+
+        $project_id = (int) $project_id;
+        if ($project_id < 1 || ! $this->can_access_project($project_id)) {
+            ajax_access_denied();
+        }
+
+        if (! is_admin() && ! staff_can('edit', 'projects') && ! has_permission('boq', '', 'edit')) {
+            ajax_access_denied();
+        }
+
+        $status  = $this->input->post('status');
+        $success = $this->project_boq_model->set_project_po_restriction_setting($project_id, $status);
+
+        $this->json_response([
+            'success' => (bool) $success,
+            'message' => _l('project_boq_project_restriction_updated'),
+        ]);
+    }
+
+    public function sync_past_pos($project_id = '')
+    {
+        if (! $this->input->is_ajax_request() || ! $this->input->post()) {
+            show_404();
+        }
+
+        $project_id = (int) $project_id;
+        if ($project_id < 1 || ! $this->can_access_project($project_id)) {
+            ajax_access_denied();
+        }
+
+        if (! is_admin() && ! staff_can('edit', 'projects') && ! has_permission('boq', '', 'edit')) {
+            ajax_access_denied();
+        }
+
+        $result = $this->project_boq_model->sync_project_past_pos($project_id);
+
+        $this->json_response($result);
     }
 
     public function add()
