@@ -3833,6 +3833,17 @@ class Purchase_model extends App_Model
      */
     public function is_boq_po_restriction_enabled($project_id = null)
     {
+        if ($project_id && (int) $project_id > 0) {
+            if ($this->db->table_exists(db_prefix() . 'project_settings')) {
+                $this->db->where('project_id', (int) $project_id);
+                $this->db->where('name', 'boq_enforce_restriction');
+                $setting = $this->db->get(db_prefix() . 'project_settings')->row();
+                if ($setting && in_array((string) $setting->value, ['0', '1'], true)) {
+                    return (string) $setting->value === '1';
+                }
+            }
+        }
+
         $val = get_option('boq_po_restriction');
         if ($val === '' || $val === null) {
             return true;
@@ -10864,6 +10875,10 @@ class Purchase_model extends App_Model
     {
         $project_id = (int) $project_id;
         if ($project_id < 1 || empty($lines) || ! is_array($lines)) {
+            return true;
+        }
+
+        if (!$this->is_boq_po_restriction_enabled($project_id)) {
             return true;
         }
 
