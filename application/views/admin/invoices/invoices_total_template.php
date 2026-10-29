@@ -53,9 +53,41 @@
 </div>
 <?php } ?>
 
+<?php
+if (!isset($total_result['basic_amount'])) {
+    $CI = &get_instance();
+    $CI->db->select_sum('subtotal');
+    $CI->db->from(db_prefix() . 'invoices');
+    $CI->db->where('status !=', Invoices_model::STATUS_CANCELLED);
+    $CI->db->where('status !=', Invoices_model::STATUS_DRAFT);
+    if (isset($total_result['currencyid'])) {
+        $CI->db->where('currency', $total_result['currencyid']);
+    }
+    if ($CI->input->post('years') && count($CI->input->post('years')) > 0) {
+        $CI->db->where_in('YEAR(date)', $CI->input->post('years'));
+    }
+    if (staff_cant('view', 'invoices')) {
+        $CI->db->where(get_invoices_where_sql_for_staff(get_staff_user_id()), null, false);
+    }
+    $total_result['basic_amount'] = (float) ($CI->db->get()->row()->subtotal ?? 0);
+}
+?>
+
 <?php if ($badge === false) { ?>
 
-<dl class="tw-grid tw-grid-cols-2 md:tw-grid-cols-3 tw-gap-2 tw-mb-0">
+<dl class="tw-grid tw-grid-cols-2 md:tw-grid-cols-4 tw-gap-2 tw-mb-0">
+    <div class="tw-border tw-border-solid tw-border-neutral-300/80 tw-rounded-md tw-bg-white" data-toggle="tooltip" data-title="<?= _l('total_basic_amount_tooltip', 'Total Basic Amount (excluding GST/tax)'); ?>">
+        <div class="tw-px-4 tw-py-5 sm:tw-px-4 sm:tw-py-2">
+            <dt class="tw-font-medium text-primary">
+                <?= _l('total_basic_amount', 'Total Basic Amount'); ?>
+            </dt>
+            <dd class="tw-mt-1 tw-flex tw-items-baseline tw-justify-between md:tw-block lg:tw-flex">
+                <div class="tw-flex tw-items-baseline tw-font-semibold tw-text-neutral-600" id="total_basic_amount_dl_val">
+                    <?= e(app_format_money($total_result['basic_amount'], $total_result['currency'])); ?>
+                </div>
+            </dd>
+        </div>
+    </div>
     <div class="tw-border tw-border-solid tw-border-neutral-300/80 tw-rounded-md tw-bg-white">
         <div class="tw-px-4 tw-py-5 sm:tw-px-4 sm:tw-py-2">
             <dt class="tw-font-medium text-warning">
@@ -82,7 +114,7 @@
     </div>
 
     <div
-        class="tw-border tw-border-solid tw-border-neutral-300/80 tw-rounded-md tw-bg-white last:tw-col-span-2 md:last:tw-col-auto">
+        class="tw-border tw-border-solid tw-border-neutral-300/80 tw-rounded-md tw-bg-white">
         <div class="tw-px-4 tw-py-5 sm:tw-px-4 sm:tw-py-2">
             <dt class="tw-font-medium text-success">
                 <?= _l('paid_invoices'); ?>
@@ -98,6 +130,17 @@
 <?php } else { ?>
 <div class="tw-relative">
     <div class="md:tw-flex md:tw-items-center tw-space-y-1 md:tw-space-y-0 md:tw-gap-1 tw-mb-0">
+
+        <div class="tw-border tw-border-solid tw-border-neutral-300/80 tw-rounded-lg tw-shrink-0 tw-bg-white invoice-summary-basic-amount" data-toggle="tooltip" data-title="<?= _l('total_basic_amount_tooltip', 'Total Basic Amount (excluding GST/tax)'); ?>">
+            <div class="tw-px-2 md:tw-px-1.5 tw-py-1.5 md:tw-py-0.5 tw-text-sm tw-inline-flex tw-gap-2">
+                <div class="text-primary tw-font-medium">
+                    <?= _l('total_basic_amount', 'Total Basic Amount'); ?>
+                </div>
+                <div class="tw-font-medium" id="total_basic_amount_val">
+                    <?= e(app_format_money($total_result['basic_amount'], $total_result['currency'])); ?>
+                </div>
+            </div>
+        </div>
 
         <div class="tw-border tw-border-solid tw-border-neutral-300/80 tw-rounded-lg tw-shrink-0 tw-bg-white">
             <div class="tw-px-2 md:tw-px-1.5 tw-py-1.5 md:tw-py-0.5 tw-text-sm tw-inline-flex tw-gap-2">
