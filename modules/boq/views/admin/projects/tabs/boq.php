@@ -72,6 +72,38 @@ $global_restriction_enabled = method_exists($CI->project_boq_model, 'is_po_restr
         </span>
 
         <?php if (is_admin()) { ?>
+        <style>
+        .project-boq-restriction-select-wrapper .bootstrap-select {
+            width: 105px !important;
+            vertical-align: middle;
+        }
+        .project-boq-restriction-select-wrapper .bootstrap-select > .dropdown-toggle {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            padding: 3px 8px !important;
+            height: 26px !important;
+            line-height: 18px !important;
+            font-size: 12px !important;
+        }
+        .project-boq-restriction-select-wrapper .bootstrap-select .filter-option {
+            float: none !important;
+            width: auto !important;
+            display: inline-block !important;
+            text-align: left !important;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .project-boq-restriction-select-wrapper .bootstrap-select .bs-caret,
+        .project-boq-restriction-select-wrapper .bootstrap-select .caret {
+            position: static !important;
+            margin-left: 6px !important;
+            margin-top: 0 !important;
+            vertical-align: middle !important;
+            display: inline-block !important;
+        }
+        </style>
         <div class="pull-right tw-flex tw-items-center" style="margin-top: 5px; gap: 10px;">
             <button type="button" class="btn btn-info btn-xs" id="project-boq-sync-pos" data-toggle="tooltip"
                 data-placement="top" title="<?= _l('project_boq_sync_past_pos_tooltip'); ?>" style="padding: 4px 10px; font-size: 12px; font-weight: 500;">
@@ -84,17 +116,19 @@ $global_restriction_enabled = method_exists($CI->project_boq_model, 'is_po_restr
             <label class="tw-mb-0 text-muted" style="font-weight: 500; font-size: 13px;" data-toggle="tooltip" data-placement="left" title="<?= _l('project_boq_po_restriction_tooltip'); ?>">
                 <i class="fa-solid fa-shield-halved tw-mr-1 text-primary"></i><?= _l('project_boq_po_restriction'); ?>:
             </label>
-            <select id="project_boq_project_restriction_select" class="selectpicker" data-width="auto" data-style="btn-default btn-xs">
-                <option value="inherit" <?= $project_restriction_val === 'inherit' ? 'selected' : ''; ?>>
-                    <?= _l('project_boq_restriction_inherit'); ?>
-                </option>
-                <option value="1" <?= $project_restriction_val === '1' ? 'selected' : ''; ?>>
-                    <?= _l('project_boq_restriction_enforce_always'); ?>
-                </option>
-                <option value="0" <?= $project_restriction_val === '0' ? 'selected' : ''; ?>>
-                    <?= _l('project_boq_restriction_exempt'); ?>
-                </option>
-            </select>
+            <div class="project-boq-restriction-select-wrapper" style="display: inline-block;">
+                <select id="project_boq_project_restriction_select" class="selectpicker" data-width="105px" data-style="btn-default btn-xs">
+                    <option value="inherit" <?= $project_restriction_val === 'inherit' ? 'selected' : ''; ?>>
+                        <?= _l('project_boq_restriction_inherit'); ?>
+                    </option>
+                    <option value="1" <?= $project_restriction_val === '1' ? 'selected' : ''; ?>>
+                        <?= _l('project_boq_restriction_enforce_always'); ?>
+                    </option>
+                    <option value="0" <?= $project_restriction_val === '0' ? 'selected' : ''; ?>>
+                        <?= _l('project_boq_restriction_exempt'); ?>
+                    </option>
+                </select>
+            </div>
         </div>
         <?php } ?>
     </div>
