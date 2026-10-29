@@ -53,13 +53,6 @@ $global_restriction_enabled = method_exists($CI->project_boq_model, 'is_po_restr
             <?= _l('project_boq_download_template'); ?>
         </a>
         <?php } ?>
-        <?php if ($can_view_items && ($can_edit_boq || is_admin() || staff_can('edit', 'projects'))) { ?>
-        <button type="button" class="btn btn-info" id="project-boq-sync-pos" data-toggle="tooltip"
-            data-placement="top" title="<?= _l('project_boq_sync_past_pos_tooltip'); ?>">
-            <i class="fa fa-sync tw-mr-1"></i>
-            <?= _l('project_boq_sync_past_pos'); ?>
-        </button>
-        <?php } ?>
         <?php
         $revised_count = 0;
         foreach ($boq_items as $bItem) {
@@ -78,14 +71,22 @@ $global_restriction_enabled = method_exists($CI->project_boq_model, 'is_po_restr
             </span>
         </span>
 
-        <?php if (is_admin() || staff_can('edit', 'projects')) { ?>
-        <div class="pull-right tw-flex tw-items-center" style="margin-top: 5px; gap: 8px;">
+        <?php if (is_admin()) { ?>
+        <div class="pull-right tw-flex tw-items-center" style="margin-top: 5px; gap: 10px;">
+            <button type="button" class="btn btn-info btn-xs" id="project-boq-sync-pos" data-toggle="tooltip"
+                data-placement="top" title="<?= _l('project_boq_sync_past_pos_tooltip'); ?>" style="padding: 4px 10px; font-size: 12px; font-weight: 500;">
+                <i class="fa fa-sync tw-mr-1"></i>
+                <?= _l('project_boq_sync_past_pos'); ?>
+            </button>
+
+            <span class="text-muted" style="color: #cbd5e1; user-select: none;">|</span>
+
             <label class="tw-mb-0 text-muted" style="font-weight: 500; font-size: 13px;" data-toggle="tooltip" data-placement="left" title="<?= _l('project_boq_po_restriction_tooltip'); ?>">
                 <i class="fa-solid fa-shield-halved tw-mr-1 text-primary"></i><?= _l('project_boq_po_restriction'); ?>:
             </label>
             <select id="project_boq_project_restriction_select" class="selectpicker" data-width="auto" data-style="btn-default btn-xs">
                 <option value="inherit" <?= $project_restriction_val === 'inherit' ? 'selected' : ''; ?>>
-                    <?= _l('project_boq_restriction_inherit'); ?> (<?= $global_restriction_enabled ? _l('project_boq_restriction_enforced') : _l('project_boq_restriction_disabled'); ?>)
+                    <?= _l('project_boq_restriction_inherit'); ?>
                 </option>
                 <option value="1" <?= $project_restriction_val === '1' ? 'selected' : ''; ?>>
                     <?= _l('project_boq_restriction_enforce_always'); ?>

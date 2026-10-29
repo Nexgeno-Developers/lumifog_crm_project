@@ -127,12 +127,12 @@ class Admin extends AdminController
             show_404();
         }
 
-        $project_id = (int) $project_id;
-        if ($project_id < 1 || ! $this->can_access_project($project_id)) {
+        if (! is_admin()) {
             ajax_access_denied();
         }
 
-        if (! is_admin() && ! staff_can('edit', 'projects') && ! has_permission('boq', '', 'edit')) {
+        $project_id = (int) $project_id;
+        if ($project_id < 1 || ! $this->can_access_project($project_id)) {
             ajax_access_denied();
         }
 
@@ -151,12 +151,12 @@ class Admin extends AdminController
             show_404();
         }
 
-        $project_id = (int) $project_id;
-        if ($project_id < 1 || ! $this->can_access_project($project_id)) {
+        if (! is_admin()) {
             ajax_access_denied();
         }
 
-        if (! is_admin() && ! staff_can('edit', 'projects') && ! has_permission('boq', '', 'edit')) {
+        $project_id = (int) $project_id;
+        if ($project_id < 1 || ! $this->can_access_project($project_id)) {
             ajax_access_denied();
         }
 
