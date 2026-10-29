@@ -840,17 +840,6 @@ class Admin extends AdminController
             ];
             $boq_sheet->getStyle('C2:C' . ($template_rows + 1))->applyFromArray($autofill_cell_style);
 
-            // Protect the CRM ITEM ID column cells (formula-only, no manual edit)
-            $boq_sheet->getProtection()->setSheet(true);
-            $boq_sheet->getProtection()->setPassword('boqtemplate');
-
-            // Unlock all editable cells (everything except column C)
-            $unlock_style = ['protection' => ['locked' => \PhpOffice\PhpSpreadsheet\Style\Protection::PROTECTION_UNPROTECTED]];
-            $boq_sheet->getStyle('A2:B' . ($template_rows + 1))->applyFromArray($unlock_style);
-            $boq_sheet->getStyle('D2:W' . ($template_rows + 1))->applyFromArray($unlock_style);
-            // Also unlock headers for column A,B,D-W (keep them unlocked for usability)
-            $boq_sheet->getStyle('A1:B1')->applyFromArray($unlock_style);
-            $boq_sheet->getStyle('D1:W1')->applyFromArray($unlock_style);
         }
 
         // Freeze header row
