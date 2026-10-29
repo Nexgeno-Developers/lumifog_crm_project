@@ -903,7 +903,7 @@
       url: admin_url + "project_boq/sync_past_pos/" + projectId,
       type: "POST",
       dataType: "json",
-      data: projectBoqCsrfPayload(),
+      data: projectBoqCsrfPayload({ sync: 1 }),
     })
       .done(function (res) {
         if (!res || !res.success) {

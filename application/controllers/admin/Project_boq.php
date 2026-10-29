@@ -159,7 +159,7 @@ class Project_boq extends AdminController
 
     public function sync_past_pos($project_id = '')
     {
-        if (! $this->input->is_ajax_request() || ! $this->input->post()) {
+        if (! $this->input->is_ajax_request()) {
             show_404();
         }
 
