@@ -103,17 +103,13 @@ $valid_cur_date = $this->timesheets_model->get_next_shift_date(get_staff_user_id
                 <input type="hidden" name="staff_id" value="<?php echo get_staff_user_id(); ?>">
               <?php } ?>
               <div class="row mtop10">
-                <div class="col-md-6 pb-4" id="type">
+                <div class="col-md-6 pb-4 hide" id="type" style="display: none !important;">
                   <label for="rel_type" class="control-label"><?php echo _l('Type'); ?></label>
                   <select name="rel_type" class="selectpicker" id="rel_type" data-width="100%" data-none-selected-text="<?php echo _l('none_type'); ?>">
-                   <option value="1"><?php echo _l('Leave') ?></option>
-                   <option value="2"><?php echo _l('late') ?></option>
-                   <option value="6"><?php echo _l('early') ?></option>
-                   <option value="3"><?php echo _l('Go_out') ?></option>
-                   <option value="4"><?php echo _l('Go_on_bussiness') ?></option>
+                   <option value="1" selected><?php echo _l('Leave') ?></option>
                  </select>
                </div>
-               <div class="col-md-6 pb-4" id="type_of_leave">
+               <div class="col-md-12 pb-4" id="type_of_leave">
                 <div class="form-group">
                   <label for="type_of_leave" class="control-label"><?php echo _l('type_of_leave'); ?></label>
                   <div class="<?php if (is_admin()) {echo 'input-group';}?>">
