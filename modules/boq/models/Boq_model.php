@@ -166,6 +166,7 @@ class Boq_model extends App_Model
         $fields = [
             'boq_description', 'boq_unit', 'order_quantity', 'planned_qty', 'revised_qty',
             'supply_rate', 'itc_rate', 'supply_amount', 'itc_amount', 'tax_rate', 'is_summary_item', 'is_manual_added',
+            'is_nt_item', 'is_billable',
             'internal_ref_no', 'client_ref_no', 'internal_client_ref_no',
             'internal_description', 'internal_unit', 'internal_quantity',
             'internal_material_rate', 'internal_labour_rate',
