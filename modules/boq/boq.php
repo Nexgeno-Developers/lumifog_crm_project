@@ -32,6 +32,12 @@ function boq_module_activation_hook()
 function boq_module_init()
 {
     $CI = &get_instance();
+
+    // Auto-migrate schema if database was restored or updated
+    if ($CI->db->table_exists(db_prefix() . 'project_boq_items') && !$CI->db->field_exists('is_nt_item', db_prefix() . 'project_boq_items')) {
+        require_once(__DIR__ . '/install.php');
+    }
+
     $CI->app_tabs->add_project_tab('project_boq', [
         'name'     => _l('project_boq'),
         'icon'     => 'fa-solid fa-list-ol',

@@ -485,9 +485,9 @@
     $progressBar
       .removeClass("progress-bar-success progress-bar-danger")
       .addClass("progress-bar-primary progress-bar-striped active")
-      .css("width", "0%")
-      .text("0%");
-    $status.text("Uploading file (0%)...");
+      .css("width", "35%")
+      .text("Uploading...");
+    $status.html('<i class="fa fa-cloud-upload tw-mr-1"></i> Uploading file...');
     $hint.text("Please keep this window open while the file is processed.");
     $btn.prop("disabled", true).addClass("disabled");
 
@@ -522,14 +522,17 @@
               if (evt.lengthComputable) {
                 var percent = Math.round((evt.loaded / evt.total) * 100);
                 if (percent >= 100) {
-                  $progressBar.css("width", "95%").text("95%");
+                  $progressBar
+                    .css("width", "100%")
+                    .text("Processing...");
                   $status.html(
-                    '<i class="fa fa-spinner fa-spin tw-mr-1"></i> Processing BOQ items & catalog on server...'
+                    '<i class="fa fa-spinner fa-spin tw-mr-1"></i> File uploaded. Validating items & writing to BOQ...'
                   );
-                  $hint.text("Spreadsheet calculations & validation in progress. Please wait...");
+                  $hint.text("Spreadsheet calculations & database updates in progress. Please wait...");
                 } else {
-                  $progressBar.css("width", percent + "%").text(percent + "%");
-                  $status.text("Uploading file (" + percent + "%)...");
+                  var displayPercent = Math.min(Math.max(percent, 25), 85);
+                  $progressBar.css("width", displayPercent + "%").text("Uploading (" + percent + "%)...");
+                  $status.html('<i class="fa fa-cloud-upload tw-mr-1"></i> Uploading file (' + percent + "%)...");
                 }
               }
             },
@@ -545,7 +548,7 @@
             .removeClass("progress-bar-primary progress-bar-striped active")
             .addClass("progress-bar-success")
             .css("width", "100%")
-            .text("100%");
+            .text("100% Complete");
           $status.html('<i class="fa fa-check-circle tw-mr-1 text-success"></i> Import successful!');
           $hint.text("Refreshing project page...");
           setTimeout(function () {
