@@ -535,6 +535,10 @@ function purchase_add_footer_components() {
         echo '<script src="' . module_dir_url(PURCHASE_MODULE_NAME, 'assets/js/pur_request_on_project.js') .'?v=' . PURCHASE_REVISION.'"></script>';
     }
 
+    if (!(strpos($viewuri, '/admin/projects/view') === false)) {
+        purchase_project_expense_vendor_modal();
+    }
+
 }
 
 /**
@@ -727,6 +731,78 @@ function init_vendor_option($expense = ''){
     $option .= '</div>';
     $option .= '<br>';
     echo pur_html_entity_decode($option);
+}
+
+/**
+ * Injects the Vendor dropdown into the quick "+ Record Expense" modal on project views.
+ */
+function purchase_project_expense_vendor_modal(){
+    if (function_exists('staff_can') && !staff_can('create', 'expenses')) {
+        return;
+    }
+    $CI = &get_instance();
+    $CI->load->model('purchase/purchase_model');
+    $list_vendor = $CI->purchase_model->get_vendor();
+    ?>
+    <div id="project_expense_vendor_source" class="hide">
+        <div class="form-group project-expense-vendor-group" app-field-wrapper="vendor">
+            <label for="project_expense_vendor" class="control-label"><?php echo _l('vendor'); ?></label>
+            <select name="vendor" id="project_expense_vendor" class="selectpicker" data-width="100%" data-live-search="true" data-none-selected-text="<?php echo _l('ticket_settings_none_assigned'); ?>">
+                <option value=""></option>
+                <?php foreach($list_vendor as $ven){ ?>
+                    <option value="<?php echo pur_html_entity_decode($ven['userid']); ?>"><?php echo pur_html_entity_decode($ven['company']); ?></option>
+                <?php } ?>
+            </select>
+        </div>
+    </div>
+    <script>
+        (function($) {
+            "use strict";
+            function injectProjectExpenseVendorField() {
+                var $modal = $('#new_project_expense');
+                if ($modal.length === 0) {
+                    return;
+                }
+                if ($modal.find('#project_expense_vendor').length > 0) {
+                    return;
+                }
+                var $field = $('#project_expense_vendor_source .project-expense-vendor-group');
+                if ($field.length === 0) {
+                    return;
+                }
+                var $expenseNameWrapper = $modal.find('div[app-field-wrapper="expense_name"]');
+                var $tooltipHelp = $expenseNameWrapper.prev('i.fa-circle-question, .fa-circle-question');
+                var $insertTarget = $tooltipHelp.length ? $tooltipHelp : ($expenseNameWrapper.length ? $expenseNameWrapper : $modal.find('input[name="expense_name"]').closest('.form-group'));
+
+                if ($insertTarget.length) {
+                    $insertTarget.before($field);
+                } else {
+                    $modal.find('.modal-body').prepend($field);
+                }
+
+                if (typeof init_selectpicker === 'function') {
+                    init_selectpicker();
+                } else if ($.fn.selectpicker) {
+                    $('#project_expense_vendor').selectpicker();
+                }
+            }
+
+            $(function() {
+                injectProjectExpenseVendorField();
+                $('#new_project_expense').on('show.bs.modal shown.bs.modal', function () {
+                    injectProjectExpenseVendorField();
+                    setTimeout(function() {
+                        if (typeof init_selectpicker === 'function') {
+                            init_selectpicker();
+                        } else if ($.fn.selectpicker) {
+                            $('#project_expense_vendor').selectpicker('refresh');
+                        }
+                    }, 50);
+                });
+            });
+        })(jQuery);
+    </script>
+    <?php
 }
 
 /**
