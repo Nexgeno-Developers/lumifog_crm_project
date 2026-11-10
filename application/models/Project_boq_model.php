@@ -164,38 +164,6 @@ class Project_boq_model extends App_Model
 
     public function merge_or_add_row($project_id, $item_id, array $data)
     {
-        $existing = $this->get_by_project_and_item($project_id, $item_id);
-        if ($existing) {
-            $update = [];
-            if (isset($data['planned_qty'])) {
-                $update['planned_qty'] = (float) $data['planned_qty'] + (float) $existing['planned_qty'];
-            }
-            if (isset($data['revised_qty'])) {
-                $update['revised_qty'] = (float) $data['revised_qty'] + (float) $existing['revised_qty'];
-            }
-            if (isset($data['order_quantity'])) {
-                $update['order_quantity'] = (float) $data['order_quantity'] + (float) ($existing['order_quantity'] ?? 0);
-            }
-            $fields = [
-                'boq_description', 'boq_unit', 'supply_rate', 'itc_rate',
-                'supply_amount', 'itc_amount', 'tax_rate', 'is_summary_item', 'is_manual_added',
-                'is_nt_item', 'is_billable',
-                'internal_ref_no', 'client_ref_no', 'internal_client_ref_no',
-                'internal_description', 'internal_unit', 'internal_quantity',
-                'internal_material_rate', 'internal_labour_rate',
-                'internal_supply_amount', 'internal_itc_amount',
-            ];
-            foreach ($fields as $field) {
-                if (isset($data[$field]) && $data[$field] !== null && $data[$field] !== '') {
-                    $update[$field] = $data[$field];
-                }
-            }
-            $update['updated_at'] = date('Y-m-d H:i:s');
-            $this->db->where('id', $existing['id']);
-            $this->db->update(db_prefix() . 'project_boq_items', $update);
-            return (int) $existing['id'];
-        }
-
         $insert = [
             'project_id' => (int) $project_id,
             'item_id'    => (int) $item_id,
@@ -205,6 +173,7 @@ class Project_boq_model extends App_Model
         $fields = [
             'boq_description', 'boq_unit', 'order_quantity', 'planned_qty', 'revised_qty',
             'supply_rate', 'itc_rate', 'supply_amount', 'itc_amount', 'tax_rate', 'is_summary_item', 'is_manual_added',
+            'is_nt_item', 'is_billable',
             'internal_ref_no', 'client_ref_no', 'internal_client_ref_no',
             'internal_description', 'internal_unit', 'internal_quantity',
             'internal_material_rate', 'internal_labour_rate',
