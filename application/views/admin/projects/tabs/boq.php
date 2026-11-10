@@ -273,12 +273,26 @@ $unmatched_pos_count = count($unmatched_pos);
     </div>
 
     <style>
+    /* Ensure top project header actions dropdown ("More", etc.) always floats above sticky bar */
+    ._buttons {
+        position: relative;
+        z-index: 105;
+    }
+    ._buttons .btn-group.open {
+        position: relative;
+        z-index: 1060;
+    }
+    ._buttons .dropdown-menu,
+    .project-actions {
+        z-index: 1060 !important;
+    }
+
     /* Unified Sticky Action & Filter Toolbar */
     .project-boq-sticky-bar {
         position: -webkit-sticky;
         position: sticky;
         top: 0;
-        z-index: 100;
+        z-index: 20;
         background: #ffffff;
         border: 1px solid #e2e8f0;
         border-radius: 8px;
