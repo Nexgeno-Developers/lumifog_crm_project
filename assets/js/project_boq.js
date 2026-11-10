@@ -146,10 +146,7 @@
       orderQty +
       '" data-revised="' +
       revised +
-      '" data-toggle="modal" data-target="#project_boq_modal" title=""><i class="fa-regular fa-pen-to-square"></i></a> ' +
-      '<a href="#" class="btn btn-danger btn-icon project-boq-delete" data-boq-id="' +
-      id +
-      '" title=""><i class="fa-regular fa-trash-can"></i></a>' +
+      '" data-toggle="modal" data-target="#project_boq_modal" title=""><i class="fa-regular fa-pen-to-square"></i></a>' +
       "</td>";
 
     var chkCell =
@@ -416,18 +413,102 @@
     return false;
   });
 
+  function updateBoqDeleteButtonState() {
+    var checkedCount = $("#project-boq-tbody .project-boq-select:checked").length;
+    var $delBtn = $("#project-boq-delete-selected");
+    if (!$delBtn.length) {
+      return;
+    }
+    if (checkedCount > 0) {
+      $delBtn.prop("disabled", false).removeClass("disabled");
+      $delBtn.html('<i class="fa-regular fa-trash-can tw-mr-1"></i> ' + (app.lang.delete || "Delete") + " (" + checkedCount + ")");
+    } else {
+      $delBtn.prop("disabled", true).addClass("disabled");
+      $delBtn.html('<i class="fa-regular fa-trash-can tw-mr-1"></i> ' + (app.lang.delete || "Delete"));
+    }
+  }
+
   $("#project-boq-check-all").on("change", function () {
     var on = $(this).prop("checked");
     $("#project-boq-tbody .project-boq-select").prop("checked", on);
+    updateBoqDeleteButtonState();
   });
 
   $(document).on("change", "#project-boq-tbody .project-boq-select", function () {
     var $rows = $("#project-boq-tbody .project-boq-select");
     if (!$rows.length) {
+      updateBoqDeleteButtonState();
       return;
     }
     var all = $rows.filter(":checked").length === $rows.length;
     $("#project-boq-check-all").prop("checked", all);
+    updateBoqDeleteButtonState();
+  });
+
+  $("#project-boq-delete-selected").on("click", function (e) {
+    e.preventDefault();
+    var selectedIds = [];
+    var $checkedRows = [];
+    $("#project-boq-tbody tr").each(function () {
+      var $tr = $(this);
+      if ($tr.find(".project-boq-select").prop("checked")) {
+        var boqId = parseInt($tr.data("boq-id"), 10);
+        if (boqId > 0) {
+          selectedIds.push(boqId);
+          $checkedRows.push($tr);
+        }
+      }
+    });
+
+    if (selectedIds.length === 0) {
+      alert_float("warning", "Please select at least one row to delete.");
+      return false;
+    }
+
+    var confirmMsg = "Are you sure you want to delete the selected " + selectedIds.length + " item(s)? This action cannot be undone.";
+    if (!confirm(confirmMsg)) {
+      return false;
+    }
+
+    var $btn = $(this);
+    $btn.prop("disabled", true).addClass("disabled");
+
+    $.post(
+      admin_url + "project_boq/delete",
+      projectBoqCsrfPayload({
+        ids: selectedIds,
+        project_id: projectBoqProjectId(),
+      })
+    )
+      .done(function (response) {
+        try {
+          response = typeof response === "string" ? JSON.parse(response) : response;
+        } catch (e) {
+          alert_float("danger", app.lang.something_went_wrong);
+          updateBoqDeleteButtonState();
+          return;
+        }
+        if (response.success) {
+          $.each($checkedRows, function (i, $tr) {
+            $tr.remove();
+          });
+          $("#project-boq-check-all").prop("checked", false);
+          updateBoqDeleteButtonState();
+          projectBoqToggleEmptyState();
+          projectBoqUpdateRevisedSummary();
+          updateBoqFilterCounts();
+          alert_float("success", response.message);
+        } else if (response.message) {
+          alert_float("danger", response.message);
+          updateBoqDeleteButtonState();
+        }
+      })
+      .fail(function (data) {
+        alert_float("danger", data.responseText || app.lang.something_went_wrong);
+        updateBoqDeleteButtonState();
+      });
+
+    return false;
   });
 
   $("#project-boq-purchase-request").on("click", function (e) {
@@ -482,6 +563,7 @@
       projectBoqUpdateRemainingDisplay($(this));
     });
     projectBoqToggleEmptyState();
+    updateBoqDeleteButtonState();
   });
 
   $("#project-boq-import-csv").on("click", function () {

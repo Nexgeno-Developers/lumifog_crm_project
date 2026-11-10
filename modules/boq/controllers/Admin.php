@@ -346,19 +346,40 @@ class Admin extends AdminController
             show_404();
         }
 
-        $id         = (int) $this->input->post('id');
         $project_id = (int) $this->input->post('project_id');
+        if (! $this->can_edit_project($project_id)) {
+            ajax_access_denied();
+        }
 
+        $ids = $this->input->post('ids');
+        if (!empty($ids) && is_array($ids)) {
+            $deleted_count = 0;
+            foreach ($ids as $id) {
+                $id = (int) $id;
+                $existing = $this->project_boq_model->get($id);
+                if ($existing && (int) $existing->project_id === $project_id) {
+                    if ($this->project_boq_model->delete($id)) {
+                        $deleted_count++;
+                    }
+                }
+            }
+            $this->json_response([
+                'success'       => $deleted_count > 0,
+                'message'       => $deleted_count > 0
+                    ? sprintf('%d item(s) deleted successfully.', $deleted_count)
+                    : _l('problem_deleting', _l('project_boq_line_lowercase')),
+                'deleted_count' => $deleted_count,
+            ]);
+            exit;
+        }
+
+        $id       = (int) $this->input->post('id');
         $existing = $this->project_boq_model->get($id);
 
         if (! $existing || (int) $existing->project_id !== $project_id) {
             $this->json_response(['success' => false, 'message' => _l('project_boq_line_not_found')]);
 
             exit;
-        }
-
-        if (! $this->can_edit_project($project_id)) {
-            ajax_access_denied();
         }
 
         $ok = $this->project_boq_model->delete($id);

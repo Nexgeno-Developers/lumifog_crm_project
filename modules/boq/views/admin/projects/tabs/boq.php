@@ -57,6 +57,12 @@ $unmatched_pos_count = count($unmatched_pos);
             <i class="fa-regular fa-file-excel tw-mr-1"></i>
             <?= _l('project_boq_download_template'); ?>
         </a>
+        <?php if ($can_edit_boq) { ?>
+        <button type="button" class="btn btn-danger" id="project-boq-delete-selected" disabled="disabled">
+            <i class="fa-regular fa-trash-can tw-mr-1"></i>
+            <?= _l('delete'); ?>
+        </button>
+        <?php } ?>
         <?php } ?>
         <?php
         $revised_count = 0;
