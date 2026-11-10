@@ -864,14 +864,28 @@ class Project_boq extends AdminController
                 'internal_itc_amount'      => (isset($data['(internal)itc amount']) && $data['(internal)itc amount'] !== '') ? (float) $data['(internal)itc amount'] : ((isset($data['(internal)ITC Amount']) && $data['(internal)ITC Amount'] !== '') ? (float) $data['(internal)ITC Amount'] : null),
             ];
 
-            $existing = $this->project_boq_model->get_by_project_and_item($project_id, $item_id);
-            $this->project_boq_model->merge_or_add_row($project_id, $item_id, $boq_data);
-
-            if ($existing) {
-                $merged++;
-            } else {
-                $imported++;
+            $insert = [
+                'project_id'    => (int) $project_id,
+                'item_id'       => (int) $item_id,
+                'created_at'    => date('Y-m-d H:i:s'),
+                'updated_at'    => date('Y-m-d H:i:s'),
+            ];
+            $fields = [
+                'boq_description', 'boq_unit', 'order_quantity', 'planned_qty', 'revised_qty',
+                'supply_rate', 'itc_rate', 'supply_amount', 'itc_amount', 'tax_rate', 'is_summary_item', 'is_manual_added',
+                'is_nt_item', 'is_billable',
+                'internal_ref_no', 'client_ref_no', 'internal_client_ref_no',
+                'internal_description', 'internal_unit', 'internal_quantity',
+                'internal_material_rate', 'internal_labour_rate',
+                'internal_supply_amount', 'internal_itc_amount',
+            ];
+            foreach ($fields as $field) {
+                if (isset($boq_data[$field])) {
+                    $insert[$field] = $boq_data[$field];
+                }
             }
+            $this->db->insert(db_prefix() . 'project_boq_items', $insert);
+            $imported++;
         }
 
         $this->json_response([

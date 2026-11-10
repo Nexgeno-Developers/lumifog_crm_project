@@ -61,6 +61,34 @@
     }
   }
 
+  function projectBoqSortTableRows() {
+    var $tbody = $("#project-boq-tbody");
+    var $rows = $tbody.children("tr").get();
+    if ($rows.length < 2) {
+      return;
+    }
+    $rows.sort(function (a, b) {
+      var refA = $(a).attr("data-internal-ref") || $(a).find("td:eq(1)").text().trim();
+      var refB = $(b).attr("data-internal-ref") || $(b).find("td:eq(1)").text().trim();
+      var numA = parseFloat(refA);
+      var numB = parseFloat(refB);
+      var isNumA = !isNaN(numA) && /^\d+/.test(refA);
+      var isNumB = !isNaN(numB) && /^\d+/.test(refB);
+
+      if (isNumA && isNumB) {
+        return numA - numB;
+      }
+      if (isNumA) return -1;
+      if (isNumB) return 1;
+      if (refA && !refB) return -1;
+      if (!refA && refB) return 1;
+      return refA.localeCompare(refB, undefined, { numeric: true, sensitivity: "base" });
+    });
+    $.each($rows, function (idx, item) {
+      $tbody.append(item);
+    });
+  }
+
   function projectBoqRowFromServer(row) {
     var id = row.id;
     var planned = parseFloat(row.planned_qty) || 0;
@@ -170,7 +198,7 @@
     var rowClasses = rowClass.trim() + (isNt ? ' boq-row-nt' : '') + (!isBillable ? ' boq-row-nonbillable' : '');
 
     return (
-      '<tr class="' + rowClasses + '" data-boq-id="' + id + '" data-purchased="' + purchased + '" data-revised="' + revised + '" data-is-revised="' + (isRevised ? "1" : "0") + '" data-is-manual="' + (isManual ? "1" : "0") + '" data-is-nt="' + (isNt ? "1" : "0") + '" data-is-billable="' + (isBillable ? "1" : "0") + '" data-item-id="' + (row.item_id || 0) + '" data-item-description="">' +
+      '<tr class="' + rowClasses + '" data-boq-id="' + id + '" data-purchased="' + purchased + '" data-revised="' + revised + '" data-internal-ref="' + (row.internal_ref_no || '') + '" data-is-revised="' + (isRevised ? "1" : "0") + '" data-is-manual="' + (isManual ? "1" : "0") + '" data-is-nt="' + (isNt ? "1" : "0") + '" data-is-billable="' + (isBillable ? "1" : "0") + '" data-item-id="' + (row.item_id || 0) + '" data-item-description="">' +
       chkCell +
       '<td>' + intRef + '</td>' +
       '<td>' + cliRef + '</td>' +
@@ -366,6 +394,7 @@
             } else {
               var $appended = $(projectBoqRowFromServer(response.row));
               $("#project-boq-tbody").append($appended);
+              projectBoqSortTableRows();
               if ($.fn.tooltip) {
                 $appended.find('[data-toggle="tooltip"]').tooltip({ container: "body" });
               }
@@ -807,6 +836,7 @@
           if (response.direct && response.row) {
             var $appended = $(projectBoqRowFromServer(response.row));
             $("#project-boq-tbody").append($appended);
+            projectBoqSortTableRows();
             if ($.fn.tooltip) {
               $appended.find('[data-toggle="tooltip"]').tooltip({ container: "body" });
             }
