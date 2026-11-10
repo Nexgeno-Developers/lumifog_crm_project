@@ -1253,8 +1253,8 @@
     var $btn = $(this);
     var filter = $btn.data("filter");
 
-    $(".boq-filter-btn").removeClass("active btn-primary").addClass("btn-default");
-    $btn.addClass("active btn-primary").removeClass("btn-default");
+    $(".boq-filter-btn").removeClass("active");
+    $btn.addClass("active");
 
     var $rows = $("#project-boq-tbody tr[data-boq-id]");
     if (filter === "all") {
@@ -1270,11 +1270,53 @@
     }
   });
 
+  function initBoqStickyBar() {
+    var $stickyBar = $("#project-boq-sticky-bar");
+    if (!$stickyBar.length) return;
+
+    function updateStickyOffset() {
+      var topOffset = 0;
+      var $header = $("#header");
+      if ($header.length && $header.css("position") === "fixed") {
+        topOffset = $header.outerHeight() || 0;
+      }
+      $stickyBar.css("top", topOffset + "px");
+    }
+
+    updateStickyOffset();
+    $(window).on("resize", updateStickyOffset);
+
+    if ("IntersectionObserver" in window) {
+      var sentinel = document.createElement("div");
+      sentinel.className = "project-boq-sticky-sentinel";
+      sentinel.style.height = "1px";
+      sentinel.style.marginTop = "-1px";
+      sentinel.style.pointerEvents = "none";
+      $stickyBar[0].parentNode.insertBefore(sentinel, $stickyBar[0]);
+
+      var observer = new IntersectionObserver(
+        function (entries) {
+          entries.forEach(function (entry) {
+            $stickyBar.toggleClass("is-stuck", !entry.isIntersecting);
+          });
+        },
+        { threshold: [0] }
+      );
+      observer.observe(sentinel);
+    } else {
+      $(window).on("scroll", function () {
+        var barTop = $stickyBar.offset().top;
+        $stickyBar.toggleClass("is-stuck", $(window).scrollTop() >= barTop);
+      });
+    }
+  }
+
   $(function () {
     if ($.fn.tooltip) {
       $("#project-boq-wrapper [data-toggle='tooltip']").tooltip({ container: "body" });
     }
     updateBoqFilterCounts();
     initProjectBoqScrollbars();
+    initBoqStickyBar();
   });
 })(jQuery);
