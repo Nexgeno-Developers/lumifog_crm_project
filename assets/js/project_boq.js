@@ -146,10 +146,7 @@
       orderQty +
       '" data-revised="' +
       revised +
-      '" data-toggle="modal" data-target="#project_boq_modal" title=""><i class="fa-regular fa-pen-to-square"></i></a> ' +
-      '<a href="#" class="btn btn-danger btn-icon project-boq-delete" data-boq-id="' +
-      id +
-      '" title=""><i class="fa-regular fa-trash-can"></i></a>' +
+      '" data-toggle="modal" data-target="#project_boq_modal" title=""><i class="fa-regular fa-pen-to-square"></i></a>' +
       "</td>";
 
     var chkCell =
@@ -416,18 +413,124 @@
     return false;
   });
 
+  function updateBoqDeleteButtonState() {
+    var checkedCount = $("#project-boq-tbody .project-boq-select:checked").length;
+    var $delBtn = $("#project-boq-delete-selected");
+    if (!$delBtn.length) {
+      return;
+    }
+    if (checkedCount > 0) {
+      $delBtn.prop("disabled", false).removeClass("disabled");
+      $delBtn.html('<i class="fa-regular fa-trash-can tw-mr-1"></i> ' + (app.lang.delete || "Delete") + " (" + checkedCount + ")");
+    } else {
+      $delBtn.prop("disabled", true).addClass("disabled");
+      $delBtn.html('<i class="fa-regular fa-trash-can tw-mr-1"></i> ' + (app.lang.delete || "Delete"));
+    }
+  }
+
   $("#project-boq-check-all").on("change", function () {
     var on = $(this).prop("checked");
-    $("#project-boq-tbody .project-boq-select").prop("checked", on);
+    $("#project-boq-tbody .project-boq-select").prop("checked", on).each(function () {
+      $(this).closest("tr").toggleClass("boq-row-selected", on);
+    });
+    updateBoqDeleteButtonState();
   });
 
   $(document).on("change", "#project-boq-tbody .project-boq-select", function () {
+    var isChecked = $(this).prop("checked");
+    $(this).closest("tr").toggleClass("boq-row-selected", isChecked);
     var $rows = $("#project-boq-tbody .project-boq-select");
     if (!$rows.length) {
+      updateBoqDeleteButtonState();
       return;
     }
     var all = $rows.filter(":checked").length === $rows.length;
     $("#project-boq-check-all").prop("checked", all);
+    updateBoqDeleteButtonState();
+  });
+
+  // Select row when clicked anywhere on the row (except interactive elements & text selection)
+  $(document).on("click", "#project-boq-tbody tr[data-boq-id]", function (e) {
+    if ($(e.target).closest("a, button, input, select, textarea, .btn, .dropdown-menu, label").length > 0) {
+      return;
+    }
+
+    var selection = window.getSelection ? window.getSelection().toString() : "";
+    if (selection && selection.length > 0) {
+      return;
+    }
+
+    var $checkbox = $(this).find(".project-boq-select");
+    if ($checkbox.length) {
+      var newState = !$checkbox.prop("checked");
+      $checkbox.prop("checked", newState).trigger("change");
+    }
+  });
+
+  $("#project-boq-delete-selected").on("click", function (e) {
+    e.preventDefault();
+    var selectedIds = [];
+    var $checkedRows = [];
+    $("#project-boq-tbody tr").each(function () {
+      var $tr = $(this);
+      if ($tr.find(".project-boq-select").prop("checked")) {
+        var boqId = parseInt($tr.data("boq-id"), 10);
+        if (boqId > 0) {
+          selectedIds.push(boqId);
+          $checkedRows.push($tr);
+        }
+      }
+    });
+
+    if (selectedIds.length === 0) {
+      alert_float("warning", "Please select at least one row to delete.");
+      return false;
+    }
+
+    var confirmMsg = "Are you sure you want to delete the selected " + selectedIds.length + " item(s)? This action cannot be undone.";
+    if (!confirm(confirmMsg)) {
+      return false;
+    }
+
+    var $btn = $(this);
+    $btn.prop("disabled", true).addClass("disabled");
+
+    $.post(
+      admin_url + "project_boq/delete",
+      projectBoqCsrfPayload({
+        ids: selectedIds,
+        project_id: projectBoqProjectId(),
+      })
+    )
+      .done(function (response) {
+        try {
+          response = typeof response === "string" ? JSON.parse(response) : response;
+        } catch (e) {
+          alert_float("danger", app.lang.something_went_wrong);
+          updateBoqDeleteButtonState();
+          return;
+        }
+        if (response.success) {
+          $.each($checkedRows, function (i, $tr) {
+            $tr.remove();
+          });
+          $("#project-boq-check-all").prop("checked", false);
+          updateBoqDeleteButtonState();
+          projectBoqToggleEmptyState();
+          projectBoqUpdateRevisedSummary();
+          updateBoqFilterCounts();
+          alert_float("success", response.message);
+        } else if (response.message) {
+          alert_float("danger", response.message);
+          updateBoqDeleteButtonState();
+        }
+      })
+      .fail(function (data) {
+        alert_float("danger", data.responseText || app.lang.something_went_wrong);
+        updateBoqDeleteButtonState();
+      });
+
+    return false;
   });
 
   $("#project-boq-purchase-request").on("click", function (e) {
@@ -482,6 +585,7 @@
       projectBoqUpdateRemainingDisplay($(this));
     });
     projectBoqToggleEmptyState();
+    updateBoqDeleteButtonState();
   });
 
   $("#project-boq-import-csv").on("click", function () {
@@ -511,8 +615,10 @@
     }
 
     $filename.text(file.name + " (" + sizeStr + ")");
+    $("#project-boq-import-skipped-container").hide();
+    $("#project-boq-skipped-list").empty();
     $progressBar
-      .removeClass("progress-bar-success progress-bar-danger")
+      .removeClass("progress-bar-success progress-bar-danger progress-bar-warning")
       .addClass("progress-bar-primary progress-bar-striped active")
       .css("width", "35%")
       .text("Uploading...");
@@ -573,20 +679,47 @@
       success: function (response) {
         response = typeof response === "string" ? JSON.parse(response) : response;
         if (response.success) {
-          $progressBar
-            .removeClass("progress-bar-primary progress-bar-striped active")
-            .addClass("progress-bar-success")
-            .css("width", "100%")
-            .text("100% Complete");
-          $status.html('<i class="fa fa-check-circle tw-mr-1 text-success"></i> Import successful!');
-          $hint.text("Refreshing project page...");
-          setTimeout(function () {
-            if ($modal.length) {
-              $modal.modal("hide");
-            }
-            alert_float("success", response.message);
-            location.reload();
-          }, 600);
+          var hasErrors = response.errors && response.errors.length > 0;
+          if (hasErrors) {
+            $progressBar
+              .removeClass("progress-bar-primary progress-bar-striped active")
+              .addClass("progress-bar-warning")
+              .css("width", "100%")
+              .text((response.imported || 0) + " Imported, " + response.errors.length + " Skipped");
+            $status.html('<i class="fa fa-exclamation-triangle tw-mr-1 text-warning"></i> Import completed with skipped rows');
+            $hint.text("Review the skipped items below before continuing.");
+
+            var $skippedList = $("#project-boq-skipped-list");
+            $skippedList.empty();
+            $.each(response.errors, function (i, errMsg) {
+              $skippedList.append($("<li>").text(errMsg));
+            });
+            $("#project-boq-skipped-count-text").text(response.errors.length + " Row(s) Skipped (Not Found in Catalog)");
+            $("#project-boq-import-skipped-container").slideDown();
+            $btn.prop("disabled", false).removeClass("disabled");
+
+            $("#project-boq-import-done-btn").off("click").on("click", function () {
+              if ($modal.length) {
+                $modal.modal("hide");
+              }
+              location.reload();
+            });
+          } else {
+            $progressBar
+              .removeClass("progress-bar-primary progress-bar-striped active")
+              .addClass("progress-bar-success")
+              .css("width", "100%")
+              .text("100% Complete");
+            $status.html('<i class="fa fa-check-circle tw-mr-1 text-success"></i> Import successful!');
+            $hint.text("Refreshing project page...");
+            setTimeout(function () {
+              if ($modal.length) {
+                $modal.modal("hide");
+              }
+              alert_float("success", response.message);
+              location.reload();
+            }, 600);
+          }
         } else {
           if ($modal.length) {
             $modal.modal("hide");
@@ -1142,8 +1275,8 @@
     var $btn = $(this);
     var filter = $btn.data("filter");
 
-    $(".boq-filter-btn").removeClass("active btn-primary").addClass("btn-default");
-    $btn.addClass("active btn-primary").removeClass("btn-default");
+    $(".boq-filter-btn").removeClass("active");
+    $btn.addClass("active");
 
     var $rows = $("#project-boq-tbody tr[data-boq-id]");
     if (filter === "all") {
@@ -1159,11 +1292,53 @@
     }
   });
 
+  function initBoqStickyBar() {
+    var $stickyBar = $("#project-boq-sticky-bar");
+    if (!$stickyBar.length) return;
+
+    function updateStickyOffset() {
+      var topOffset = 0;
+      var $header = $("#header");
+      if ($header.length && $header.css("position") === "fixed") {
+        topOffset = $header.outerHeight() || 0;
+      }
+      $stickyBar.css("top", topOffset + "px");
+    }
+
+    updateStickyOffset();
+    $(window).on("resize", updateStickyOffset);
+
+    if ("IntersectionObserver" in window) {
+      var sentinel = document.createElement("div");
+      sentinel.className = "project-boq-sticky-sentinel";
+      sentinel.style.height = "1px";
+      sentinel.style.marginTop = "-1px";
+      sentinel.style.pointerEvents = "none";
+      $stickyBar[0].parentNode.insertBefore(sentinel, $stickyBar[0]);
+
+      var observer = new IntersectionObserver(
+        function (entries) {
+          entries.forEach(function (entry) {
+            $stickyBar.toggleClass("is-stuck", !entry.isIntersecting);
+          });
+        },
+        { threshold: [0] }
+      );
+      observer.observe(sentinel);
+    } else {
+      $(window).on("scroll", function () {
+        var barTop = $stickyBar.offset().top;
+        $stickyBar.toggleClass("is-stuck", $(window).scrollTop() >= barTop);
+      });
+    }
+  }
+
   $(function () {
     if ($.fn.tooltip) {
       $("#project-boq-wrapper [data-toggle='tooltip']").tooltip({ container: "body" });
     }
     updateBoqFilterCounts();
     initProjectBoqScrollbars();
+    initBoqStickyBar();
   });
 })(jQuery);

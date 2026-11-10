@@ -346,19 +346,40 @@ class Admin extends AdminController
             show_404();
         }
 
-        $id         = (int) $this->input->post('id');
         $project_id = (int) $this->input->post('project_id');
+        if (! $this->can_edit_project($project_id)) {
+            ajax_access_denied();
+        }
 
+        $ids = $this->input->post('ids');
+        if (!empty($ids) && is_array($ids)) {
+            $deleted_count = 0;
+            foreach ($ids as $id) {
+                $id = (int) $id;
+                $existing = $this->project_boq_model->get($id);
+                if ($existing && (int) $existing->project_id === $project_id) {
+                    if ($this->project_boq_model->delete($id)) {
+                        $deleted_count++;
+                    }
+                }
+            }
+            $this->json_response([
+                'success'       => $deleted_count > 0,
+                'message'       => $deleted_count > 0
+                    ? sprintf('%d item(s) deleted successfully.', $deleted_count)
+                    : _l('problem_deleting', _l('project_boq_line_lowercase')),
+                'deleted_count' => $deleted_count,
+            ]);
+            exit;
+        }
+
+        $id       = (int) $this->input->post('id');
         $existing = $this->project_boq_model->get($id);
 
         if (! $existing || (int) $existing->project_id !== $project_id) {
             $this->json_response(['success' => false, 'message' => _l('project_boq_line_not_found')]);
 
             exit;
-        }
-
-        if (! $this->can_edit_project($project_id)) {
-            ajax_access_denied();
         }
 
         $ok = $this->project_boq_model->delete($id);
@@ -488,7 +509,7 @@ class Admin extends AdminController
         $errors   = [];
 
         try {
-            foreach ($rows as $row) {
+            foreach ($rows as $rowIndex => $row) {
                 if (count($row) < count($header)) {
                     continue;
                 }
@@ -534,6 +555,8 @@ class Admin extends AdminController
                     $lookup_item = $this->db->select('id')
                         ->from(db_prefix() . 'items')
                         ->where('description', $desc_clean)
+                        ->or_where('commodity_code', $desc_clean)
+                        ->or_where('commodity_name', $desc_clean)
                         ->get()->row();
                     if ($lookup_item) {
                         $item_id = (int) $lookup_item->id;
@@ -543,18 +566,28 @@ class Admin extends AdminController
                 $order_qty_val = $data['order quantity'] ?? $data['Order Quantity'] ?? ($row[6] ?? 0);
                 $order_qty = ($order_qty_val !== '' && $order_qty_val !== null) ? (float) $order_qty_val : 0;
 
+                $internal_ref_val = trim((string)($data['internal ref no'] ?? $data['Internal Ref No'] ?? ($row[0] ?? '')));
+                $item_label = !empty($crm_item_val) ? trim((string)$crm_item_val) : (!empty($data['boq description'] ?? $data['BOQ Description'] ?? ($row[4] ?? '')) ? mb_substr(trim((string)($data['boq description'] ?? $data['BOQ Description'] ?? ($row[4] ?? ''))), 0, 35) . '...' : 'Unknown Item');
+                $ref_prefix = !empty($internal_ref_val) ? ('Ref #' . $internal_ref_val . ' - ') : '';
+                $excel_row_num = $rowIndex + 2; // +1 for 0-index offset, +1 for header row
+
                 // Silently skip pre-filled template rows that user didn't populate
-                if ($item_id < 1 && $order_qty <= 0) {
+                if ($item_id < 1 && $order_qty <= 0 && empty($crm_item_val) && empty($internal_ref_val)) {
                     continue;
                 }
 
-                if ($item_id < 1 || $order_qty <= 0) {
-                    $errors[] = _l('project_boq_import_invalid_row', $item_id > 0 ? $item_id : (string)($crm_item_val ?? ''));
+                if ($item_id < 1) {
+                    $errors[] = "Row {$excel_row_num} ({$ref_prefix}\"{$item_label}\"): Not found in CRM Inventory catalog. Please create this item under Inventory > Items first and set its CRM Item ID.";
                     continue;
                 }
 
                 if (! $this->item_exists($item_id)) {
-                    $errors[] = _l('project_boq_import_item_not_found', $item_id);
+                    $errors[] = "Row {$excel_row_num} ({$ref_prefix}\"{$item_label}\"): Item ID {$item_id} does not exist in CRM Inventory catalog. Please verify the ID or create the item in Inventory first.";
+                    continue;
+                }
+
+                if ($order_qty <= 0) {
+                    $errors[] = "Row {$excel_row_num} ({$ref_prefix}\"{$item_label}\"): Order Quantity must be greater than 0.";
                     continue;
                 }
 

@@ -34,116 +34,105 @@ $unmatched_pos_count = count($unmatched_pos);
     </div>
     <?php } ?>
 
-    <div class="_buttons tw-mb-4 clearfix">
-        <?php if ($can_view_items) { ?>
-        <button type="button" class="btn btn-primary" id="project-boq-open-add" data-toggle="modal"
-            data-target="#project_boq_request_modal" data-request-mode="add_item">
-            <i class="fa-regular fa-plus tw-mr-1"></i>
-            <?= _l('project_boq_add_line'); ?>
-        </button>
-        <button type="button" class="btn btn-default" id="project-boq-import-csv">
-            <i class="fa-regular fa-file-csv tw-mr-1"></i>
-            <?= _l('project_boq_import_csv'); ?>
-        </button>
-        <input type="file" id="project-boq-csv-file" accept=".csv, .xlsx, .xls" style="display:none">
-        <?php } ?>
-        <?php if ($can_view_items) { ?>
-        <button type="button" class="btn btn-default" id="project-boq-purchase-request">
-            <i class="fa-regular fa-file-lines tw-mr-1"></i>
-            <?= _l('project_boq_purchase_request'); ?>
-        </button>
-        <a href="<?= admin_url('project_boq/download_template/' . $project->id); ?>"
-           class="btn btn-default" id="project-boq-download-template">
-            <i class="fa-regular fa-file-excel tw-mr-1"></i>
-            <?= _l('project_boq_download_template'); ?>
-        </a>
-        <?php } ?>
-        <?php
-        $revised_count = 0;
-        foreach ($boq_items as $bItem) {
-            $bPlan = (float) ($bItem['planned_qty'] ?? 0);
-            $bOrd  = (isset($bItem['order_quantity']) && (float) $bItem['order_quantity'] > 0) ? (float) $bItem['order_quantity'] : $bPlan;
-            $bRev  = (float) ($bItem['_revised_for_display'] ?? $bItem['revised_qty'] ?? $bOrd);
-            if (abs($bRev - $bOrd) > 0.0001) {
-                $revised_count++;
-            }
-        }
-        ?>
-        <span id="project-boq-revised-summary" class="label label-warning" style="display: <?= $revised_count > 0 ? 'inline-flex' : 'none'; ?>; align-items: center; gap: 5px; font-size: 12px; padding: 6px 11px; border-radius: 4px; vertical-align: middle; background-color: #fef3c7; color: #b45309; border: 1px solid #fcd34d; font-weight: 600; margin-left: 6px;">
-            <i class="fa-solid fa-arrows-rotate"></i>
-            <span class="boq-revised-count-text">
-                <?= sprintf($revised_count === 1 ? _l('project_boq_items_revised_summary') : _l('project_boq_items_revised_summary_plural'), $revised_count); ?>
-            </span>
-        </span>
+    <!-- Unified Sticky Actions & Filter Toolbar -->
+    <div class="project-boq-sticky-bar" id="project-boq-sticky-bar">
+        <!-- Row 1: Actions & Admin Controls -->
+        <div class="boq-toolbar-row boq-toolbar-actions-row">
+            <div class="boq-toolbar-left">
+                <?php if ($can_view_items) { ?>
+                <button type="button" class="btn btn-primary boq-btn" id="project-boq-open-add" data-toggle="modal"
+                    data-target="#project_boq_request_modal" data-request-mode="add_item">
+                    <i class="fa-solid fa-plus tw-mr-1"></i>
+                    <?= _l('project_boq_add_line'); ?>
+                </button>
+                <button type="button" class="btn btn-default boq-btn" id="project-boq-import-csv">
+                    <i class="fa-solid fa-file-import tw-mr-1 text-primary"></i>
+                    <?= _l('project_boq_import_csv'); ?>
+                </button>
+                <input type="file" id="project-boq-csv-file" accept=".csv, .xlsx, .xls" style="display:none">
+                <button type="button" class="btn btn-default boq-btn" id="project-boq-purchase-request">
+                    <i class="fa-solid fa-cart-shopping tw-mr-1 text-info"></i>
+                    <?= _l('project_boq_purchase_request'); ?>
+                </button>
+                <a href="<?= admin_url('project_boq/download_template/' . $project->id); ?>"
+                   class="btn btn-default boq-btn" id="project-boq-download-template">
+                    <i class="fa-solid fa-file-excel tw-mr-1 text-success"></i>
+                    <?= _l('project_boq_download_template'); ?>
+                </a>
+                <?php if ($can_edit_boq) { ?>
+                <button type="button" class="btn btn-danger boq-btn" id="project-boq-delete-selected" disabled="disabled">
+                    <i class="fa-regular fa-trash-can tw-mr-1"></i>
+                    <?= _l('delete'); ?>
+                </button>
+                <?php } ?>
+                <?php } ?>
+                <span id="project-boq-revised-summary" class="label label-warning boq-revised-pill" style="display: <?= $revised_count > 0 ? 'inline-flex' : 'none'; ?>;">
+                    <i class="fa-solid fa-arrows-rotate"></i>
+                    <span class="boq-revised-count-text">
+                        <?= sprintf($revised_count === 1 ? _l('project_boq_items_revised_summary') : _l('project_boq_items_revised_summary_plural'), $revised_count); ?>
+                    </span>
+                </span>
+            </div>
 
-        <?php if (is_admin()) { ?>
-        <style>
-        .project-boq-restriction-select-wrapper .bootstrap-select {
-            width: 105px !important;
-            vertical-align: middle;
-        }
-        .project-boq-restriction-select-wrapper .bootstrap-select > .dropdown-toggle {
-            display: flex !important;
-            align-items: center !important;
-            justify-content: space-between !important;
-            padding: 3px 8px !important;
-            height: 26px !important;
-            line-height: 18px !important;
-            font-size: 12px !important;
-        }
-        .project-boq-restriction-select-wrapper .bootstrap-select .filter-option {
-            float: none !important;
-            width: auto !important;
-            display: inline-block !important;
-            text-align: left !important;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-        .project-boq-restriction-select-wrapper .bootstrap-select .bs-caret,
-        .project-boq-restriction-select-wrapper .bootstrap-select .caret {
-            position: static !important;
-            margin-left: 6px !important;
-            margin-top: 0 !important;
-            vertical-align: middle !important;
-            display: inline-block !important;
-        }
-        </style>
-        <div class="pull-right tw-flex tw-items-center" style="margin-top: 5px; gap: 10px;">
-            <?php if ($unmatched_pos_count > 0) { ?>
-            <button type="button" class="btn btn-warning btn-xs" id="project-boq-view-unmatched-pos" data-toggle="tooltip"
-                data-placement="top" title="<?= _l('project_boq_unmatched_pos_tooltip'); ?>" style="padding: 4px 10px; font-size: 12px; font-weight: 500;">
-                <i class="fa fa-exclamation-triangle tw-mr-1"></i>
-                <?= _l('project_boq_unmatched_pos_btn'); ?> (<?= $unmatched_pos_count; ?>)
-            </button>
+            <?php if (is_admin()) { ?>
+            <div class="boq-toolbar-right">
+                <?php if ($unmatched_pos_count > 0) { ?>
+                <button type="button" class="btn btn-warning boq-btn-xs" id="project-boq-view-unmatched-pos" data-toggle="tooltip"
+                    data-placement="top" title="<?= _l('project_boq_unmatched_pos_tooltip'); ?>">
+                    <i class="fa fa-exclamation-triangle tw-mr-1"></i>
+                    <?= _l('project_boq_unmatched_pos_btn'); ?> (<?= $unmatched_pos_count; ?>)
+                </button>
+                <?php } ?>
+
+                <button type="button" class="btn btn-info boq-btn-xs" id="project-boq-sync-pos" data-toggle="tooltip"
+                    data-placement="top" title="<?= _l('project_boq_sync_past_pos_tooltip'); ?>">
+                    <i class="fa fa-sync tw-mr-1"></i>
+                    <?= _l('project_boq_sync_past_pos'); ?>
+                </button>
+
+                <div class="boq-restriction-control" data-toggle="tooltip" data-placement="left" title="<?= _l('project_boq_po_restriction_tooltip'); ?>">
+                    <label class="boq-restriction-label">
+                        <i class="fa-solid fa-shield-halved tw-mr-1 text-primary"></i>PO Restriction:
+                    </label>
+                    <div class="project-boq-restriction-select-wrapper">
+                        <select id="project_boq_project_restriction_select" class="selectpicker" data-width="100px" data-style="btn-default btn-xs">
+                            <option value="inherit" <?= $project_restriction_val === 'inherit' ? 'selected' : ''; ?>>
+                                <?= _l('project_boq_restriction_inherit'); ?>
+                            </option>
+                            <option value="1" <?= $project_restriction_val === '1' ? 'selected' : ''; ?>>
+                                <?= _l('project_boq_restriction_enforce_always'); ?>
+                            </option>
+                            <option value="0" <?= $project_restriction_val === '0' ? 'selected' : ''; ?>>
+                                <?= _l('project_boq_restriction_exempt'); ?>
+                            </option>
+                        </select>
+                    </div>
+                </div>
+            </div>
             <?php } ?>
+        </div>
 
-            <button type="button" class="btn btn-info btn-xs" id="project-boq-sync-pos" data-toggle="tooltip"
-                data-placement="top" title="<?= _l('project_boq_sync_past_pos_tooltip'); ?>" style="padding: 4px 10px; font-size: 12px; font-weight: 500;">
-                <i class="fa fa-sync tw-mr-1"></i>
-                <?= _l('project_boq_sync_past_pos'); ?>
-            </button>
-
-            <span class="text-muted" style="color: #cbd5e1; user-select: none;">|</span>
-
-            <label class="tw-mb-0 text-muted" style="font-weight: 500; font-size: 13px;" data-toggle="tooltip" data-placement="left" title="<?= _l('project_boq_po_restriction_tooltip'); ?>">
-                <i class="fa-solid fa-shield-halved tw-mr-1 text-primary"></i><?= _l('project_boq_po_restriction'); ?>:
-            </label>
-            <div class="project-boq-restriction-select-wrapper" style="display: inline-block;">
-                <select id="project_boq_project_restriction_select" class="selectpicker" data-width="105px" data-style="btn-default btn-xs">
-                    <option value="inherit" <?= $project_restriction_val === 'inherit' ? 'selected' : ''; ?>>
-                        <?= _l('project_boq_restriction_inherit'); ?>
-                    </option>
-                    <option value="1" <?= $project_restriction_val === '1' ? 'selected' : ''; ?>>
-                        <?= _l('project_boq_restriction_enforce_always'); ?>
-                    </option>
-                    <option value="0" <?= $project_restriction_val === '0' ? 'selected' : ''; ?>>
-                        <?= _l('project_boq_restriction_exempt'); ?>
-                    </option>
-                </select>
+        <!-- Row 2: View Filter Tabs -->
+        <div class="boq-toolbar-row boq-toolbar-filter-row">
+            <div class="boq-filter-tabs">
+                <span class="boq-filter-heading"><i class="fa fa-filter tw-mr-1"></i> View:</span>
+                <button type="button" class="btn btn-xs boq-filter-btn active" data-filter="all">
+                    <?= _l('project_boq_filter_all'); ?> <span class="badge" id="boq-count-all">0</span>
+                </button>
+                <button type="button" class="btn btn-xs boq-filter-btn" data-filter="tender">
+                    <i class="fa fa-cube tw-mr-1 text-primary"></i> <?= _l('project_boq_filter_tender'); ?> <span class="badge" id="boq-count-tender">0</span>
+                </button>
+                <button type="button" class="btn btn-xs boq-filter-btn" data-filter="nt">
+                    <i class="fa fa-tag tw-mr-1" style="color: #8b5cf6;"></i> <?= _l('project_boq_filter_nt'); ?> <span class="badge" id="boq-count-nt">0</span>
+                </button>
+                <button type="button" class="btn btn-xs boq-filter-btn" data-filter="billable">
+                    <i class="fa fa-check-circle tw-mr-1 text-success"></i> <?= _l('project_boq_filter_billable'); ?> <span class="badge" id="boq-count-billable">0</span>
+                </button>
+                <button type="button" class="btn btn-xs boq-filter-btn" data-filter="nonbillable">
+                    <i class="fa fa-ban tw-mr-1 text-danger"></i> <?= _l('project_boq_filter_nonbillable'); ?> <span class="badge" id="boq-count-nonbillable">0</span>
+                </button>
             </div>
         </div>
-        <?php } ?>
     </div>
 
     <?php if (!empty($pending_requests)): ?>
@@ -220,17 +209,7 @@ $unmatched_pos_count = count($unmatched_pos);
     <?php endif; ?>
 
     <div class="panel_s">
-        <div class="panel-body">
-            <!-- Filter Pills (All / Tender / NT / Billable / Non-Billable) -->
-            <div class="boq-filter-tabs tw-mb-3" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-                <span class="text-muted" style="font-size: 12px; font-weight: 600;"><i class="fa fa-filter tw-mr-1"></i> View:</span>
-                <button type="button" class="btn btn-xs btn-default boq-filter-btn active" data-filter="all"><?= _l('project_boq_filter_all'); ?> (<span id="boq-count-all">0</span>)</button>
-                <button type="button" class="btn btn-xs btn-default boq-filter-btn" data-filter="tender"><i class="fa fa-cube tw-mr-1 text-primary"></i> <?= _l('project_boq_filter_tender'); ?> (<span id="boq-count-tender">0</span>)</button>
-                <button type="button" class="btn btn-xs btn-default boq-filter-btn" data-filter="nt"><i class="fa fa-tag tw-mr-1" style="color: #8b5cf6;"></i> <?= _l('project_boq_filter_nt'); ?> (<span id="boq-count-nt">0</span>)</button>
-                <button type="button" class="btn btn-xs btn-default boq-filter-btn" data-filter="billable"><i class="fa fa-check-circle tw-mr-1 text-success"></i> <?= _l('project_boq_filter_billable'); ?> (<span id="boq-count-billable">0</span>)</button>
-                <button type="button" class="btn btn-xs btn-default boq-filter-btn" data-filter="nonbillable"><i class="fa fa-ban tw-mr-1 text-danger"></i> <?= _l('project_boq_filter_nonbillable'); ?> (<span id="boq-count-nonbillable">0</span>)</button>
-            </div>
-
+        <div class="panel-body" style="padding-top: 15px;">
             <div class="table-responsive project-boq-table-responsive" style="overflow-x:auto;">
                 <table class="table table-bordered table-hover" id="project-boq-table" style="table-layout:fixed; width:3090px; min-width:3090px;">
                     <thead>
@@ -294,6 +273,210 @@ $unmatched_pos_count = count($unmatched_pos);
     </div>
 
     <style>
+    /* Ensure top project header actions dropdown ("More", etc.) always floats above sticky bar */
+    ._buttons {
+        position: relative;
+        z-index: 105;
+    }
+    ._buttons .btn-group.open {
+        position: relative;
+        z-index: 1060;
+    }
+    ._buttons .dropdown-menu,
+    .project-actions {
+        z-index: 1060 !important;
+    }
+
+    /* Unified Sticky Action & Filter Toolbar */
+    .project-boq-sticky-bar {
+        position: -webkit-sticky;
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 8px 14px;
+        margin-bottom: 12px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        transition: box-shadow 0.2s ease, border-radius 0.2s ease, border-color 0.2s ease;
+    }
+    .project-boq-sticky-bar.is-stuck {
+        box-shadow: 0 6px 20px -2px rgba(0, 0, 0, 0.12), 0 2px 6px -1px rgba(0, 0, 0, 0.06);
+        border-color: #cbd5e1;
+        border-top: none;
+        border-top-left-radius: 0;
+        border-top-right-radius: 0;
+    }
+    .boq-toolbar-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    .boq-toolbar-actions-row {
+        margin-bottom: 7px;
+        padding-bottom: 7px;
+        border-bottom: 1px solid #f1f5f9;
+    }
+    .boq-toolbar-left {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+    .boq-toolbar-right {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    .boq-btn {
+        height: 30px !important;
+        padding: 4px 11px !important;
+        font-size: 12px !important;
+        font-weight: 500 !important;
+        border-radius: 5px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 5px !important;
+        line-height: 1 !important;
+        transition: all 0.15s ease-in-out !important;
+    }
+    .boq-btn:hover {
+        transform: translateY(-1px);
+    }
+    .boq-btn-xs {
+        height: 26px !important;
+        padding: 3px 8px !important;
+        font-size: 11.5px !important;
+        border-radius: 4px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 4px !important;
+        line-height: 1 !important;
+    }
+    .boq-restriction-control {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 5px;
+        padding: 2px 6px 2px 8px;
+        font-size: 11.5px;
+    }
+    .boq-restriction-label {
+        margin: 0;
+        font-weight: 500;
+        color: #475569;
+        font-size: 11.5px;
+        cursor: default;
+    }
+    .project-boq-restriction-select-wrapper .bootstrap-select {
+        width: 100px !important;
+        vertical-align: middle;
+    }
+    .project-boq-restriction-select-wrapper .bootstrap-select > .dropdown-toggle {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        padding: 3px 8px !important;
+        height: 24px !important;
+        line-height: 16px !important;
+        font-size: 11.5px !important;
+    }
+    .project-boq-restriction-select-wrapper .bootstrap-select .filter-option {
+        float: none !important;
+        width: auto !important;
+        display: inline-block !important;
+        text-align: left !important;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .project-boq-restriction-select-wrapper .bootstrap-select .bs-caret,
+    .project-boq-restriction-select-wrapper .bootstrap-select .caret {
+        position: static !important;
+        margin-left: 5px !important;
+        margin-top: 0 !important;
+        vertical-align: middle !important;
+        display: inline-block !important;
+    }
+    .boq-revised-pill {
+        align-items: center;
+        gap: 5px;
+        font-size: 11px !important;
+        padding: 4px 9px !important;
+        border-radius: 12px !important;
+        vertical-align: middle;
+        background-color: #fef3c7 !important;
+        color: #b45309 !important;
+        border: 1px solid #fcd34d !important;
+        font-weight: 600 !important;
+    }
+    .boq-filter-heading {
+        font-size: 11px;
+        font-weight: 600;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-right: 4px;
+        display: inline-flex;
+        align-items: center;
+    }
+    .boq-filter-tabs {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+    .boq-filter-btn {
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 6px !important;
+        height: 26px !important;
+        padding: 2px 10px !important;
+        font-size: 11.5px !important;
+        font-weight: 500 !important;
+        color: #475569 !important;
+        background: #f8fafc !important;
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 14px !important;
+        transition: all 0.15s ease-in-out !important;
+        cursor: pointer !important;
+        line-height: 1 !important;
+        outline: none !important;
+        box-shadow: none !important;
+    }
+    .boq-filter-btn:hover {
+        background: #f1f5f9 !important;
+        color: #0f172a !important;
+        border-color: #cbd5e1 !important;
+    }
+    .boq-filter-btn.active {
+        background: #1e293b !important;
+        color: #ffffff !important;
+        border-color: #1e293b !important;
+        font-weight: 600 !important;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15) !important;
+    }
+    .boq-filter-btn .badge {
+        font-size: 10px !important;
+        font-weight: 600 !important;
+        padding: 2px 6px !important;
+        border-radius: 10px !important;
+        background: #e2e8f0 !important;
+        color: #334155 !important;
+        margin-left: 2px !important;
+        transition: all 0.15s ease-in-out !important;
+    }
+    .boq-filter-btn.active .badge {
+        background: #334155 !important;
+        color: #f8fafc !important;
+    }
+
     /* Excel-style Floating Horizontal Scrollbar */
     #project-boq-floating-scroll,
     .project-boq-table-responsive {
@@ -356,6 +539,26 @@ $unmatched_pos_count = count($unmatched_pos);
     }
     #project-boq-tbody tr:nth-child(odd) {
         background-color: #ffffff;
+    }
+    #project-boq-tbody tr[data-boq-id] {
+        cursor: pointer;
+        user-select: text;
+        transition: background-color 0.15s ease-in-out;
+    }
+    #project-boq-tbody tr[data-boq-id]:hover {
+        background-color: #f1f5f9 !important;
+    }
+    #project-boq-tbody tr[data-boq-id].boq-row-selected {
+        background-color: #e0f2fe !important;
+    }
+    #project-boq-tbody tr[data-boq-id].boq-row-selected:hover {
+        background-color: #bae6fd !important;
+    }
+    #project-boq-tbody tr[data-boq-id].boq-row-selected > td:first-child {
+        box-shadow: inset 3px 0 0 #0284c7;
+    }
+    #project-boq-tbody tr[data-boq-id] .project-boq-select {
+        cursor: pointer;
     }
     #project-boq-table .boq-internal-col {
         background-color: #eef3fb;
@@ -800,6 +1003,22 @@ $unmatched_pos_count = count($unmatched_pos);
                     <i class="fa-regular fa-clock tw-mr-1"></i>
                     <span id="project-boq-import-hint">Please keep this window open while the file is processed.</span>
                 </p>
+                <div id="project-boq-import-skipped-container" style="display: none; margin-top: 15px;">
+                    <div class="alert alert-warning" style="margin-bottom: 12px; font-size: 13px; text-align: left;">
+                        <div style="font-weight: 600; margin-bottom: 6px;">
+                            <i class="fa fa-exclamation-triangle tw-mr-1"></i>
+                            <span id="project-boq-skipped-count-text">Skipped Rows</span>
+                        </div>
+                        <p style="margin-bottom: 8px; font-size: 12px; color: #664d03;">
+                            The following item(s) were <strong>not imported</strong> because they do not exist in the Inventory Catalog or have invalid data. Please create them under <strong>Inventory &rarr; Items</strong>, update your Excel sheet, and re-upload:
+                        </p>
+                        <ul id="project-boq-skipped-list" style="margin: 0; padding-left: 20px; max-height: 180px; overflow-y: auto; font-size: 12px; line-height: 1.5; color: #333;">
+                        </ul>
+                    </div>
+                    <button type="button" id="project-boq-import-done-btn" class="btn btn-primary btn-block" style="font-weight: 600; padding: 10px;">
+                        I Understand — Refresh BOQ Table
+                    </button>
+                </div>
             </div>
         </div>
     </div>

@@ -169,14 +169,6 @@ if (! $isBillable) {
             title="<?= _l('edit'); ?>">
             <i class="fa-regular fa-pen-to-square"></i>
         </a>
-        <?php if ($can_edit_boq) { ?>
-        <a href="#"
-            class="btn btn-danger btn-icon project-boq-delete"
-            data-boq-id="<?= e($id); ?>"
-            title="<?= _l('delete'); ?>">
-            <i class="fa-regular fa-trash-can"></i>
-        </a>
-        <?php } ?>
     </td>
     <?php } ?>
 </tr>
