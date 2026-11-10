@@ -511,8 +511,10 @@
     }
 
     $filename.text(file.name + " (" + sizeStr + ")");
+    $("#project-boq-import-skipped-container").hide();
+    $("#project-boq-skipped-list").empty();
     $progressBar
-      .removeClass("progress-bar-success progress-bar-danger")
+      .removeClass("progress-bar-success progress-bar-danger progress-bar-warning")
       .addClass("progress-bar-primary progress-bar-striped active")
       .css("width", "35%")
       .text("Uploading...");
@@ -573,20 +575,47 @@
       success: function (response) {
         response = typeof response === "string" ? JSON.parse(response) : response;
         if (response.success) {
-          $progressBar
-            .removeClass("progress-bar-primary progress-bar-striped active")
-            .addClass("progress-bar-success")
-            .css("width", "100%")
-            .text("100% Complete");
-          $status.html('<i class="fa fa-check-circle tw-mr-1 text-success"></i> Import successful!');
-          $hint.text("Refreshing project page...");
-          setTimeout(function () {
-            if ($modal.length) {
-              $modal.modal("hide");
-            }
-            alert_float("success", response.message);
-            location.reload();
-          }, 600);
+          var hasErrors = response.errors && response.errors.length > 0;
+          if (hasErrors) {
+            $progressBar
+              .removeClass("progress-bar-primary progress-bar-striped active")
+              .addClass("progress-bar-warning")
+              .css("width", "100%")
+              .text((response.imported || 0) + " Imported, " + response.errors.length + " Skipped");
+            $status.html('<i class="fa fa-exclamation-triangle tw-mr-1 text-warning"></i> Import completed with skipped rows');
+            $hint.text("Review the skipped items below before continuing.");
+
+            var $skippedList = $("#project-boq-skipped-list");
+            $skippedList.empty();
+            $.each(response.errors, function (i, errMsg) {
+              $skippedList.append($("<li>").text(errMsg));
+            });
+            $("#project-boq-skipped-count-text").text(response.errors.length + " Row(s) Skipped (Not Found in Catalog)");
+            $("#project-boq-import-skipped-container").slideDown();
+            $btn.prop("disabled", false).removeClass("disabled");
+
+            $("#project-boq-import-done-btn").off("click").on("click", function () {
+              if ($modal.length) {
+                $modal.modal("hide");
+              }
+              location.reload();
+            });
+          } else {
+            $progressBar
+              .removeClass("progress-bar-primary progress-bar-striped active")
+              .addClass("progress-bar-success")
+              .css("width", "100%")
+              .text("100% Complete");
+            $status.html('<i class="fa fa-check-circle tw-mr-1 text-success"></i> Import successful!');
+            $hint.text("Refreshing project page...");
+            setTimeout(function () {
+              if ($modal.length) {
+                $modal.modal("hide");
+              }
+              alert_float("success", response.message);
+              location.reload();
+            }, 600);
+          }
         } else {
           if ($modal.length) {
             $modal.modal("hide");

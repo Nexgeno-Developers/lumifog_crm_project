@@ -800,6 +800,22 @@ $unmatched_pos_count = count($unmatched_pos);
                     <i class="fa-regular fa-clock tw-mr-1"></i>
                     <span id="project-boq-import-hint">Please keep this window open while the file is processed.</span>
                 </p>
+                <div id="project-boq-import-skipped-container" style="display: none; margin-top: 15px;">
+                    <div class="alert alert-warning" style="margin-bottom: 12px; font-size: 13px; text-align: left;">
+                        <div style="font-weight: 600; margin-bottom: 6px;">
+                            <i class="fa fa-exclamation-triangle tw-mr-1"></i>
+                            <span id="project-boq-skipped-count-text">Skipped Rows</span>
+                        </div>
+                        <p style="margin-bottom: 8px; font-size: 12px; color: #664d03;">
+                            The following item(s) were <strong>not imported</strong> because they do not exist in the Inventory Catalog or have invalid data. Please create them under <strong>Inventory &rarr; Items</strong>, update your Excel sheet, and re-upload:
+                        </p>
+                        <ul id="project-boq-skipped-list" style="margin: 0; padding-left: 20px; max-height: 180px; overflow-y: auto; font-size: 12px; line-height: 1.5; color: #333;">
+                        </ul>
+                    </div>
+                    <button type="button" id="project-boq-import-done-btn" class="btn btn-primary btn-block" style="font-weight: 600; padding: 10px;">
+                        I Understand — Refresh BOQ Table
+                    </button>
+                </div>
             </div>
         </div>
     </div>
