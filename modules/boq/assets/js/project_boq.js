@@ -430,11 +430,15 @@
 
   $("#project-boq-check-all").on("change", function () {
     var on = $(this).prop("checked");
-    $("#project-boq-tbody .project-boq-select").prop("checked", on);
+    $("#project-boq-tbody .project-boq-select").prop("checked", on).each(function () {
+      $(this).closest("tr").toggleClass("boq-row-selected", on);
+    });
     updateBoqDeleteButtonState();
   });
 
   $(document).on("change", "#project-boq-tbody .project-boq-select", function () {
+    var isChecked = $(this).prop("checked");
+    $(this).closest("tr").toggleClass("boq-row-selected", isChecked);
     var $rows = $("#project-boq-tbody .project-boq-select");
     if (!$rows.length) {
       updateBoqDeleteButtonState();
@@ -443,6 +447,24 @@
     var all = $rows.filter(":checked").length === $rows.length;
     $("#project-boq-check-all").prop("checked", all);
     updateBoqDeleteButtonState();
+  });
+
+  // Select row when clicked anywhere on the row (except interactive elements & text selection)
+  $(document).on("click", "#project-boq-tbody tr[data-boq-id]", function (e) {
+    if ($(e.target).closest("a, button, input, select, textarea, .btn, .dropdown-menu, label").length > 0) {
+      return;
+    }
+
+    var selection = window.getSelection ? window.getSelection().toString() : "";
+    if (selection && selection.length > 0) {
+      return;
+    }
+
+    var $checkbox = $(this).find(".project-boq-select");
+    if ($checkbox.length) {
+      var newState = !$checkbox.prop("checked");
+      $checkbox.prop("checked", newState).trigger("change");
+    }
   });
 
   $("#project-boq-delete-selected").on("click", function (e) {

@@ -526,6 +526,26 @@ $unmatched_pos_count = count($unmatched_pos);
     #project-boq-tbody tr:nth-child(odd) {
         background-color: #ffffff;
     }
+    #project-boq-tbody tr[data-boq-id] {
+        cursor: pointer;
+        user-select: text;
+        transition: background-color 0.15s ease-in-out;
+    }
+    #project-boq-tbody tr[data-boq-id]:hover {
+        background-color: #f1f5f9 !important;
+    }
+    #project-boq-tbody tr[data-boq-id].boq-row-selected {
+        background-color: #e0f2fe !important;
+    }
+    #project-boq-tbody tr[data-boq-id].boq-row-selected:hover {
+        background-color: #bae6fd !important;
+    }
+    #project-boq-tbody tr[data-boq-id].boq-row-selected > td:first-child {
+        box-shadow: inset 3px 0 0 #0284c7;
+    }
+    #project-boq-tbody tr[data-boq-id] .project-boq-select {
+        cursor: pointer;
+    }
     #project-boq-table .boq-internal-col {
         background-color: #eef3fb;
         border-left: 2px solid #b8d4f0;
