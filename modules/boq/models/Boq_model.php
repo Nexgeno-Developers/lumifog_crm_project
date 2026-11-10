@@ -11,13 +11,26 @@ class Boq_model extends App_Model
 
     public function get_by_project_id($project_id)
     {
+        $table = db_prefix() . 'project_boq_items';
         $this->db->select(
-            db_prefix() . 'project_boq_items.*, ' . db_prefix() . 'items.description as item_description, ' . db_prefix() . 'items.unit as item_unit'
+            $table . '.*, ' . db_prefix() . 'items.description as item_description, ' . db_prefix() . 'items.unit as item_unit'
         );
-        $this->db->from(db_prefix() . 'project_boq_items');
-        $this->db->join(db_prefix() . 'items', db_prefix() . 'items.id = ' . db_prefix() . 'project_boq_items.item_id', 'inner');
-        $this->db->where(db_prefix() . 'project_boq_items.project_id', $project_id);
-        $this->db->order_by(db_prefix() . 'project_boq_items.id', 'asc');
+        $this->db->from($table);
+        $this->db->join(db_prefix() . 'items', db_prefix() . 'items.id = ' . $table . '.item_id', 'inner');
+        $this->db->where($table . '.project_id', $project_id);
+        $this->db->order_by("CASE 
+            WHEN {$table}.internal_ref_no IS NOT NULL 
+             AND {$table}.internal_ref_no != '' 
+             AND {$table}.internal_ref_no REGEXP '^[0-9]' 
+            THEN 0 
+            WHEN {$table}.internal_ref_no IS NOT NULL 
+             AND {$table}.internal_ref_no != '' 
+            THEN 1 
+            ELSE 2 
+        END", 'ASC', false);
+        $this->db->order_by("CAST({$table}.internal_ref_no AS UNSIGNED)", 'ASC', false);
+        $this->db->order_by("{$table}.internal_ref_no", 'ASC');
+        $this->db->order_by("{$table}.id", 'ASC');
 
         $rows = $this->db->get()->result_array();
 
@@ -187,6 +200,22 @@ class Boq_model extends App_Model
         $this->db->from(db_prefix() . 'project_boq_items');
         $this->db->where('project_id', (int) $project_id);
         $this->db->where('item_id', (int) $item_id);
+        $this->db->limit(1);
+        $row = $this->db->get()->row_array();
+        return $row ?: null;
+    }
+
+    public function get_by_project_and_ref($project_id, $internal_ref_no)
+    {
+        $internal_ref_no = trim((string) $internal_ref_no);
+        if ($internal_ref_no === '') {
+            return null;
+        }
+
+        $this->db->select('*');
+        $this->db->from(db_prefix() . 'project_boq_items');
+        $this->db->where('project_id', (int) $project_id);
+        $this->db->where('internal_ref_no', $internal_ref_no);
         $this->db->limit(1);
         $row = $this->db->get()->row_array();
         return $row ?: null;

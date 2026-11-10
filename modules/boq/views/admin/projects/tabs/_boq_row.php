@@ -58,6 +58,7 @@ if (! $isBillable) {
 <tr class="<?= implode(' ', $rowClasses); ?>"
     data-boq-id="<?= e($id); ?>" data-purchased="<?= e($purchased); ?>"
     data-revised="<?= e($revised); ?>"
+    data-internal-ref="<?= e($row['internal_ref_no'] ?? ''); ?>"
     data-is-revised="<?= $isRevised ? '1' : '0'; ?>"
     data-is-manual="<?= $isManual ? '1' : '0'; ?>"
     data-is-nt="<?= $isNt ? '1' : '0'; ?>"

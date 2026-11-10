@@ -864,12 +864,63 @@ class Project_boq extends AdminController
                 'internal_itc_amount'      => (isset($data['(internal)itc amount']) && $data['(internal)itc amount'] !== '') ? (float) $data['(internal)itc amount'] : ((isset($data['(internal)ITC Amount']) && $data['(internal)ITC Amount'] !== '') ? (float) $data['(internal)ITC Amount'] : null),
             ];
 
-            $existing = $this->project_boq_model->get_by_project_and_item($project_id, $item_id);
-            $this->project_boq_model->merge_or_add_row($project_id, $item_id, $boq_data);
+            $internal_ref = isset($boq_data['internal_ref_no']) ? trim((string)$boq_data['internal_ref_no']) : '';
+            $existing = null;
+            if ($internal_ref !== '') {
+                $existing = $this->project_boq_model->get_by_project_and_ref($project_id, $internal_ref);
+            } elseif ($item_id > 0) {
+                $existing = $this->project_boq_model->get_by_project_and_item($project_id, $item_id);
+            }
 
             if ($existing) {
+                $update = [];
+                if (isset($boq_data['order_quantity'])) {
+                    $update['order_quantity'] = (float) $boq_data['order_quantity'];
+                    $update['planned_qty']    = (float) $boq_data['order_quantity'];
+                    if (!isset($existing['revised_qty']) || (float)$existing['revised_qty'] == 0.0 || (float)$existing['revised_qty'] == (float)$existing['planned_qty']) {
+                        $update['revised_qty'] = (float) $boq_data['order_quantity'];
+                    }
+                }
+                $fields = [
+                    'item_id', 'boq_description', 'boq_unit', 'supply_rate', 'itc_rate',
+                    'supply_amount', 'itc_amount', 'tax_rate', 'is_summary_item',
+                    'is_nt_item', 'is_billable',
+                    'internal_ref_no', 'client_ref_no', 'internal_client_ref_no',
+                    'internal_description', 'internal_unit', 'internal_quantity',
+                    'internal_material_rate', 'internal_labour_rate',
+                    'internal_supply_amount', 'internal_itc_amount',
+                ];
+                foreach ($fields as $field) {
+                    if (isset($boq_data[$field]) && $boq_data[$field] !== null && $boq_data[$field] !== '') {
+                        $update[$field] = $boq_data[$field];
+                    }
+                }
+                $update['updated_at'] = date('Y-m-d H:i:s');
+                $this->db->where('id', (int) $existing['id']);
+                $this->db->update(db_prefix() . 'project_boq_items', $update);
                 $merged++;
             } else {
+                $insert = [
+                    'project_id'    => (int) $project_id,
+                    'item_id'       => (int) $item_id,
+                    'created_at'    => date('Y-m-d H:i:s'),
+                    'updated_at'    => date('Y-m-d H:i:s'),
+                ];
+                $fields = [
+                    'boq_description', 'boq_unit', 'order_quantity', 'planned_qty', 'revised_qty',
+                    'supply_rate', 'itc_rate', 'supply_amount', 'itc_amount', 'tax_rate', 'is_summary_item', 'is_manual_added',
+                    'is_nt_item', 'is_billable',
+                    'internal_ref_no', 'client_ref_no', 'internal_client_ref_no',
+                    'internal_description', 'internal_unit', 'internal_quantity',
+                    'internal_material_rate', 'internal_labour_rate',
+                    'internal_supply_amount', 'internal_itc_amount',
+                ];
+                foreach ($fields as $field) {
+                    if (isset($boq_data[$field])) {
+                        $insert[$field] = $boq_data[$field];
+                    }
+                }
+                $this->db->insert(db_prefix() . 'project_boq_items', $insert);
                 $imported++;
             }
         }
