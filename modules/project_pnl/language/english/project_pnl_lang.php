@@ -1,0 +1,42 @@
+<?php
+
+defined('BASEPATH') or exit('No direct script access allowed');
+
+$lang['project_pnl']                        = 'Project Profit & Loss';
+$lang['project_pnl_heading']                = 'Profit & Loss';
+$lang['project_pnl_subheading']             = 'Sales invoices vs approved purchase orders and expenses. Main figures are before tax.';
+$lang['project_pnl_revenue']                = 'Revenue';
+$lang['project_pnl_purchase_cost']          = 'Purchase Cost';
+$lang['project_pnl_expenses']               = 'Expenses';
+$lang['project_pnl_total_cost']             = 'Total Cost';
+$lang['project_pnl_net_profit']             = 'Net Profit';
+$lang['project_pnl_net_loss']               = 'Net Loss';
+$lang['project_pnl_margin']                 = 'Margin';
+$lang['project_pnl_with_tax']               = 'With tax';
+$lang['project_pnl_received']               = 'Received';
+$lang['project_pnl_invoices_count']         = '%s invoice(s)';
+$lang['project_pnl_po_count']               = '%s approved PO(s)';
+$lang['project_pnl_expense_count']          = '%s expense(s)';
+$lang['project_pnl_pending_po_note']        = '%s PO(s) awaiting approval (%s before tax) are not counted.';
+$lang['project_pnl_project_value']          = 'Project Value';
+$lang['project_pnl_invoiced_of_value']      = 'Invoiced vs project value';
+$lang['project_pnl_cost_of_value']          = 'Cost vs project value';
+$lang['project_pnl_received_of_invoiced']   = 'Received vs invoiced';
+$lang['project_pnl_monthly_trend']          = 'Monthly Revenue vs Cost';
+$lang['project_pnl_cumulative_profit']      = 'Cumulative Profit';
+$lang['project_pnl_cost_breakdown']         = 'Cost Breakdown';
+$lang['project_pnl_purchase_orders']        = 'Purchase Orders';
+$lang['project_pnl_sales_invoices']         = 'Sales Invoices';
+$lang['project_pnl_expenses_by_category']   = 'Expenses by Category';
+$lang['project_pnl_uncategorized']          = 'Uncategorized';
+$lang['project_pnl_before_tax']             = 'Before Tax';
+$lang['project_pnl_tax']                    = 'Tax';
+$lang['project_pnl_total']                  = 'Total';
+$lang['project_pnl_share']                  = 'Share';
+$lang['project_pnl_number']                 = 'Number';
+$lang['project_pnl_date']                   = 'Date';
+$lang['project_pnl_vendor']                 = 'Vendor';
+$lang['project_pnl_category']               = 'Category';
+$lang['project_pnl_no_data']                = 'No records yet';
+$lang['project_pnl_no_chart_data']          = 'Nothing to chart yet — add invoices, purchase orders or expenses to this project.';
+$lang['project_pnl_purchase_module_missing'] = 'Purchase module is not active — purchase cost is not included.';
