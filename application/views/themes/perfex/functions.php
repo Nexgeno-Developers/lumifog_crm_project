@@ -626,7 +626,7 @@ function lumifog_estimate_pdf_footer($data)
     $bottomLimit = $pageHeight - 8;
     $remaining   = $bottomLimit - $contentEndY - $footerHeight;
     // Small gap after tax-in-words; if free space remains, use ~half so footer sits lower
-    $spacer = 5;
+    $spacer = 3;
     if ($remaining > $spacer) {
         $spacer = $spacer + (($remaining - $spacer) / 2);
     }
@@ -712,20 +712,35 @@ function lumifog_estimate_pdf_footer_html($estimate)
 }
 
 /**
- * Measure the rendered height (mm) of the estimate footer block without drawing it.
+ * Write HTML on a throwaway copy of the PDF and report where it ended (page + Y),
+ * leaving $pdf untouched. TCPDF transactions can't be used for this: writeHTMLCell()
+ * starts its own transaction for table headers, which replaces an outer one.
+ */
+function lumifog_pdf_trial_write($pdf, $html, $width, $y = null, $autoPageBreak = true)
+{
+    $trial = TCPDF_STATIC::objclone($pdf);
+    if (!$autoPageBreak) {
+        $trial->setAutoPageBreak(false);
+    }
+    if ($y !== null) {
+        $trial->SetY($y);
+    }
+    $trial->SetX($trial->getMargins()['left']);
+    $trial->writeHTMLCell($width, '', '', '', $html, 0, 1, false, true, 'L', true);
+
+    return ['page' => $trial->getPage(), 'y' => $trial->GetY()];
+}
+
+/**
+ * Measure the rendered height (mm) of an HTML block (full content width) without drawing it.
  */
 function lumifog_estimate_pdf_footer_height($pdf, $html, $width)
 {
-    $pdf->startTransaction();
-    // No page breaks while measuring, otherwise GetY() resets on the new page
-    $pdf->setAutoPageBreak(false);
-    $pdf->setCellPadding(0);
+    // Measure from the top margin with page breaks off, so GetY() never resets
     $startY = $pdf->getMargins()['top'];
-    $pdf->writeHTMLCell($width, '', $pdf->getMargins()['left'], $startY, $html, 0, 1, false, true, 'L', true);
-    $height = $pdf->GetY() - $startY;
-    $pdf->rollbackTransaction(true);
+    $result = lumifog_pdf_trial_write($pdf, $html, $width, $startY, false);
 
-    return max($height, 0);
+    return max($result['y'] - $startY, 0);
 }
 
 function lumifog_proposal_pdf_watermark($pdf)
