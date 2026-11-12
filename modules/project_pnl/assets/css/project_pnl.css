@@ -1,0 +1,83 @@
+.project-pnl-card {
+    border: 1px solid #e5e7eb;
+    border-left-width: 4px;
+    border-radius: 0.5rem;
+    padding: 0.75rem 0.875rem;
+    background: #fff;
+}
+
+.project-pnl-card--revenue { border-left-color: #22c55e; }
+.project-pnl-card--purchase { border-left-color: #f59e0b; }
+.project-pnl-card--expenses { border-left-color: #ef4444; }
+.project-pnl-card--cost { border-left-color: #64748b; }
+.project-pnl-card--profit { border-left-color: #2563eb; background: #eff6ff; }
+.project-pnl-card--loss { border-left-color: #dc2626; background: #fef2f2; }
+
+.project-pnl-card__label {
+    font-size: 0.8125rem;
+    color: #6b7280;
+    margin-bottom: 0.25rem;
+}
+
+.project-pnl-card__value {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #1f2937;
+    line-height: 1.3;
+    word-break: break-word;
+}
+
+.project-pnl-card--profit .project-pnl-card__value { color: #1d4ed8; }
+.project-pnl-card--loss .project-pnl-card__value { color: #b91c1c; }
+
+.project-pnl-card__meta {
+    font-size: 0.75rem;
+    color: #6b7280;
+    margin-top: 0.125rem;
+}
+
+.project-pnl-section-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #374151;
+    margin: 0 0 0.75rem;
+}
+
+.project-pnl-chart {
+    position: relative;
+    height: 300px;
+}
+
+.project-pnl-table-wrap {
+    max-height: 320px;
+    overflow-y: auto;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+}
+
+.project-pnl-table {
+    margin-bottom: 0;
+}
+
+.project-pnl-table > thead > tr > th {
+    position: sticky;
+    top: 0;
+    background: #f9fafb;
+    z-index: 1;
+}
+
+.project-pnl-empty {
+    color: #9ca3af;
+    font-size: 0.875rem;
+    text-align: center;
+    padding: 1rem 0;
+}
+
+.project-pnl-row-muted > td {
+    color: #9ca3af;
+}
+
+.project-pnl-required::after {
+    content: ' *';
+    color: #dc2626;
+}
