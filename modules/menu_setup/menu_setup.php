@@ -84,4 +84,19 @@ function menu_setup_init_menu_items()
             'position' => 10,
         ]);
     }
+
+    /**
+    * Core only adds Setup -> Roles for administrators (inside is_admin()),
+    * while the Roles controller itself checks the "roles" permission.
+    * Show the link to non-admin staff who have Staff Roles -> View.
+    */
+    if (!is_admin() && staff_can('view', 'roles')) {
+        $CI = &get_instance();
+        $CI->app_menu->add_setup_menu_item('roles', [
+            'href'     => admin_url('roles'),
+            'name'     => _l('acs_roles'),
+            'position' => 55,
+            'badge'    => [],
+        ]);
+    }
 }
