@@ -50,3 +50,59 @@ if (!function_exists('get_boq_approver_ids')) {
         return $ids;
     }
 }
+
+if (!defined('BOQ_TABLE_PREFS_META_KEY')) {
+    define('BOQ_TABLE_PREFS_META_KEY', 'boq_table_prefs');
+}
+
+if (!function_exists('boq_sanitize_table_prefs')) {
+    /**
+     * Keep only well-formed column keys and sane widths from a BOQ table layout.
+     *
+     * @param mixed $prefs decoded JSON: ['hidden' => [key, ...], 'widths' => [key => px]]
+     * @return array
+     */
+    function boq_sanitize_table_prefs($prefs)
+    {
+        $clean = ['hidden' => [], 'widths' => new stdClass()];
+        if (!is_array($prefs)) {
+            return $clean;
+        }
+
+        $valid_key = function ($key) {
+            return is_string($key) && preg_match('/^[a-z_]{1,40}$/', $key);
+        };
+
+        if (!empty($prefs['hidden']) && is_array($prefs['hidden'])) {
+            $clean['hidden'] = array_values(array_unique(array_filter($prefs['hidden'], $valid_key)));
+        }
+
+        if (!empty($prefs['widths']) && is_array($prefs['widths'])) {
+            $widths = [];
+            foreach ($prefs['widths'] as $key => $px) {
+                if ($valid_key($key) && is_numeric($px)) {
+                    $widths[$key] = max(50, min(1200, (int) $px));
+                }
+            }
+            if ($widths) {
+                $clean['widths'] = $widths;
+            }
+        }
+
+        return $clean;
+    }
+}
+
+if (!function_exists('boq_get_table_prefs')) {
+    /**
+     * The logged-in staff member's saved BOQ table layout.
+     *
+     * @return array
+     */
+    function boq_get_table_prefs()
+    {
+        $raw = get_staff_meta(get_staff_user_id(), BOQ_TABLE_PREFS_META_KEY);
+
+        return boq_sanitize_table_prefs($raw ? json_decode($raw, true) : null);
+    }
+}

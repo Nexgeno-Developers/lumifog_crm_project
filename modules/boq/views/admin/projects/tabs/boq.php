@@ -132,6 +132,20 @@ $unmatched_pos_count = count($unmatched_pos);
                     <i class="fa fa-ban tw-mr-1 text-danger"></i> <?= _l('project_boq_filter_nonbillable'); ?> <span class="badge" id="boq-count-nonbillable">0</span>
                 </button>
             </div>
+            <div class="boq-search-wrap">
+                <?php if (! $can_view_items) { ?>
+                <button type="button" class="btn btn-default boq-btn-xs boq-columns-btn" title="<?= e(_l('project_boq_columns_tooltip')); ?>">
+                    <i class="fa-solid fa-table-columns tw-mr-1"></i><?= _l('project_boq_columns'); ?>
+                </button>
+                <?php } ?>
+                <div class="boq-search-box">
+                    <i class="fa fa-search boq-search-icon" aria-hidden="true"></i>
+                    <input type="search" id="project-boq-search" class="form-control" autocomplete="off"
+                        placeholder="<?= e(_l('project_boq_search_placeholder')); ?>"
+                        aria-label="<?= e(_l('project_boq_search_placeholder')); ?>">
+                    <span class="boq-search-count" id="project-boq-search-count"></span>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -211,11 +225,14 @@ $unmatched_pos_count = count($unmatched_pos);
     <div class="panel_s">
         <div class="panel-body" style="padding-top: 15px;">
             <div class="table-responsive project-boq-table-responsive" style="overflow-x:auto;">
-                <table class="table table-bordered table-hover" id="project-boq-table" style="table-layout:fixed; width:3090px; min-width:3090px;">
+                <table class="table table-bordered table-hover" id="project-boq-table" style="table-layout:fixed; width:3090px;">
                     <thead>
                         <tr>
                             <?php if ($can_view_items) { ?>
                             <th class="text-center col-boq-check" style="width:45px;">
+                                <button type="button" class="boq-columns-btn boq-columns-btn-head" title="<?= e(_l('project_boq_columns_tooltip')); ?>" aria-label="<?= e(_l('project_boq_columns_tooltip')); ?>">
+                                    <i class="fa-solid fa-table-columns"></i>
+                                </button>
                                 <input type="checkbox" id="project-boq-check-all" class="project-boq-check-all" aria-label="<?= e(_l('project_boq_select_rows')); ?>">
                             </th>
                             <?php } ?>
@@ -261,6 +278,9 @@ $unmatched_pos_count = count($unmatched_pos);
                     </tbody>
                 </table>
             </div>
+            <p class="text-muted tw-mb-0 tw-mt-3 text-center" id="project-boq-search-empty" style="display:none;">
+                <i class="fa fa-search tw-mr-1"></i><?= _l('project_boq_search_no_results'); ?>
+            </p>
             <?php if (count($boq_items) === 0) { ?>
             <p class="text-muted tw-mb-0" id="project-boq-empty"><?= _l('project_boq_no_lines'); ?></p>
             <?php } ?>
@@ -504,8 +524,7 @@ $unmatched_pos_count = count($unmatched_pos);
     }
     #project-boq-table {
         table-layout: fixed !important;
-        width: 3090px !important;
-        min-width: 3090px !important;
+        max-width: none !important;
         margin-bottom: 0 !important;
     }
     #project-boq-table th,
@@ -534,6 +553,150 @@ $unmatched_pos_count = count($unmatched_pos);
     }
     #project-boq-fixed-head .boq-internal-col {
         border-left: 2px solid #b8d4f0;
+    }
+    /* Search box in the filter row */
+    .boq-toolbar-filter-row {
+        flex-wrap: nowrap;
+    }
+    .boq-search-wrap {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-left: auto;
+    }
+    .boq-search-box {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+    .boq-search-icon {
+        position: absolute;
+        left: 9px;
+        color: #94a3b8;
+        font-size: 12px;
+        pointer-events: none;
+    }
+    #project-boq-search {
+        width: 280px;
+        height: 28px;
+        padding: 3px 70px 3px 28px;
+        font-size: 12px;
+        border-radius: 14px;
+    }
+    .boq-search-count {
+        position: absolute;
+        right: 26px;
+        font-size: 11px;
+        color: #64748b;
+        pointer-events: none;
+        white-space: nowrap;
+    }
+    @media (max-width: 991px) {
+        .boq-toolbar-filter-row {
+            flex-wrap: wrap;
+        }
+        .boq-search-wrap {
+            margin-left: 0;
+            width: 100%;
+        }
+        .boq-search-box,
+        #project-boq-search {
+            width: 100%;
+        }
+    }
+    /* Column settings button (above the select-all checkbox) and menu */
+    .boq-columns-btn-head {
+        display: block;
+        margin: 0 auto 4px;
+        padding: 1px 4px;
+        border: 0;
+        background: transparent;
+        color: #cbd5e1;
+        font-size: 13px;
+        line-height: 1;
+        cursor: pointer;
+    }
+    .boq-columns-btn-head:hover,
+    .boq-columns-btn-head:focus {
+        color: #ffffff;
+        outline: none;
+    }
+    #project-boq-columns-menu {
+        display: none;
+        position: fixed;
+        z-index: 1050;
+        width: 280px;
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18);
+        font-size: 12.5px;
+    }
+    #project-boq-columns-menu .boq-colmenu-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 12px;
+        border-bottom: 1px solid #f1f5f9;
+        font-weight: 600;
+        color: #1e293b;
+    }
+    #project-boq-columns-menu .boq-colmenu-hint {
+        padding: 8px 12px 0;
+        color: #64748b;
+        font-size: 11.5px;
+        line-height: 1.4;
+    }
+    #project-boq-columns-menu .boq-colmenu-list {
+        max-height: 50vh;
+        overflow-y: auto;
+        padding: 6px 4px;
+    }
+    #project-boq-columns-menu label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0;
+        padding: 5px 8px;
+        border-radius: 4px;
+        font-weight: 400;
+        color: #334155;
+        cursor: pointer;
+    }
+    #project-boq-columns-menu label:hover {
+        background: #f1f5f9;
+    }
+    #project-boq-columns-menu input[type="checkbox"] {
+        margin: 0;
+    }
+    #project-boq-columns-menu .boq-colmenu-foot {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 12px;
+        border-top: 1px solid #f1f5f9;
+    }
+    /* Drag handle on the right edge of each header cell to change the column width */
+    #project-boq-table th[data-sort-key],
+    #project-boq-fixed-head th[data-sort-key] {
+        position: relative;
+    }
+    .boq-col-resizer {
+        position: absolute;
+        top: 0;
+        right: -4px;
+        width: 8px;
+        height: 100%;
+        z-index: 2;
+        cursor: col-resize;
+    }
+    .boq-col-resizer:hover,
+    .boq-col-resizer.is-dragging {
+        background: rgba(125, 211, 252, 0.6);
+    }
+    body.boq-col-resizing,
+    body.boq-col-resizing * {
+        cursor: col-resize !important;
+        user-select: none !important;
     }
     /* Sortable column headers */
     #project-boq-table th[data-sort-key],
@@ -692,9 +855,6 @@ $unmatched_pos_count = count($unmatched_pos);
     }
     #project-boq-table th.col-boq-revised,
     #project-boq-table td.project-boq-revised-cell {
-        width: 110px !important;
-        min-width: 110px !important;
-        max-width: 110px !important;
         white-space: nowrap !important;
         box-sizing: border-box !important;
     }
@@ -1128,6 +1288,8 @@ $unmatched_pos_count = count($unmatched_pos);
 </div>
 
 <script>
+var projectBoqTablePrefs = <?= json_encode(boq_get_table_prefs()); ?>;
+var projectBoqTablePrefsUrl = <?= json_encode(admin_url('boq/save_table_prefs')); ?>;
 var projectBoqCanApprove = <?= $can_approve_boq ? 'true' : 'false'; ?>;
 var projectBoqLang = <?= json_encode([
     'confirm_delete'              => _l('confirm_action_prompt'),
@@ -1147,5 +1309,10 @@ var projectBoqLang = <?= json_encode([
     'syncing'                     => _l('project_boq_syncing'),
     'show_more'                   => _l('show_more'),
     'show_less'                   => _l('show_less'),
+    'columns'                     => _l('project_boq_columns'),
+    'columns_hint'                => _l('project_boq_columns_hint'),
+    'columns_reset'               => _l('project_boq_columns_reset'),
+    'columns_show_all'            => _l('project_boq_columns_show_all'),
+    'search_count'                => _l('project_boq_search_count'),
 ]); ?>;
 </script>
