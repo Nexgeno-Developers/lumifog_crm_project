@@ -24,7 +24,6 @@ $lang['project_pnl_cost_of_value']          = 'Cost vs project value';
 $lang['project_pnl_received_of_invoiced']   = 'Received vs invoiced';
 $lang['project_pnl_monthly_trend']          = 'Monthly Revenue vs Cost';
 $lang['project_pnl_cumulative_profit']      = 'Cumulative Profit';
-$lang['project_pnl_cost_breakdown']         = 'Cost Breakdown';
 $lang['project_pnl_purchase_orders']        = 'Purchase Orders';
 $lang['project_pnl_sales_invoices']         = 'Sales Invoices';
 $lang['project_pnl_expenses_by_category']   = 'Expenses by Category';

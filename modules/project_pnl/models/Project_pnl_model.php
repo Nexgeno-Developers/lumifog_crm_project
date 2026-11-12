@@ -51,7 +51,6 @@ class Project_pnl_model extends App_Model
             'margin'        => $revenue['net'] > 0 ? ($profitNet / $revenue['net']) * 100 : null,
             'project_value' => $projectValue,
             'monthly'       => $this->build_monthly_series($revenue['rows'], $purchase['rows'], $expenses['rows']),
-            'cost_split'    => $this->build_cost_split($purchase, $expenses),
         ];
     }
 
@@ -272,27 +271,5 @@ class Project_pnl_model extends App_Model
         }
 
         return $series;
-    }
-
-    /**
-     * Doughnut data: purchase orders as one slice, each expense category as its own slice.
-     */
-    private function build_cost_split(array $purchase, array $expenses)
-    {
-        $labels = [];
-        $values = [];
-
-        if ($purchase['net'] > 0) {
-            $labels[] = _l('project_pnl_purchase_orders');
-            $values[] = round($purchase['net'], 2);
-        }
-        foreach ($expenses['categories'] as $category) {
-            if ($category['net'] > 0) {
-                $labels[] = $category['name'];
-                $values[] = round($category['net'], 2);
-            }
-        }
-
-        return ['labels' => $labels, 'values' => $values];
     }
 }

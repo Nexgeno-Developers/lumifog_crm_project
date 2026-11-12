@@ -22,9 +22,16 @@ if ($projectValue > 0) {
 $progressRows[] = [_l('project_pnl_received_of_invoiced'), $revenue['received'], $revenue['gross'], 'info'];
 
 $chartData = [
-    'monthly'    => $pnl['monthly'],
-    'cost_split' => $pnl['cost_split'],
-    'labels'     => [
+    'monthly'  => $pnl['monthly'],
+    // Perfex's JS format_money() falls back to "$" on this page, so pass the project's currency
+    'currency' => [
+        'symbol'    => $currency->symbol ?? '',
+        'placement' => $currency->placement ?? 'before',
+        'decimal'   => $currency->decimal_separator ?? '.',
+        'thousand'  => $currency->thousand_separator ?? ',',
+        'precision' => (int) get_decimal_places(),
+    ],
+    'labels'   => [
         'revenue'           => _l('project_pnl_revenue'),
         'purchase'          => _l('project_pnl_purchase_cost'),
         'expenses'          => _l('project_pnl_expenses'),
@@ -116,26 +123,14 @@ $chartData = [
             </div>
 
             <!-- Charts -->
-            <div class="tw-grid tw-grid-cols-1 lg:tw-grid-cols-3 tw-gap-6 tw-mt-6">
-                <div class="lg:tw-col-span-2">
-                    <h5 class="project-pnl-section-title"><?= _l('project_pnl_monthly_trend'); ?></h5>
-                    <div class="project-pnl-chart">
-                        <?php if (count($pnl['monthly']['labels']) > 0) { ?>
-                        <canvas id="project-pnl-monthly-chart"></canvas>
-                        <?php } else { ?>
-                        <p class="project-pnl-empty"><?= _l('project_pnl_no_chart_data'); ?></p>
-                        <?php } ?>
-                    </div>
-                </div>
-                <div>
-                    <h5 class="project-pnl-section-title"><?= _l('project_pnl_cost_breakdown'); ?></h5>
-                    <div class="project-pnl-chart">
-                        <?php if (count($pnl['cost_split']['values']) > 0) { ?>
-                        <canvas id="project-pnl-cost-chart"></canvas>
-                        <?php } else { ?>
-                        <p class="project-pnl-empty"><?= _l('project_pnl_no_chart_data'); ?></p>
-                        <?php } ?>
-                    </div>
+            <div class="tw-mt-6">
+                <h5 class="project-pnl-section-title"><?= _l('project_pnl_monthly_trend'); ?></h5>
+                <div class="project-pnl-chart">
+                    <?php if (count($pnl['monthly']['labels']) > 0) { ?>
+                    <canvas id="project-pnl-monthly-chart"></canvas>
+                    <?php } else { ?>
+                    <p class="project-pnl-empty"><?= _l('project_pnl_no_chart_data'); ?></p>
+                    <?php } ?>
                 </div>
             </div>
 

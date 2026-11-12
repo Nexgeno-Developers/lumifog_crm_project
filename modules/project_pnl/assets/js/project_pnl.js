@@ -6,29 +6,41 @@
         revenue: '#22c55e',
         purchase: '#f59e0b',
         expenses: '#ef4444',
-        profit: '#2563eb',
-        palette: ['#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16', '#64748b', '#f97316', '#14b8a6', '#a855f7']
+        profit: '#2563eb'
     };
 
-    function money(value) {
-        if (typeof format_money === 'function') {
-            return format_money(value);
+    // Format with the project's currency (Perfex's format_money() defaults to "$" here)
+    function money(value, currency) {
+        var symbol = currency.symbol || '';
+        var options = {
+            symbol: symbol,
+            precision: currency.precision,
+            decimal: currency.decimal,
+            thousand: currency.thousand,
+            format: currency.placement === 'after' ? '%v %s' : '%s%v'
+        };
+
+        if (typeof accounting !== 'undefined') {
+            return accounting.formatMoney(value, options);
         }
-        return Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 });
+
+        var number = Number(value).toFixed(currency.precision);
+        return currency.placement === 'after' ? number + ' ' + symbol : symbol + number;
     }
 
-    function shortMoney(value) {
+    // Compact axis labels in Indian units (K / L / Cr)
+    function shortMoney(value, currency) {
         var abs = Math.abs(value);
+        var text = value;
         if (abs >= 10000000) {
-            return (value / 10000000).toFixed(1) + ' Cr';
+            text = (value / 10000000).toFixed(1) + ' Cr';
+        } else if (abs >= 100000) {
+            text = (value / 100000).toFixed(1) + ' L';
+        } else if (abs >= 1000) {
+            text = (value / 1000).toFixed(1) + ' K';
         }
-        if (abs >= 100000) {
-            return (value / 100000).toFixed(1) + ' L';
-        }
-        if (abs >= 1000) {
-            return (value / 1000).toFixed(1) + ' K';
-        }
-        return value;
+        var symbol = currency.symbol || '';
+        return currency.placement === 'after' ? text + ' ' + symbol : symbol + text;
     }
 
     function renderMonthlyChart(data) {
@@ -36,6 +48,8 @@
         if (!canvas || !data.monthly.labels.length) {
             return;
         }
+
+        var currency = data.currency;
 
         new Chart(canvas, {
             type: 'bar',
@@ -67,48 +81,19 @@
                     intersect: false,
                     callbacks: {
                         label: function (item, chart) {
-                            return chart.datasets[item.datasetIndex].label + ': ' + money(item.yLabel);
+                            return chart.datasets[item.datasetIndex].label + ': ' + money(item.yLabel, currency);
                         }
                     }
                 },
                 scales: {
-                    yAxes: [{ ticks: { beginAtZero: true, callback: shortMoney } }]
-                }
-            }
-        });
-    }
-
-    function renderCostChart(data) {
-        var canvas = document.getElementById('project-pnl-cost-chart');
-        if (!canvas || !data.cost_split.values.length) {
-            return;
-        }
-
-        var colors = data.cost_split.values.map(function (_, i) {
-            return COLORS.palette[i % COLORS.palette.length];
-        });
-
-        new Chart(canvas, {
-            type: 'doughnut',
-            data: {
-                labels: data.cost_split.labels,
-                datasets: [{ data: data.cost_split.values, backgroundColor: colors, borderWidth: 1 }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                cutoutPercentage: 60,
-                legend: { position: 'bottom', labels: { boxWidth: 12 } },
-                tooltips: {
-                    callbacks: {
-                        label: function (item, chart) {
-                            var values = chart.datasets[0].data;
-                            var total = values.reduce(function (sum, v) { return sum + v; }, 0);
-                            var value = values[item.index];
-                            var pct = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
-                            return chart.labels[item.index] + ': ' + money(value) + ' (' + pct + '%)';
+                    yAxes: [{
+                        ticks: {
+                            beginAtZero: true,
+                            callback: function (value) {
+                                return shortMoney(value, currency);
+                            }
                         }
-                    }
+                    }]
                 }
             }
         });
@@ -132,6 +117,5 @@
         }
 
         renderMonthlyChart(project_pnl_data);
-        renderCostChart(project_pnl_data);
     });
 })(jQuery);

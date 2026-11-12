@@ -5,13 +5,13 @@ defined('BASEPATH') or exit('No direct script access allowed');
 /*
 Module Name: Project Profit & Loss
 Description: Profit & loss dashboard on the project overview (sales invoices vs approved purchase orders and expenses)
-Version: 1.0.0
+Version: 1.0.1
 Requires at least: 3.0.*
 Author: Nexgeno
 */
 
 define('PROJECT_PNL_MODULE_NAME', 'project_pnl');
-define('PROJECT_PNL_VERSION', '1.0.0');
+define('PROJECT_PNL_VERSION', '1.0.1');
 
 hooks()->add_action('admin_init', 'project_pnl_permissions');
 hooks()->add_action('admin_project_overview_end_of_project_overview_right', 'project_pnl_render_dashboard');
