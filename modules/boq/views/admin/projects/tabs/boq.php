@@ -216,33 +216,33 @@ $unmatched_pos_count = count($unmatched_pos);
                         <tr>
                             <?php if ($can_view_items) { ?>
                             <th class="text-center col-boq-check" style="width:45px;">
-                                <input type="checkbox" id="project-boq-check-all" aria-label="<?= e(_l('project_boq_select_rows')); ?>">
+                                <input type="checkbox" id="project-boq-check-all" class="project-boq-check-all" aria-label="<?= e(_l('project_boq_select_rows')); ?>">
                             </th>
                             <?php } ?>
-                            <th class="col-boq-internal-ref" style="width:115px;"><?= _l('project_boq_internal_ref_no'); ?></th>
-                            <th class="col-boq-client-ref" style="width:115px;"><?= _l('project_boq_client_ref_no'); ?></th>
-                            <th class="text-center col-boq-crm-item-id" style="width:90px;"><?= _l('project_boq_crm_item_id'); ?></th>
-                            <th class="col-boq-item" style="width:220px;"><?= _l('project_boq_crm_item'); ?></th>
-                            <th class="col-boq-desc" style="width:240px;"><?= _l('project_boq_description'); ?></th>
-                            <th class="col-boq-unit" style="width:85px;"><?= _l('project_boq_unit'); ?></th>
-                            <th class="text-right col-boq-order-qty" style="width:110px;"><?= _l('project_boq_order_quantity'); ?></th>
-                            <th class="text-right col-boq-supply-rate" style="width:110px;"><?= _l('project_boq_supply_rate'); ?></th>
-                            <th class="text-right col-boq-itc-rate" style="width:100px;"><?= _l('project_boq_itc_rate'); ?></th>
-                            <th class="text-right col-boq-supply-amount" style="width:125px;"><?= _l('project_boq_supply_amount'); ?></th>
-                            <th class="text-right col-boq-itc-amount" style="width:125px;"><?= _l('project_boq_itc_amount'); ?></th>
-                            <th class="text-right col-boq-tax-rate" style="width:85px;"><?= _l('project_boq_tax_rate'); ?></th>
-                            <th class="text-center col-boq-summary" style="width:95px;"><?= _l('project_boq_summary_item'); ?></th>
-                            <th class="boq-internal-col col-boq-int-client-ref" style="width:115px;"><?= _l('project_boq_internal_client_ref_no'); ?></th>
-                            <th class="boq-internal-col col-boq-int-desc" style="width:220px;"><?= _l('project_boq_internal_description'); ?></th>
-                            <th class="boq-internal-col col-boq-int-unit" style="width:85px;"><?= _l('project_boq_internal_unit'); ?></th>
-                            <th class="text-right boq-internal-col col-boq-int-qty" style="width:105px;"><?= _l('project_boq_internal_quantity'); ?></th>
-                            <th class="text-right boq-internal-col col-boq-int-mat-rate" style="width:110px;"><?= _l('project_boq_internal_material_rate'); ?></th>
-                            <th class="text-right boq-internal-col col-boq-int-lab-rate" style="width:110px;"><?= _l('project_boq_internal_labour_rate'); ?></th>
-                            <th class="text-right boq-internal-col col-boq-int-supply-amt" style="width:125px;"><?= _l('project_boq_internal_supply_amount'); ?></th>
-                            <th class="text-right boq-internal-col col-boq-int-itc-amt" style="width:125px;"><?= _l('project_boq_internal_itc_amount'); ?></th>
-                            <th class="text-right col-boq-purchased" style="width:110px;"><?= _l('project_boq_purchased_qty'); ?></th>
-                            <th class="text-right col-boq-remaining" style="width:110px;"><?= _l('project_boq_remaining_qty'); ?></th>
-                            <th class="text-right col-boq-revised" style="width:110px;"><?= _l('project_boq_revised_qty'); ?></th>
+                            <th data-sort-key="internal_ref" data-sort="natural" class="col-boq-internal-ref" style="width:115px;"><?= _l('project_boq_internal_ref_no'); ?></th>
+                            <th data-sort-key="client_ref" data-sort="natural" class="col-boq-client-ref" style="width:115px;"><?= _l('project_boq_client_ref_no'); ?></th>
+                            <th data-sort-key="crm_item_id" data-sort="num" class="text-center col-boq-crm-item-id" style="width:90px;"><?= _l('project_boq_crm_item_id'); ?></th>
+                            <th data-sort-key="item" data-sort="text" class="col-boq-item" style="width:220px;"><?= _l('project_boq_crm_item'); ?></th>
+                            <th data-sort-key="desc" data-sort="text" class="col-boq-desc" style="width:240px;"><?= _l('project_boq_description'); ?></th>
+                            <th data-sort-key="unit" data-sort="text" class="col-boq-unit" style="width:85px;"><?= _l('project_boq_unit'); ?></th>
+                            <th data-sort-key="order_qty" data-sort="num" class="text-right col-boq-order-qty" style="width:110px;"><?= _l('project_boq_order_quantity'); ?></th>
+                            <th data-sort-key="supply_rate" data-sort="num" class="text-right col-boq-supply-rate" style="width:110px;"><?= _l('project_boq_supply_rate'); ?></th>
+                            <th data-sort-key="itc_rate" data-sort="num" class="text-right col-boq-itc-rate" style="width:100px;"><?= _l('project_boq_itc_rate'); ?></th>
+                            <th data-sort-key="supply_amount" data-sort="num" class="text-right col-boq-supply-amount" style="width:125px;"><?= _l('project_boq_supply_amount'); ?></th>
+                            <th data-sort-key="itc_amount" data-sort="num" class="text-right col-boq-itc-amount" style="width:125px;"><?= _l('project_boq_itc_amount'); ?></th>
+                            <th data-sort-key="tax" data-sort="num" class="text-right col-boq-tax-rate" style="width:85px;"><?= _l('project_boq_tax_rate'); ?></th>
+                            <th data-sort-key="summary" data-sort="text" class="text-center col-boq-summary" style="width:95px;"><?= _l('project_boq_summary_item'); ?></th>
+                            <th data-sort-key="int_client_ref" data-sort="natural" class="boq-internal-col col-boq-int-client-ref" style="width:115px;"><?= _l('project_boq_internal_client_ref_no'); ?></th>
+                            <th data-sort-key="int_desc" data-sort="text" class="boq-internal-col col-boq-int-desc" style="width:220px;"><?= _l('project_boq_internal_description'); ?></th>
+                            <th data-sort-key="int_unit" data-sort="text" class="boq-internal-col col-boq-int-unit" style="width:85px;"><?= _l('project_boq_internal_unit'); ?></th>
+                            <th data-sort-key="int_qty" data-sort="num" class="text-right boq-internal-col col-boq-int-qty" style="width:105px;"><?= _l('project_boq_internal_quantity'); ?></th>
+                            <th data-sort-key="int_mat_rate" data-sort="num" class="text-right boq-internal-col col-boq-int-mat-rate" style="width:110px;"><?= _l('project_boq_internal_material_rate'); ?></th>
+                            <th data-sort-key="int_lab_rate" data-sort="num" class="text-right boq-internal-col col-boq-int-lab-rate" style="width:110px;"><?= _l('project_boq_internal_labour_rate'); ?></th>
+                            <th data-sort-key="int_supply_amt" data-sort="num" class="text-right boq-internal-col col-boq-int-supply-amt" style="width:125px;"><?= _l('project_boq_internal_supply_amount'); ?></th>
+                            <th data-sort-key="int_itc_amt" data-sort="num" class="text-right boq-internal-col col-boq-int-itc-amt" style="width:125px;"><?= _l('project_boq_internal_itc_amount'); ?></th>
+                            <th data-sort-key="purchased" data-sort="num" class="text-right col-boq-purchased" style="width:110px;"><?= _l('project_boq_purchased_qty'); ?></th>
+                            <th data-sort-key="remaining" data-sort="num" class="text-right col-boq-remaining" style="width:110px;"><?= _l('project_boq_remaining_qty'); ?></th>
+                            <th data-sort-key="revised" data-sort="num" class="text-right col-boq-revised" style="width:110px;"><?= _l('project_boq_revised_qty'); ?></th>
                             <?php if ($can_view_items) { ?>
                             <th class="text-center col-boq-options" style="width:90px;"><?= _l('options'); ?></th>
                             <?php } ?>
@@ -515,7 +515,69 @@ $unmatched_pos_count = count($unmatched_pos);
         word-wrap: break-word !important;
         word-break: break-word !important;
     }
-    #project-boq-table.table > thead > tr > th {
+    /* Pinned copy of the header row, shown under the toolbar while the table is scrolled */
+    #project-boq-fixed-head {
+        display: none;
+        position: fixed;
+        z-index: 19;
+        overflow: hidden;
+        box-shadow: 0 4px 8px -2px rgba(0, 0, 0, 0.2);
+    }
+    #project-boq-fixed-head table {
+        table-layout: fixed !important;
+        max-width: none !important;
+        margin: 0 !important;
+    }
+    #project-boq-fixed-head th {
+        overflow-wrap: break-word !important;
+        word-break: break-word !important;
+    }
+    #project-boq-fixed-head .boq-internal-col {
+        border-left: 2px solid #b8d4f0;
+    }
+    /* Sortable column headers */
+    #project-boq-table th[data-sort-key],
+    #project-boq-fixed-head th[data-sort-key] {
+        cursor: pointer;
+        user-select: none;
+    }
+    #project-boq-table th[data-sort-key]:hover,
+    #project-boq-fixed-head th[data-sort-key]:hover,
+    #project-boq-table th[data-sort-key].boq-sort-active,
+    #project-boq-fixed-head th[data-sort-key].boq-sort-active {
+        background-color: #3d5670 !important;
+    }
+    .boq-sort-icon {
+        margin-left: 4px;
+        font-size: 10px;
+        opacity: 0.45;
+    }
+    th.boq-sort-active .boq-sort-icon {
+        opacity: 1;
+        color: #7dd3fc;
+    }
+    /* Long descriptions: collapsed to 3 lines with a Show more / Show less toggle */
+    #project-boq-table .boq-clamp {
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 3;
+        line-clamp: 3;
+        overflow: hidden;
+    }
+    #project-boq-table .boq-clamp.is-expanded {
+        display: block;
+        -webkit-line-clamp: unset;
+        line-clamp: unset;
+        overflow: visible;
+    }
+    #project-boq-table .boq-clamp-toggle {
+        display: inline-block;
+        margin-top: 2px;
+        font-size: 11px;
+        font-weight: 600;
+    }
+    #project-boq-table.table > thead > tr > th,
+    #project-boq-fixed-head .table > thead > tr > th {
         background-color: #2c3e50 !important;
         color: #ffffff !important;
         border-color: #1a252f !important;
@@ -1083,5 +1145,7 @@ var projectBoqLang = <?= json_encode([
     'pending_approval_badge'      => _l('project_boq_pending_approval_badge'),
     'sync_confirm'                => _l('project_boq_sync_confirm'),
     'syncing'                     => _l('project_boq_syncing'),
+    'show_more'                   => _l('show_more'),
+    'show_less'                   => _l('show_less'),
 ]); ?>;
 </script>

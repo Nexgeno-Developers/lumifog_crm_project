@@ -61,33 +61,178 @@
     }
   }
 
+  // Column sorting — default is Internal Ref No ascending
+  var boqSortState = { key: "internal_ref", dir: "asc" };
+
+  function boqParseNumber(text) {
+    text = $.trim(text || "");
+    if (text === "") {
+      return null;
+    }
+    var dec = (typeof app !== "undefined" && app.options && app.options.decimal_separator) || ".";
+    var cleaned = "";
+    for (var i = 0; i < text.length; i++) {
+      var ch = text.charAt(i);
+      if (ch >= "0" && ch <= "9") {
+        cleaned += ch;
+      } else if (ch === "-" && cleaned === "") {
+        cleaned += ch;
+      } else if (ch === dec && cleaned.indexOf(".") === -1) {
+        cleaned += ".";
+      }
+    }
+    var num = parseFloat(cleaned);
+    return isNaN(num) ? null : num;
+  }
+
+  function boqCellSortText($td) {
+    var $val = $td.find(".boq-sort-val").first();
+    if ($val.length) {
+      return $.trim($val.text());
+    }
+    var $input = $td.children("input[type='text']");
+    if ($input.length) {
+      return $.trim($input.val());
+    }
+    return $.trim($td.text());
+  }
+
+  // Reference numbers: numeric refs first (by value), then text refs
+  function boqCompareRef(refA, refB) {
+    var numA = parseFloat(refA);
+    var numB = parseFloat(refB);
+    var isNumA = !isNaN(numA) && /^\d+/.test(refA);
+    var isNumB = !isNaN(numB) && /^\d+/.test(refB);
+
+    if (isNumA && isNumB && numA !== numB) {
+      return numA - numB;
+    }
+    if (isNumA && !isNumB) return -1;
+    if (isNumB && !isNumA) return 1;
+    return refA.localeCompare(refB, undefined, { numeric: true, sensitivity: "base" });
+  }
+
+  function boqUpdateSortIndicators() {
+    $("#project-boq-table > thead th[data-sort-key]").each(function () {
+      var $th = $(this);
+      var $icon = $th.children(".boq-sort-icon");
+      if (!$icon.length) {
+        $icon = $('<i class="fa-solid fa-sort boq-sort-icon" aria-hidden="true"></i>').appendTo($th);
+        $th.attr("tabindex", "0");
+      }
+      var active = $th.attr("data-sort-key") === boqSortState.key;
+      $th.toggleClass("boq-sort-active", active);
+      $th.attr("aria-sort", active ? (boqSortState.dir === "desc" ? "descending" : "ascending") : "none");
+      $icon
+        .removeClass("fa-sort fa-sort-up fa-sort-down")
+        .addClass(active ? (boqSortState.dir === "desc" ? "fa-sort-down" : "fa-sort-up") : "fa-sort");
+    });
+    $(document).trigger("boq:head-changed");
+  }
+
   function projectBoqSortTableRows() {
     var $tbody = $("#project-boq-tbody");
-    var $rows = $tbody.children("tr").get();
-    if ($rows.length < 2) {
+    var $th = $('#project-boq-table > thead th[data-sort-key="' + boqSortState.key + '"]');
+    var rows = $tbody.children("tr").get();
+    if (!$th.length || rows.length < 2) {
       return;
     }
-    $rows.sort(function (a, b) {
-      var refA = $(a).attr("data-internal-ref") || $(a).find("td:eq(1)").text().trim();
-      var refB = $(b).attr("data-internal-ref") || $(b).find("td:eq(1)").text().trim();
-      var numA = parseFloat(refA);
-      var numB = parseFloat(refB);
-      var isNumA = !isNaN(numA) && /^\d+/.test(refA);
-      var isNumB = !isNaN(numB) && /^\d+/.test(refB);
+    var colIndex = $th.index();
+    var type = $th.attr("data-sort");
+    var dir = boqSortState.dir === "desc" ? -1 : 1;
 
-      if (isNumA && isNumB) {
-        return numA - numB;
-      }
-      if (isNumA) return -1;
-      if (isNumB) return 1;
-      if (refA && !refB) return -1;
-      if (!refA && refB) return 1;
-      return refA.localeCompare(refB, undefined, { numeric: true, sensitivity: "base" });
+    var keyed = [];
+    $.each(rows, function (i, tr) {
+      var text = boqCellSortText($(tr).children("td").eq(colIndex));
+      var num = type === "num" ? boqParseNumber(text) : null;
+      keyed.push({
+        tr: tr,
+        id: parseInt(tr.getAttribute("data-boq-id"), 10) || i,
+        text: text,
+        num: num,
+        empty: type === "num" ? num === null : text === "",
+      });
     });
-    $.each($rows, function (idx, item) {
-      $tbody.append(item);
+
+    keyed.sort(function (a, b) {
+      // Blank values always go to the bottom, whichever direction is active
+      if (a.empty || b.empty) {
+        if (a.empty && b.empty) return a.id - b.id;
+        return a.empty ? 1 : -1;
+      }
+      var cmp;
+      if (type === "num") {
+        cmp = a.num - b.num;
+      } else if (type === "natural") {
+        cmp = boqCompareRef(a.text, b.text);
+      } else {
+        cmp = a.text.localeCompare(b.text, undefined, { numeric: true, sensitivity: "base" });
+      }
+      return cmp !== 0 ? cmp * dir : a.id - b.id;
+    });
+
+    $.each(keyed, function (idx, item) {
+      $tbody.append(item.tr);
     });
   }
+
+  function boqSortBy(key) {
+    if (boqSortState.key === key) {
+      boqSortState.dir = boqSortState.dir === "asc" ? "desc" : "asc";
+    } else {
+      boqSortState.key = key;
+      boqSortState.dir = "asc";
+    }
+    projectBoqSortTableRows();
+    boqUpdateSortIndicators();
+  }
+
+  $(document).on(
+    "click keydown",
+    "#project-boq-table > thead th[data-sort-key], #project-boq-fixed-head th[data-sort-key]",
+    function (e) {
+      if (e.type === "keydown") {
+        if (e.which !== 13 && e.which !== 32) {
+          return;
+        }
+        e.preventDefault();
+      }
+      boqSortBy($(this).attr("data-sort-key"));
+    }
+  );
+
+  // Long descriptions are collapsed to 3 lines; add a toggle only where text is actually cut off
+  function boqRefreshClamps($scope) {
+    var moreLabel = (typeof projectBoqLang !== "undefined" && projectBoqLang.show_more) || "Show more";
+    ($scope || $("#project-boq-tbody")).find(".boq-clamp").each(function () {
+      var $clamp = $(this);
+      if ($clamp.hasClass("is-expanded") || this.clientHeight === 0) {
+        return;
+      }
+      var $toggle = $clamp.next(".boq-clamp-toggle");
+      if (this.scrollHeight > this.clientHeight + 1) {
+        if (!$toggle.length) {
+          $clamp.after($('<a href="#" class="boq-clamp-toggle"></a>').text(moreLabel));
+        }
+      } else {
+        $toggle.remove();
+      }
+    });
+  }
+
+  $(document).on("click", "#project-boq-tbody .boq-clamp-toggle", function (e) {
+    e.preventDefault();
+    var $toggle = $(this);
+    var $clamp = $toggle.prev(".boq-clamp");
+    var expanded = !$clamp.hasClass("is-expanded");
+    $clamp.toggleClass("is-expanded", expanded);
+    $toggle.text(
+      expanded
+        ? ((typeof projectBoqLang !== "undefined" && projectBoqLang.show_less) || "Show less")
+        : ((typeof projectBoqLang !== "undefined" && projectBoqLang.show_more) || "Show more")
+    );
+    $(window).trigger("scroll.boqhead");
+  });
 
   function projectBoqRowFromServer(row) {
     var id = row.id;
@@ -171,7 +316,7 @@
       : '';
 
     var itemCellHtml = '<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 4px;">' +
-      '<span>' + crmItemDesc + '</span>' +
+      '<span class="boq-sort-val">' + crmItemDesc + '</span>' +
       '<div style="display: flex; align-items: center; gap: 4px; flex-shrink: 0; flex-wrap: wrap;">' +
       ntChip +
       nonBillableChip +
@@ -181,14 +326,14 @@
 
     var orderQtyDisplay = row.order_qty_display || projectBoqFormatNumber(orderQty);
     var orderQtyCellHtml = '<td class="text-right">' +
-      '<div>' + orderQtyDisplay + '</div>' +
+      '<div class="boq-sort-val">' + orderQtyDisplay + '</div>' +
       (isRevised ? '<div style="margin-top: 3px;"><span class="label label-warning boq-revised-subbadge" data-toggle="tooltip" data-placement="top" data-container="body" data-html="true" title="' + tooltipText + '" style="font-size: 10px; font-weight: 600; padding: 2px 5px; border-radius: 3px; display: inline-block; background-color: #fef3c7; color: #b45309; border: 1px solid #fcd34d; cursor: help;"><i class="fa-solid fa-arrows-rotate tw-mr-1"></i>Rev: ' + projectBoqFormatNumber(revised) + '</span></div>' : '') +
       '</td>';
 
     var revisedCellClass = "text-right project-boq-revised-cell" + (isRevised ? " boq-revised-cell-highlight" : "");
     var revisedCellTooltipAttr = isRevised ? ' data-toggle="tooltip" data-placement="top" data-container="body" data-html="true" title="' + tooltipText + '"' : "";
     var revisedCellHtml = '<td class="' + revisedCellClass + '"' + revisedCellTooltipAttr + '>' +
-      '<span' + (isRevised ? ' style="font-weight: 700; color: #92400e;"' : '') + '>' + (row.revised_qty_display || projectBoqFormatNumber(revised)) + '</span>' +
+      '<span class="boq-sort-val"' + (isRevised ? ' style="font-weight: 700; color: #92400e;"' : '') + '>' + (row.revised_qty_display || projectBoqFormatNumber(revised)) + '</span>' +
       (isRevised ? '<div style="font-size: 10px; font-weight: 600; color: #b45309; line-height: 1.1; margin-top: 1px;">(' + diffFormatted + ')</div>' : '') +
       '</td>';
 
@@ -201,7 +346,7 @@
       '<td>' + cliRef + '</td>' +
       '<td class="text-center">' + itemId + '</td>' +
       '<td class="project-boq-item-label">' + itemCellHtml + '</td>' +
-      '<td class="project-boq-desc-cell">' + boqDesc + '</td>' +
+      '<td class="project-boq-desc-cell"><div class="boq-clamp boq-sort-val">' + boqDesc + '</div></td>' +
       '<td>' + boqUnit + '</td>' +
       orderQtyCellHtml +
       '<td class="text-right">' + supplyRate + '</td>' +
@@ -211,7 +356,7 @@
       '<td class="text-right">' + taxRate + '</td>' +
       '<td class="text-center">' + isSummary + '</td>' +
       '<td class="boq-internal-col">' + intCliRef + '</td>' +
-      '<td class="boq-internal-col project-boq-internal-desc-cell">' + intDesc + '</td>' +
+      '<td class="boq-internal-col project-boq-internal-desc-cell"><div class="boq-clamp boq-sort-val">' + intDesc + '</div></td>' +
       '<td class="boq-internal-col">' + intUnit + '</td>' +
       '<td class="text-right boq-internal-col">' + intQty + '</td>' +
       '<td class="text-right boq-internal-col">' + intMatRate + '</td>' +
@@ -232,6 +377,8 @@
     if ($.fn.tooltip) {
       $new.find('[data-toggle="tooltip"]').tooltip({ container: "body" });
     }
+    projectBoqSortTableRows();
+    boqRefreshClamps($new);
     projectBoqToggleEmptyState();
     projectBoqUpdateRevisedSummary();
   }
@@ -392,6 +539,7 @@
               var $appended = $(projectBoqRowFromServer(response.row));
               $("#project-boq-tbody").append($appended);
               projectBoqSortTableRows();
+              boqRefreshClamps($appended);
               if ($.fn.tooltip) {
                 $appended.find('[data-toggle="tooltip"]').tooltip({ container: "body" });
               }
@@ -428,8 +576,9 @@
     }
   }
 
-  $("#project-boq-check-all").on("change", function () {
+  $(document).on("change", ".project-boq-check-all", function () {
     var on = $(this).prop("checked");
+    $(".project-boq-check-all").prop("checked", on);
     $("#project-boq-tbody .project-boq-select").prop("checked", on).each(function () {
       $(this).closest("tr").toggleClass("boq-row-selected", on);
     });
@@ -445,7 +594,7 @@
       return;
     }
     var all = $rows.filter(":checked").length === $rows.length;
-    $("#project-boq-check-all").prop("checked", all);
+    $(".project-boq-check-all").prop("checked", all);
     updateBoqDeleteButtonState();
   });
 
@@ -514,7 +663,7 @@
           $.each($checkedRows, function (i, $tr) {
             $tr.remove();
           });
-          $("#project-boq-check-all").prop("checked", false);
+          $(".project-boq-check-all").prop("checked", false);
           updateBoqDeleteButtonState();
           projectBoqToggleEmptyState();
           projectBoqUpdateRevisedSummary();
@@ -970,6 +1119,7 @@
             var $appended = $(projectBoqRowFromServer(response.row));
             $("#project-boq-tbody").append($appended);
             projectBoqSortTableRows();
+            boqRefreshClamps($appended);
             if ($.fn.tooltip) {
               $appended.find('[data-toggle="tooltip"]').tooltip({ container: "body" });
             }
@@ -1290,6 +1440,8 @@
     } else if (filter === "nonbillable") {
       $rows.hide().filter('[data-is-billable="0"]').show();
     }
+    boqRefreshClamps();
+    $(window).trigger("scroll.boqhead");
   });
 
   function initBoqStickyBar() {
@@ -1333,6 +1485,89 @@
     }
   }
 
+  // Pinned table header: the table lives in a horizontal scroll container, so CSS sticky
+  // cannot pin its header to the page. A fixed copy of the header row is shown under the
+  // sticky toolbar instead and kept in step with the table's horizontal scroll.
+  function initBoqFixedHeader() {
+    var $container = $(".project-boq-table-responsive");
+    var $table = $("#project-boq-table");
+    var $stickyBar = $("#project-boq-sticky-bar");
+    if (!$container.length || !$table.length) {
+      return;
+    }
+
+    var $fixed = $('<div id="project-boq-fixed-head"></div>');
+    var $fixedTable = $('<table class="table table-bordered"></table>').appendTo($fixed);
+    $fixed.appendTo("#project-boq-wrapper");
+
+    function rebuild() {
+      var $thead = $table.children("thead");
+      var $clone = $thead.clone();
+      $clone.find("[id]").removeAttr("id");
+      var $srcCells = $thead.find("th");
+      $clone.find("th").each(function (i) {
+        var w = $srcCells[i].getBoundingClientRect().width;
+        if (w > 0) {
+          $(this).css({ width: w + "px", minWidth: w + "px", maxWidth: w + "px" });
+        }
+      });
+      $fixedTable.empty().append($clone);
+      $fixedTable.find(".project-boq-check-all").prop("checked", $("#project-boq-check-all").prop("checked"));
+      var tableWidth = $table.outerWidth();
+      if (tableWidth > 0) {
+        $fixedTable.css({ width: tableWidth + "px", minWidth: tableWidth + "px" });
+      }
+    }
+
+    function topEdge() {
+      if ($stickyBar.length) {
+        return $stickyBar[0].getBoundingClientRect().bottom;
+      }
+      var $header = $("#header");
+      return $header.length && $header.css("position") === "fixed" ? $header.outerHeight() || 0 : 0;
+    }
+
+    function update() {
+      if (!$container.is(":visible")) {
+        $fixed.hide();
+        return;
+      }
+      var top = topEdge();
+      var tableRect = $table[0].getBoundingClientRect();
+      var headHeight = $table.children("thead").outerHeight() || 0;
+
+      // Pin once the real header has scrolled under the toolbar, until the table's last row leaves
+      if (tableRect.top < top && tableRect.bottom - headHeight - 30 > top) {
+        var cRect = $container[0].getBoundingClientRect();
+        $fixed.css({
+          display: "block",
+          top: top + "px",
+          left: cRect.left + $container[0].clientLeft + "px",
+          width: $container[0].clientWidth + "px",
+        });
+        $fixed[0].scrollLeft = $container[0].scrollLeft;
+      } else {
+        $fixed.hide();
+      }
+    }
+
+    function rebuildAndUpdate() {
+      rebuild();
+      update();
+    }
+
+    $container.on("scroll.boqhead", function () {
+      $fixed[0].scrollLeft = this.scrollLeft;
+    });
+    $(window).on("scroll.boqhead", update).on("resize.boqhead", rebuildAndUpdate);
+    $(document).on("boq:head-changed", rebuildAndUpdate);
+    $("body").on("click.boqhead", ".nav-tabs a, #side-menu-toggle, .hide-menu", function () {
+      setTimeout(rebuildAndUpdate, 350);
+    });
+
+    rebuildAndUpdate();
+  }
+
   $(function () {
     if ($.fn.tooltip) {
       $("#project-boq-wrapper [data-toggle='tooltip']").tooltip({ container: "body" });
@@ -1340,5 +1575,9 @@
     updateBoqFilterCounts();
     initProjectBoqScrollbars();
     initBoqStickyBar();
+    initBoqFixedHeader();
+    projectBoqSortTableRows();
+    boqUpdateSortIndicators();
+    boqRefreshClamps();
   });
 })(jQuery);
