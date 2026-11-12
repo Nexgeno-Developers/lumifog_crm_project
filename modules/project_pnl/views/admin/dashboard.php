@@ -114,7 +114,9 @@ $chartData = [
                         <span class="tw-font-medium tw-text-neutral-700"><?= e($pct); ?>%</span>
                     </div>
                     <div class="progress progress-bar-mini tw-mb-1">
-                        <div class="progress-bar progress-bar-<?= e($color); ?>" role="progressbar"
+                        <!-- no-percent-text/not-dynamic: stop Perfex JS writing % text into the thin bar -->
+                        <div class="progress-bar progress-bar-<?= e($color); ?> no-percent-text not-dynamic" role="progressbar"
+                            data-percent="<?= e(min($pct, 100)); ?>"
                             style="width: <?= e(min($pct, 100)); ?>%"></div>
                     </div>
                     <div class="tw-text-xs tw-text-neutral-500"><?= $money($part); ?> / <?= $money($whole); ?></div>
