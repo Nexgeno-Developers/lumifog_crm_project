@@ -4,8 +4,8 @@
 
     var COLORS = {
         revenue: '#22c55e',
-        purchase: '#f59e0b',
-        expenses: '#ef4444',
+        po_spend: '#f59e0b',
+        other: '#ef4444',
         profit: '#2563eb'
     };
 
@@ -68,8 +68,8 @@
                         lineTension: 0.2
                     },
                     { label: data.labels.revenue, data: data.monthly.revenue, backgroundColor: COLORS.revenue },
-                    { label: data.labels.purchase, data: data.monthly.purchase, backgroundColor: COLORS.purchase },
-                    { label: data.labels.expenses, data: data.monthly.expenses, backgroundColor: COLORS.expenses }
+                    { label: data.labels.po_spend, data: data.monthly.po_spend, backgroundColor: COLORS.po_spend },
+                    { label: data.labels.other, data: data.monthly.other, backgroundColor: COLORS.other }
                 ]
             },
             options: {
