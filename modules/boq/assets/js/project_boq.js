@@ -61,33 +61,186 @@
     }
   }
 
+  // Column sorting — default is Internal Ref No ascending
+  var boqSortState = { key: "internal_ref", dir: "asc" };
+
+  function boqParseNumber(text) {
+    text = $.trim(text || "");
+    if (text === "") {
+      return null;
+    }
+    var dec = (typeof app !== "undefined" && app.options && app.options.decimal_separator) || ".";
+    var cleaned = "";
+    for (var i = 0; i < text.length; i++) {
+      var ch = text.charAt(i);
+      if (ch >= "0" && ch <= "9") {
+        cleaned += ch;
+      } else if (ch === "-" && cleaned === "") {
+        cleaned += ch;
+      } else if (ch === dec && cleaned.indexOf(".") === -1) {
+        cleaned += ".";
+      }
+    }
+    var num = parseFloat(cleaned);
+    return isNaN(num) ? null : num;
+  }
+
+  function boqCellSortText($td) {
+    var $val = $td.find(".boq-sort-val").first();
+    if ($val.length) {
+      return $.trim($val.text());
+    }
+    var $input = $td.children("input[type='text']");
+    if ($input.length) {
+      return $.trim($input.val());
+    }
+    return $.trim($td.text());
+  }
+
+  // Reference numbers: numeric refs first (by value), then text refs
+  function boqCompareRef(refA, refB) {
+    var numA = parseFloat(refA);
+    var numB = parseFloat(refB);
+    var isNumA = !isNaN(numA) && /^\d+/.test(refA);
+    var isNumB = !isNaN(numB) && /^\d+/.test(refB);
+
+    if (isNumA && isNumB && numA !== numB) {
+      return numA - numB;
+    }
+    if (isNumA && !isNumB) return -1;
+    if (isNumB && !isNumA) return 1;
+    return refA.localeCompare(refB, undefined, { numeric: true, sensitivity: "base" });
+  }
+
+  function boqUpdateSortIndicators() {
+    $("#project-boq-table > thead th[data-sort-key]").each(function () {
+      var $th = $(this);
+      var $icon = $th.children(".boq-sort-icon");
+      if (!$icon.length) {
+        $icon = $('<i class="fa-solid fa-sort boq-sort-icon" aria-hidden="true"></i>').appendTo($th);
+        $th.attr("tabindex", "0");
+      }
+      var active = $th.attr("data-sort-key") === boqSortState.key;
+      $th.toggleClass("boq-sort-active", active);
+      $th.attr("aria-sort", active ? (boqSortState.dir === "desc" ? "descending" : "ascending") : "none");
+      $icon
+        .removeClass("fa-sort fa-sort-up fa-sort-down")
+        .addClass(active ? (boqSortState.dir === "desc" ? "fa-sort-down" : "fa-sort-up") : "fa-sort");
+    });
+    $(document).trigger("boq:head-changed");
+  }
+
   function projectBoqSortTableRows() {
+    boqSortRows();
+    boqApplyRowVisibility();
+  }
+
+  function boqSortRows() {
     var $tbody = $("#project-boq-tbody");
-    var $rows = $tbody.children("tr").get();
-    if ($rows.length < 2) {
+    var $th = $('#project-boq-table > thead th[data-sort-key="' + boqSortState.key + '"]');
+    var rows = $tbody.children("tr").get();
+    if (!$th.length || rows.length < 2) {
       return;
     }
-    $rows.sort(function (a, b) {
-      var refA = $(a).attr("data-internal-ref") || $(a).find("td:eq(1)").text().trim();
-      var refB = $(b).attr("data-internal-ref") || $(b).find("td:eq(1)").text().trim();
-      var numA = parseFloat(refA);
-      var numB = parseFloat(refB);
-      var isNumA = !isNaN(numA) && /^\d+/.test(refA);
-      var isNumB = !isNaN(numB) && /^\d+/.test(refB);
+    var colIndex = $th.index();
+    var type = $th.attr("data-sort");
+    var dir = boqSortState.dir === "desc" ? -1 : 1;
 
-      if (isNumA && isNumB) {
-        return numA - numB;
-      }
-      if (isNumA) return -1;
-      if (isNumB) return 1;
-      if (refA && !refB) return -1;
-      if (!refA && refB) return 1;
-      return refA.localeCompare(refB, undefined, { numeric: true, sensitivity: "base" });
+    var keyed = [];
+    $.each(rows, function (i, tr) {
+      var text = boqCellSortText($(tr).children("td").eq(colIndex));
+      var num = type === "num" ? boqParseNumber(text) : null;
+      keyed.push({
+        tr: tr,
+        id: parseInt(tr.getAttribute("data-boq-id"), 10) || i,
+        text: text,
+        num: num,
+        empty: type === "num" ? num === null : text === "",
+      });
     });
-    $.each($rows, function (idx, item) {
-      $tbody.append(item);
+
+    keyed.sort(function (a, b) {
+      // Blank values always go to the bottom, whichever direction is active
+      if (a.empty || b.empty) {
+        if (a.empty && b.empty) return a.id - b.id;
+        return a.empty ? 1 : -1;
+      }
+      var cmp;
+      if (type === "num") {
+        cmp = a.num - b.num;
+      } else if (type === "natural") {
+        cmp = boqCompareRef(a.text, b.text);
+      } else {
+        cmp = a.text.localeCompare(b.text, undefined, { numeric: true, sensitivity: "base" });
+      }
+      return cmp !== 0 ? cmp * dir : a.id - b.id;
+    });
+
+    $.each(keyed, function (idx, item) {
+      $tbody.append(item.tr);
     });
   }
+
+  function boqSortBy(key) {
+    if (boqSortState.key === key) {
+      boqSortState.dir = boqSortState.dir === "asc" ? "desc" : "asc";
+    } else {
+      boqSortState.key = key;
+      boqSortState.dir = "asc";
+    }
+    projectBoqSortTableRows();
+    boqUpdateSortIndicators();
+  }
+
+  $(document).on(
+    "click keydown",
+    "#project-boq-table > thead th[data-sort-key], #project-boq-fixed-head th[data-sort-key]",
+    function (e) {
+      if (e.type === "keydown") {
+        if (e.which !== 13 && e.which !== 32) {
+          return;
+        }
+        e.preventDefault();
+      }
+      if ($(e.target).closest(".boq-col-resizer").length || boqJustResized) {
+        return;
+      }
+      boqSortBy($(this).attr("data-sort-key"));
+    }
+  );
+
+  // Long descriptions are collapsed to 3 lines; add a toggle only where text is actually cut off
+  function boqRefreshClamps($scope) {
+    var moreLabel = (typeof projectBoqLang !== "undefined" && projectBoqLang.show_more) || "Show more";
+    ($scope || $("#project-boq-tbody")).find(".boq-clamp").each(function () {
+      var $clamp = $(this);
+      if ($clamp.hasClass("is-expanded") || this.clientHeight === 0) {
+        return;
+      }
+      var $toggle = $clamp.next(".boq-clamp-toggle");
+      if (this.scrollHeight > this.clientHeight + 1) {
+        if (!$toggle.length) {
+          $clamp.after($('<a href="#" class="boq-clamp-toggle"></a>').text(moreLabel));
+        }
+      } else {
+        $toggle.remove();
+      }
+    });
+  }
+
+  $(document).on("click", "#project-boq-tbody .boq-clamp-toggle", function (e) {
+    e.preventDefault();
+    var $toggle = $(this);
+    var $clamp = $toggle.prev(".boq-clamp");
+    var expanded = !$clamp.hasClass("is-expanded");
+    $clamp.toggleClass("is-expanded", expanded);
+    $toggle.text(
+      expanded
+        ? ((typeof projectBoqLang !== "undefined" && projectBoqLang.show_less) || "Show less")
+        : ((typeof projectBoqLang !== "undefined" && projectBoqLang.show_more) || "Show more")
+    );
+    $(window).trigger("scroll.boqhead");
+  });
 
   function projectBoqRowFromServer(row) {
     var id = row.id;
@@ -171,7 +324,7 @@
       : '';
 
     var itemCellHtml = '<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 4px;">' +
-      '<span>' + crmItemDesc + '</span>' +
+      '<span class="boq-sort-val">' + crmItemDesc + '</span>' +
       '<div style="display: flex; align-items: center; gap: 4px; flex-shrink: 0; flex-wrap: wrap;">' +
       ntChip +
       nonBillableChip +
@@ -181,14 +334,14 @@
 
     var orderQtyDisplay = row.order_qty_display || projectBoqFormatNumber(orderQty);
     var orderQtyCellHtml = '<td class="text-right">' +
-      '<div>' + orderQtyDisplay + '</div>' +
+      '<div class="boq-sort-val">' + orderQtyDisplay + '</div>' +
       (isRevised ? '<div style="margin-top: 3px;"><span class="label label-warning boq-revised-subbadge" data-toggle="tooltip" data-placement="top" data-container="body" data-html="true" title="' + tooltipText + '" style="font-size: 10px; font-weight: 600; padding: 2px 5px; border-radius: 3px; display: inline-block; background-color: #fef3c7; color: #b45309; border: 1px solid #fcd34d; cursor: help;"><i class="fa-solid fa-arrows-rotate tw-mr-1"></i>Rev: ' + projectBoqFormatNumber(revised) + '</span></div>' : '') +
       '</td>';
 
     var revisedCellClass = "text-right project-boq-revised-cell" + (isRevised ? " boq-revised-cell-highlight" : "");
     var revisedCellTooltipAttr = isRevised ? ' data-toggle="tooltip" data-placement="top" data-container="body" data-html="true" title="' + tooltipText + '"' : "";
     var revisedCellHtml = '<td class="' + revisedCellClass + '"' + revisedCellTooltipAttr + '>' +
-      '<span' + (isRevised ? ' style="font-weight: 700; color: #92400e;"' : '') + '>' + (row.revised_qty_display || projectBoqFormatNumber(revised)) + '</span>' +
+      '<span class="boq-sort-val"' + (isRevised ? ' style="font-weight: 700; color: #92400e;"' : '') + '>' + (row.revised_qty_display || projectBoqFormatNumber(revised)) + '</span>' +
       (isRevised ? '<div style="font-size: 10px; font-weight: 600; color: #b45309; line-height: 1.1; margin-top: 1px;">(' + diffFormatted + ')</div>' : '') +
       '</td>';
 
@@ -201,7 +354,7 @@
       '<td>' + cliRef + '</td>' +
       '<td class="text-center">' + itemId + '</td>' +
       '<td class="project-boq-item-label">' + itemCellHtml + '</td>' +
-      '<td class="project-boq-desc-cell">' + boqDesc + '</td>' +
+      '<td class="project-boq-desc-cell"><div class="boq-clamp boq-sort-val">' + boqDesc + '</div></td>' +
       '<td>' + boqUnit + '</td>' +
       orderQtyCellHtml +
       '<td class="text-right">' + supplyRate + '</td>' +
@@ -211,7 +364,7 @@
       '<td class="text-right">' + taxRate + '</td>' +
       '<td class="text-center">' + isSummary + '</td>' +
       '<td class="boq-internal-col">' + intCliRef + '</td>' +
-      '<td class="boq-internal-col project-boq-internal-desc-cell">' + intDesc + '</td>' +
+      '<td class="boq-internal-col project-boq-internal-desc-cell"><div class="boq-clamp boq-sort-val">' + intDesc + '</div></td>' +
       '<td class="boq-internal-col">' + intUnit + '</td>' +
       '<td class="text-right boq-internal-col">' + intQty + '</td>' +
       '<td class="text-right boq-internal-col">' + intMatRate + '</td>' +
@@ -232,6 +385,8 @@
     if ($.fn.tooltip) {
       $new.find('[data-toggle="tooltip"]').tooltip({ container: "body" });
     }
+    projectBoqSortTableRows();
+    boqRefreshClamps($new);
     projectBoqToggleEmptyState();
     projectBoqUpdateRevisedSummary();
   }
@@ -392,6 +547,7 @@
               var $appended = $(projectBoqRowFromServer(response.row));
               $("#project-boq-tbody").append($appended);
               projectBoqSortTableRows();
+              boqRefreshClamps($appended);
               if ($.fn.tooltip) {
                 $appended.find('[data-toggle="tooltip"]').tooltip({ container: "body" });
               }
@@ -428,9 +584,10 @@
     }
   }
 
-  $("#project-boq-check-all").on("change", function () {
+  $(document).on("change", ".project-boq-check-all", function () {
     var on = $(this).prop("checked");
-    $("#project-boq-tbody .project-boq-select").prop("checked", on).each(function () {
+    $(".project-boq-check-all").prop("checked", on);
+    $("#project-boq-tbody tr:visible .project-boq-select").prop("checked", on).each(function () {
       $(this).closest("tr").toggleClass("boq-row-selected", on);
     });
     updateBoqDeleteButtonState();
@@ -439,13 +596,13 @@
   $(document).on("change", "#project-boq-tbody .project-boq-select", function () {
     var isChecked = $(this).prop("checked");
     $(this).closest("tr").toggleClass("boq-row-selected", isChecked);
-    var $rows = $("#project-boq-tbody .project-boq-select");
+    var $rows = $("#project-boq-tbody tr:visible .project-boq-select");
     if (!$rows.length) {
       updateBoqDeleteButtonState();
       return;
     }
     var all = $rows.filter(":checked").length === $rows.length;
-    $("#project-boq-check-all").prop("checked", all);
+    $(".project-boq-check-all").prop("checked", all);
     updateBoqDeleteButtonState();
   });
 
@@ -514,7 +671,7 @@
           $.each($checkedRows, function (i, $tr) {
             $tr.remove();
           });
-          $("#project-boq-check-all").prop("checked", false);
+          $(".project-boq-check-all").prop("checked", false);
           updateBoqDeleteButtonState();
           projectBoqToggleEmptyState();
           projectBoqUpdateRevisedSummary();
@@ -970,6 +1127,7 @@
             var $appended = $(projectBoqRowFromServer(response.row));
             $("#project-boq-tbody").append($appended);
             projectBoqSortTableRows();
+            boqRefreshClamps($appended);
             if ($.fn.tooltip) {
               $appended.find('[data-toggle="tooltip"]').tooltip({ container: "body" });
             }
@@ -1001,10 +1159,7 @@
     }
 
     function syncInnerWidths() {
-      var sw = $container[0] ? $container[0].scrollWidth : 3090;
-      if (sw < 3090) {
-        sw = 3090;
-      }
+      var sw = $container[0] ? $container[0].scrollWidth : 0;
       $floatingInner.css("width", sw + "px");
     }
 
@@ -1278,18 +1433,8 @@
     $(".boq-filter-btn").removeClass("active");
     $btn.addClass("active");
 
-    var $rows = $("#project-boq-tbody tr[data-boq-id]");
-    if (filter === "all") {
-      $rows.show();
-    } else if (filter === "tender") {
-      $rows.hide().filter('[data-is-nt="0"]').show();
-    } else if (filter === "nt") {
-      $rows.hide().filter('[data-is-nt="1"]').show();
-    } else if (filter === "billable") {
-      $rows.hide().filter('[data-is-billable="1"]').show();
-    } else if (filter === "nonbillable") {
-      $rows.hide().filter('[data-is-billable="0"]').show();
-    }
+    boqActiveFilter = filter || "all";
+    boqApplyRowVisibility();
   });
 
   function initBoqStickyBar() {
@@ -1333,12 +1478,447 @@
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Row visibility: filter tab + search box
+  // ---------------------------------------------------------------------------
+  var boqActiveFilter = "all";
+  var boqSearchTerm = "";
+
+  function boqRowMatchesFilter(tr) {
+    switch (boqActiveFilter) {
+      case "tender":
+        return tr.getAttribute("data-is-nt") === "0";
+      case "nt":
+        return tr.getAttribute("data-is-nt") === "1";
+      case "billable":
+        return tr.getAttribute("data-is-billable") === "1";
+      case "nonbillable":
+        return tr.getAttribute("data-is-billable") === "0";
+      default:
+        return true;
+    }
+  }
+
+  function boqRowSearchText(tr) {
+    var parts = [];
+    $(tr).children("td").each(function () {
+      parts.push(boqCellSortText($(this)));
+    });
+    return parts.join(" ").toLowerCase();
+  }
+
+  function boqApplyRowVisibility() {
+    var $rows = $("#project-boq-tbody tr[data-boq-id]");
+    if (!$rows.length) {
+      $("#project-boq-search-count").text("");
+      $("#project-boq-search-empty").hide();
+      return;
+    }
+    var words = boqSearchTerm ? boqSearchTerm.toLowerCase().split(/\s+/) : [];
+    var shown = 0;
+
+    $rows.each(function () {
+      var visible = boqRowMatchesFilter(this);
+      if (visible && words.length) {
+        var text = boqRowSearchText(this);
+        for (var i = 0; i < words.length; i++) {
+          if (text.indexOf(words[i]) === -1) {
+            visible = false;
+            break;
+          }
+        }
+      }
+      this.style.display = visible ? "" : "none";
+      if (visible) {
+        shown++;
+      }
+    });
+
+    if (words.length) {
+      var tpl = (typeof projectBoqLang !== "undefined" && projectBoqLang.search_count) || "%1$s of %2$s";
+      $("#project-boq-search-count").text(tpl.replace("%1$s", shown).replace("%2$s", $rows.length));
+    } else {
+      $("#project-boq-search-count").text("");
+    }
+    $("#project-boq-search-empty").toggle(shown === 0);
+
+    var $visibleChecks = $("#project-boq-tbody tr:visible .project-boq-select");
+    $(".project-boq-check-all").prop(
+      "checked",
+      $visibleChecks.length > 0 && $visibleChecks.filter(":checked").length === $visibleChecks.length
+    );
+
+    boqRefreshClamps();
+    $(window).trigger("scroll.boqhead");
+  }
+
+  var boqSearchTimer = null;
+  $(document).on("input", "#project-boq-search", function () {
+    var value = $.trim($(this).val());
+    clearTimeout(boqSearchTimer);
+    boqSearchTimer = setTimeout(function () {
+      boqSearchTerm = value;
+      boqApplyRowVisibility();
+    }, 150);
+  });
+
+  $(document).on("keydown", "#project-boq-search", function (e) {
+    if (e.which === 27) {
+      $(this).val("").trigger("input");
+    } else if (e.which === 13) {
+      // Enter jumps to the first match
+      e.preventDefault();
+      var $first = $("#project-boq-tbody tr[data-boq-id]:visible").first();
+      if ($first.length) {
+        var offset = ($("#project-boq-sticky-bar").outerHeight() || 0) + ($("#project-boq-table > thead").outerHeight() || 0) + 70;
+        $("html, body").animate({ scrollTop: $first.offset().top - offset }, 300);
+      }
+    }
+  });
+
+  // ---------------------------------------------------------------------------
+  // Column layout (show/hide + width), saved per staff member
+  // ---------------------------------------------------------------------------
+  var boqJustResized = false;
+  var boqColPrefs = { hidden: [], widths: {} };
+  var boqColSaveTimer = null;
+
+  function boqColHeads() {
+    return $("#project-boq-table > thead th");
+  }
+
+  function boqColDefaultWidth(th) {
+    var w = parseInt(th.getAttribute("data-default-width"), 10);
+    return isNaN(w) ? 100 : w;
+  }
+
+  function boqApplyColumnLayout() {
+    var $heads = boqColHeads();
+    var rules = [];
+    var total = 0;
+
+    $heads.each(function (i) {
+      var key = this.getAttribute("data-sort-key");
+      var hidden = key && boqColPrefs.hidden.indexOf(key) !== -1;
+      var width = key && boqColPrefs.widths[key] ? boqColPrefs.widths[key] : boqColDefaultWidth(this);
+      this.style.width = width + "px";
+      if (hidden) {
+        var n = i + 1;
+        rules.push(
+          "#project-boq-table tr > :nth-child(" + n + "),#project-boq-fixed-head tr > :nth-child(" + n + "){display:none !important;}"
+        );
+      } else {
+        total += width;
+      }
+    });
+
+    var styleEl = document.getElementById("project-boq-col-visibility");
+    if (!styleEl) {
+      styleEl = document.createElement("style");
+      styleEl.id = "project-boq-col-visibility";
+      document.head.appendChild(styleEl);
+    }
+    styleEl.textContent = rules.join("\n");
+
+    var table = document.getElementById("project-boq-table");
+    if (table) {
+      table.style.setProperty("width", total + "px", "important");
+      table.style.setProperty("min-width", total + "px", "important");
+    }
+
+    boqRefreshClamps();
+    $(document).trigger("boq:head-changed");
+    $(window).trigger("scroll.boqfloat");
+  }
+
+  function boqSaveColumnPrefs() {
+    clearTimeout(boqColSaveTimer);
+    boqColSaveTimer = setTimeout(function () {
+      if (typeof projectBoqTablePrefsUrl === "undefined") {
+        return;
+      }
+      $.post(projectBoqTablePrefsUrl, projectBoqCsrfPayload({ prefs: JSON.stringify(boqColPrefs) })).fail(function () {
+        alert_float("danger", app.lang.something_went_wrong);
+      });
+    }, 400);
+  }
+
+  function boqRenderColumnsMenu() {
+    var $menu = $("#project-boq-columns-menu");
+    var $list = $menu.find(".boq-colmenu-list").empty();
+    boqColHeads().filter("[data-sort-key]").each(function () {
+      var key = this.getAttribute("data-sort-key");
+      var label = $.trim($(this).clone().children().remove().end().text());
+      var $cb = $('<input type="checkbox">')
+        .attr("data-col-key", key)
+        .prop("checked", boqColPrefs.hidden.indexOf(key) === -1);
+      $list.append($("<label>").append($cb).append($("<span>").text(label)));
+    });
+  }
+
+  function boqOpenColumnsMenu($btn) {
+    var $menu = $("#project-boq-columns-menu");
+    boqRenderColumnsMenu();
+    var rect = $btn[0].getBoundingClientRect();
+    var left = Math.max(8, Math.min(rect.left, window.innerWidth - 290));
+    var top = rect.bottom + 6;
+    $menu.css({ left: left + "px", top: top + "px", display: "block" });
+    var maxTop = window.innerHeight - $menu.outerHeight() - 8;
+    if (top > maxTop) {
+      $menu.css("top", Math.max(8, maxTop) + "px");
+    }
+  }
+
+  function initBoqColumnSettings() {
+    var $heads = boqColHeads();
+    if (!$heads.length) {
+      return;
+    }
+
+    if (typeof projectBoqTablePrefs === "object" && projectBoqTablePrefs) {
+      boqColPrefs.hidden = $.isArray(projectBoqTablePrefs.hidden) ? projectBoqTablePrefs.hidden.slice() : [];
+      boqColPrefs.widths = $.isPlainObject(projectBoqTablePrefs.widths) ? $.extend({}, projectBoqTablePrefs.widths) : {};
+    }
+
+    $heads.each(function () {
+      this.setAttribute("data-default-width", parseInt(this.style.width, 10) || Math.round(this.getBoundingClientRect().width) || 100);
+      if (this.hasAttribute("data-sort-key")) {
+        $(this).append('<span class="boq-col-resizer" aria-hidden="true"></span>');
+      }
+    });
+
+    var menuHtml =
+      '<div id="project-boq-columns-menu" role="dialog">' +
+      '<div class="boq-colmenu-head"><span><i class="fa-solid fa-table-columns tw-mr-1"></i></span>' +
+      '<a href="#" class="boq-colmenu-show-all"></a></div>' +
+      '<div class="boq-colmenu-hint"></div>' +
+      '<div class="boq-colmenu-list"></div>' +
+      '<div class="boq-colmenu-foot"><a href="#" class="boq-colmenu-reset"></a>' +
+      '<button type="button" class="btn btn-default btn-xs boq-colmenu-close"></button></div>' +
+      "</div>";
+    var $menu = $(menuHtml).appendTo("body");
+    var L = typeof projectBoqLang !== "undefined" ? projectBoqLang : {};
+    $menu.find(".boq-colmenu-head > span").append(document.createTextNode(L.columns || "Columns"));
+    $menu.find(".boq-colmenu-show-all").text(L.columns_show_all || "Show all");
+    $menu.find(".boq-colmenu-hint").text(L.columns_hint || "");
+    $menu.find(".boq-colmenu-reset").text(L.columns_reset || "Reset to default");
+    $menu.find(".boq-colmenu-close").text((app.lang && app.lang.close) || "Close");
+
+    $(document).on("click", ".boq-columns-btn", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if ($menu.is(":visible")) {
+        $menu.hide();
+      } else {
+        boqOpenColumnsMenu($(this));
+      }
+    });
+
+    $menu.on("change", "input[data-col-key]", function () {
+      var key = $(this).attr("data-col-key");
+      var idx = boqColPrefs.hidden.indexOf(key);
+      if (this.checked && idx !== -1) {
+        boqColPrefs.hidden.splice(idx, 1);
+      } else if (!this.checked && idx === -1) {
+        // Keep at least one data column visible
+        if ($menu.find("input[data-col-key]:checked").length === 0) {
+          this.checked = true;
+          return;
+        }
+        boqColPrefs.hidden.push(key);
+      }
+      boqApplyColumnLayout();
+      boqSaveColumnPrefs();
+    });
+
+    $menu.on("click", ".boq-colmenu-show-all", function (e) {
+      e.preventDefault();
+      boqColPrefs.hidden = [];
+      boqRenderColumnsMenu();
+      boqApplyColumnLayout();
+      boqSaveColumnPrefs();
+    });
+
+    $menu.on("click", ".boq-colmenu-reset", function (e) {
+      e.preventDefault();
+      boqColPrefs = { hidden: [], widths: {} };
+      boqRenderColumnsMenu();
+      boqApplyColumnLayout();
+      boqSaveColumnPrefs();
+    });
+
+    $menu.on("click", ".boq-colmenu-close", function () {
+      $menu.hide();
+    });
+
+    $menu.on("click", function (e) {
+      e.stopPropagation();
+    });
+
+    $(document).on("click.boqcolmenu", function () {
+      $menu.hide();
+    });
+    $(document).on("keydown.boqcolmenu", function (e) {
+      if (e.which === 27) {
+        $menu.hide();
+      }
+    });
+    $(window).on("resize.boqcolmenu", function () {
+      $menu.hide();
+    });
+
+    // Drag a header edge to resize (works on the real header and the pinned copy)
+    $(document).on("mousedown", ".boq-col-resizer", function (e) {
+      if (e.which !== 1) {
+        return;
+      }
+      e.preventDefault();
+      e.stopPropagation();
+      var key = $(this).closest("th").attr("data-sort-key");
+      var th = $('#project-boq-table > thead th[data-sort-key="' + key + '"]')[0];
+      if (!th) {
+        return;
+      }
+      var $handle = $(this).addClass("is-dragging");
+      var startX = e.pageX;
+      var startW = th.getBoundingClientRect().width;
+      var table = document.getElementById("project-boq-table");
+      var startTableW = table.getBoundingClientRect().width;
+      var newW = startW;
+      $("body").addClass("boq-col-resizing");
+
+      $(document).on("mousemove.boqresize", function (ev) {
+        newW = Math.max(50, Math.min(1200, Math.round(startW + ev.pageX - startX)));
+        th.style.width = newW + "px";
+        table.style.setProperty("width", startTableW + (newW - startW) + "px", "important");
+        table.style.setProperty("min-width", startTableW + (newW - startW) + "px", "important");
+      });
+
+      $(document).on("mouseup.boqresize", function () {
+        $(document).off(".boqresize");
+        $handle.removeClass("is-dragging");
+        $("body").removeClass("boq-col-resizing");
+        boqJustResized = true;
+        setTimeout(function () {
+          boqJustResized = false;
+        }, 0);
+        if (Math.abs(newW - startW) >= 1) {
+          boqColPrefs.widths[key] = newW;
+          boqApplyColumnLayout();
+          boqSaveColumnPrefs();
+        }
+      });
+    });
+
+    // Double-click a header edge to restore that column's default width
+    $(document).on("dblclick", ".boq-col-resizer", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      var key = $(this).closest("th").attr("data-sort-key");
+      if (boqColPrefs.widths[key]) {
+        delete boqColPrefs.widths[key];
+        boqApplyColumnLayout();
+        boqSaveColumnPrefs();
+      }
+    });
+
+    boqApplyColumnLayout();
+  }
+
+  // Pinned table header: the table lives in a horizontal scroll container, so CSS sticky
+  // cannot pin its header to the page. A fixed copy of the header row is shown under the
+  // sticky toolbar instead and kept in step with the table's horizontal scroll.
+  function initBoqFixedHeader() {
+    var $container = $(".project-boq-table-responsive");
+    var $table = $("#project-boq-table");
+    var $stickyBar = $("#project-boq-sticky-bar");
+    if (!$container.length || !$table.length) {
+      return;
+    }
+
+    var $fixed = $('<div id="project-boq-fixed-head"></div>');
+    var $fixedTable = $('<table class="table table-bordered"></table>').appendTo($fixed);
+    $fixed.appendTo("#project-boq-wrapper");
+
+    function rebuild() {
+      var $thead = $table.children("thead");
+      var $clone = $thead.clone();
+      $clone.find("[id]").removeAttr("id");
+      var $srcCells = $thead.find("th");
+      $clone.find("th").each(function (i) {
+        var w = $srcCells[i].getBoundingClientRect().width;
+        if (w > 0) {
+          $(this).css({ width: w + "px", minWidth: w + "px", maxWidth: w + "px" });
+        }
+      });
+      $fixedTable.empty().append($clone);
+      $fixedTable.find(".project-boq-check-all").prop("checked", $("#project-boq-check-all").prop("checked"));
+      var tableWidth = $table.outerWidth();
+      if (tableWidth > 0) {
+        $fixedTable.css({ width: tableWidth + "px", minWidth: tableWidth + "px" });
+      }
+    }
+
+    function topEdge() {
+      if ($stickyBar.length) {
+        return $stickyBar[0].getBoundingClientRect().bottom;
+      }
+      var $header = $("#header");
+      return $header.length && $header.css("position") === "fixed" ? $header.outerHeight() || 0 : 0;
+    }
+
+    function update() {
+      if (!$container.is(":visible")) {
+        $fixed.hide();
+        return;
+      }
+      var top = topEdge();
+      var tableRect = $table[0].getBoundingClientRect();
+      var headHeight = $table.children("thead").outerHeight() || 0;
+
+      // Pin once the real header has scrolled under the toolbar, until the table's last row leaves
+      if (tableRect.top < top && tableRect.bottom - headHeight - 30 > top) {
+        var cRect = $container[0].getBoundingClientRect();
+        $fixed.css({
+          display: "block",
+          top: top + "px",
+          left: cRect.left + $container[0].clientLeft + "px",
+          width: $container[0].clientWidth + "px",
+        });
+        $fixed[0].scrollLeft = $container[0].scrollLeft;
+      } else {
+        $fixed.hide();
+      }
+    }
+
+    function rebuildAndUpdate() {
+      rebuild();
+      update();
+    }
+
+    $container.on("scroll.boqhead", function () {
+      $fixed[0].scrollLeft = this.scrollLeft;
+    });
+    $(window).on("scroll.boqhead", update).on("resize.boqhead", rebuildAndUpdate);
+    $(document).on("boq:head-changed", rebuildAndUpdate);
+    $("body").on("click.boqhead", ".nav-tabs a, #side-menu-toggle, .hide-menu", function () {
+      setTimeout(rebuildAndUpdate, 350);
+    });
+
+    rebuildAndUpdate();
+  }
+
   $(function () {
     if ($.fn.tooltip) {
       $("#project-boq-wrapper [data-toggle='tooltip']").tooltip({ container: "body" });
     }
     updateBoqFilterCounts();
+    initBoqColumnSettings();
     initProjectBoqScrollbars();
     initBoqStickyBar();
+    initBoqFixedHeader();
+    projectBoqSortTableRows();
+    boqUpdateSortIndicators();
+    boqRefreshClamps();
   });
 })(jQuery);

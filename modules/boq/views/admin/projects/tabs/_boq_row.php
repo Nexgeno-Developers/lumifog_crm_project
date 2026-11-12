@@ -75,7 +75,7 @@ if (! $isBillable) {
     <td class="text-center"><?= (int) ($row['item_id'] ?? 0); ?></td>
     <td class="project-boq-item-label">
         <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 4px;">
-            <span><?= e($row['item_description'] ?? ''); ?></span>
+            <span class="boq-sort-val"><?= e($row['item_description'] ?? ''); ?></span>
             <div style="display: flex; align-items: center; gap: 4px; flex-shrink: 0; flex-wrap: wrap;">
                 <?php if ($isNt) { ?>
                 <span class="label boq-nt-chip" data-toggle="tooltip" data-placement="top" data-container="body" title="<?= e(_l('project_boq_nt_tooltip')); ?>" style="font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; background-color: #ede9fe; color: #6d28d9; border: 1px solid #ddd6fe; cursor: help;">
@@ -103,10 +103,10 @@ if (! $isBillable) {
         <span class="text-muted hide"> <?= e($row['item_unit']); ?></span>
         <?php } ?>
     </td>
-    <td class="project-boq-desc-cell"><?= e($row['boq_description'] ?? ''); ?></td>
+    <td class="project-boq-desc-cell"><div class="boq-clamp boq-sort-val"><?= e($row['boq_description'] ?? ''); ?></div></td>
     <td><?= e($row['boq_unit'] ?? ''); ?></td>
     <td class="text-right">
-        <div><?= e(app_format_number($orderQty)); ?></div>
+        <div class="boq-sort-val"><?= e(app_format_number($orderQty)); ?></div>
         <?php if ($isRevised) { ?>
         <div style="margin-top: 3px;">
             <span class="label label-warning boq-revised-subbadge" data-toggle="tooltip" data-placement="top" data-container="body" data-html="true" title="<?= e($tooltipText); ?>" style="font-size: 10px; font-weight: 600; padding: 2px 5px; border-radius: 3px; display: inline-block; background-color: #fef3c7; color: #b45309; border: 1px solid #fcd34d; cursor: help;">
@@ -122,7 +122,7 @@ if (! $isBillable) {
     <td class="text-right"><?= $taxRate !== null ? e(app_format_number($taxRate)) : '—'; ?></td>
     <td class="text-center"><?= $isSummary ? _l('yes') : _l('no'); ?></td>
     <td class="boq-internal-col"><?= e($row['internal_client_ref_no'] ?? ''); ?></td>
-    <td class="boq-internal-col project-boq-internal-desc-cell"><?= e($row['internal_description'] ?? ''); ?></td>
+    <td class="boq-internal-col project-boq-internal-desc-cell"><div class="boq-clamp boq-sort-val"><?= e($row['internal_description'] ?? ''); ?></div></td>
     <td class="boq-internal-col"><?= e($row['internal_unit'] ?? ''); ?></td>
     <td class="text-right boq-internal-col"><?= $internalQty !== null ? e(app_format_number($internalQty)) : '—'; ?></td>
     <td class="text-right boq-internal-col"><?= $internalMatRate !== null ? e(app_format_number($internalMatRate)) : '—'; ?></td>
@@ -140,7 +140,7 @@ if (! $isBillable) {
         <span class="project-boq-remaining-display"><?= e($row['remaining_qty_display'] ?? app_format_number($remaining)); ?></span>
     </td>
     <td class="text-right project-boq-revised-cell <?= $isRevised ? 'boq-revised-cell-highlight' : ''; ?>" <?= $isRevised ? 'data-toggle="tooltip" data-placement="top" data-container="body" data-html="true" title="' . e($tooltipText) . '"' : ''; ?>>
-        <span style="<?= $isRevised ? 'font-weight: 700; color: #92400e;' : ''; ?>">
+        <span class="boq-sort-val" style="<?= $isRevised ? 'font-weight: 700; color: #92400e;' : ''; ?>">
             <?= e($row['revised_qty_display'] ?? app_format_number($revised)); ?>
         </span>
         <?php if ($isRevised) { ?>

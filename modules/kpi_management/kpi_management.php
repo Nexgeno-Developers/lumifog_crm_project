@@ -15,6 +15,7 @@ define('KPI_MANAGEMENT_MODULE_NAME', 'kpi_management');
 register_language_files(KPI_MANAGEMENT_MODULE_NAME, ['kpi_notifications']);
 
 hooks()->add_action('app_init', 'kpi_management_load_helpers');
+hooks()->add_action('pre_admin_init', 'kpi_management_reject_ajax_when_logged_out');
 hooks()->add_action('admin_init', 'kpi_management_init_menu_items');
 hooks()->add_action('admin_init', 'kpi_management_permissions');
 hooks()->add_action('admin_init', 'kpi_management_widget_notification_permissions');
@@ -31,6 +32,25 @@ hooks()->add_action('before_cron_run', 'kpi_management_cron_run');
  * Register activation module hook
  */
 register_activation_hook(KPI_MANAGEMENT_MODULE_NAME, 'kpi_management_module_activation_hook');
+
+/**
+ * Background (AJAX) requests made after the session expired - e.g. the 15s notification
+ * count poll - must not be remembered as the "redirect after login" URL, otherwise the
+ * staff member lands on raw JSON after logging in. Runs before AdminController's login
+ * check, answers 401 and stops, so normal page requests keep their redirect.
+ */
+function kpi_management_reject_ajax_when_logged_out()
+{
+    $CI = &get_instance();
+    if (is_staff_logged_in() || ! $CI->input->is_ajax_request()) {
+        return;
+    }
+
+    set_status_header(401);
+    header('Content-Type: application/json');
+    echo json_encode(['success' => false, 'message' => 'session_expired']);
+    exit;
+}
 
 /**
  * Load helpers when KPI Management is active (init_kpi_transaction, attendance hooks).

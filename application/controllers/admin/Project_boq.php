@@ -846,8 +846,9 @@ class Project_boq extends AdminController
                 continue;
             }
 
-            if ($order_qty <= 0) {
-                $errors[] = "Row {$excel_row_num} ({$ref_prefix}\"{$item_label}\"): Order Quantity must be greater than 0.";
+            // Zero is a valid quantity (e.g. rate-only lines); only negatives are rejected
+            if ($order_qty < 0) {
+                $errors[] = "Row {$excel_row_num} ({$ref_prefix}\"{$item_label}\"): Order Quantity cannot be negative.";
                 continue;
             }
 
