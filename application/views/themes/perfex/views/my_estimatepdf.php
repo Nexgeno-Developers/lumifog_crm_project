@@ -40,6 +40,10 @@ $contentWidth = isset($GLOBALS['content_width_' . $pdfId])
     ? $GLOBALS['content_width_' . $pdfId]
     : ($dimensions['wk'] - ($dimensions['rm'] + $dimensions['lm']));
 
+// TCPDF's default ~1mm cell padding pulled the body tables in from both edges.
+// The header/footer are drawn with zero padding, so match it to align all tables.
+$pdf->setCellPadding(0);
+
 // Helper: get taxes for estimate item
 if (!function_exists('_my_get_estimate_item_taxes')) {
     function _my_get_estimate_item_taxes($item_id)
@@ -531,6 +535,19 @@ $pdf->writeHTMLCell(
     true
 );
 $pdf->Ln(0);
+
+// The footer block (bank details, stamp, terms, declaration) is drawn on the last page
+// below this content. If long terms would push it past the page bottom, start a new page.
+if (function_exists('lumifog_estimate_pdf_footer_html')) {
+    $footerHeight = lumifog_estimate_pdf_footer_height(
+        $pdf,
+        lumifog_estimate_pdf_footer_html($estimate),
+        $contentWidth
+    );
+    if ($pdf->GetY() + 5 + $footerHeight > $pdf->getPageHeight() - 8) {
+        $pdf->AddPage();
+    }
+}
 
 // Mark completion — store content end Y so footer can sit relative to this block
 // (App_pdf::Footer() calls SetY(-15) before the footer hook, wiping GetY())

@@ -422,6 +422,11 @@ function lumifog_estimate_pdf_header($data)
         </table>
     </div>';
 
+    // TCPDF treats whitespace/comments between <div> and <table> as inline text,
+    // which indented the whole header box ~2.35mm to the right of the page margin.
+    $header_html = preg_replace('/<!--.*?-->/s', '', $header_html);
+    $header_html = preg_replace('/\s+(<\/?(?:div|table|tr|td)\b)/i', '$1', $header_html);
+
     // Ensure consistent X position before writing header table
     $pdf->SetX($margins['left']);
 
@@ -602,49 +607,16 @@ function lumifog_estimate_pdf_footer($data)
     // Get content width for consistent table width
     $contentWidth = isset($GLOBALS['content_width_' . $pdfId]) ? $GLOBALS['content_width_' . $pdfId] : ($pdf->getPageWidth() - $pdf->getMargins()['left'] - $pdf->getMargins()['right']);
 
-    // Border style for tables
-    $border_style = 'border:1px solid #000000;';
+    // Zero cell padding so the footer table lines up with the header and item tables
+    $pdf->setCellPadding(0);
 
-    // Get signature image if available
-    $signatureImage = get_option('signature_image');
-    $signatureHtml  = '';
-    if ($signatureImage != '') {
-        $signaturePath = FCPATH . 'uploads/company/' . $signatureImage;
-        if (file_exists($signaturePath)) {
-            $imageData    = base64_encode(file_get_contents($signaturePath));
-            $signatureHtml = '<br/><img src="@' . $imageData . '" height="80" style="max-height:80px;" />';
-        }
-    }
-
-    // Bank Details Footer (same as invoice footer, but for estimates)
-    $bank_details = '<table width="100%" cellspacing="0" cellpadding="2" border="1" style="' . $border_style . ' margin:0 !important; padding:0 !important;">
-    <tr>
-        <td width="60%" style="' . $border_style . ' font-size:12px; padding:3px; margin:0;">
-            <strong style="font-size:12px;">Company\'s Bank Details</strong><br/>
-            <span style="font-size:12px;"><strong>A/c Holder\'s Name:</strong> ' . get_option('invoice_company_name') . '<br/>
-            <strong>Bank Name:</strong> HDFC BANK LTD<br/>
-            <strong>A/c No.:</strong> 50200096015459<br/>
-            <strong>Branch & IFS Code:</strong> HDFC0000592</span>
-        </td>
-        <td width="40%" style="' . $border_style . ' text-align:right; vertical-align:bottom; font-size:12px; padding:3px; padding-bottom:5px; margin:0;">
-            <strong style="font-size:12px;">for ' . get_option('invoice_company_name') . '</strong><br/>
-            ' . $signatureHtml . '
-            <strong style="font-size:12px;">Authorised Signatory</strong>
-        </td>
-    </tr>
-    <tr>
-        <td width="100%" colspan="2" style="' . $border_style . ' font-size:12px; padding:3px; margin:0;">
-            <strong style="font-size:12px;">Declaration</strong><br/>
-            <span style="font-size:12px;">We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.</span>
-        </td>
-    </tr>
-    </table>';
+    $bank_details = lumifog_estimate_pdf_footer_html($estimate);
 
     // Position footer relative to tax/HSN block (not bottom-anchored — that overlapped tax-in-words)
     $margins      = $pdf->getMargins();
     $pageHeight   = $pdf->getPageHeight();
-    // Approx height of bank-details + signature + declaration (slightly tight so spacer can use leftover room)
-    $footerHeight = 30;
+    // Real height of bank details + signature + terms + declaration (terms length varies)
+    $footerHeight = lumifog_estimate_pdf_footer_height($pdf, $bank_details, $contentWidth);
     // App_pdf::Footer() already SetY(-15); use stored content end Y from my_estimatepdf.php
     $contentEndY  = isset($GLOBALS['estimate_pdf_content_end_y_' . $pdfId])
         ? (float) $GLOBALS['estimate_pdf_content_end_y_' . $pdfId]
@@ -679,6 +651,81 @@ function lumifog_estimate_pdf_footer($data)
     if ($pdf->getFooterMargin() < $footerHeight + 5) {
         $pdf->SetFooterMargin($footerHeight + 5);
     }
+}
+
+/**
+ * Bank details + stamp/signature, Terms & Conditions and Declaration block
+ * printed at the end of the estimate (Proforma Invoice) PDF.
+ */
+function lumifog_estimate_pdf_footer_html($estimate)
+{
+    $border_style = 'border:1px solid #000000;';
+
+    // Signature / stamp image
+    $signatureHtml  = '';
+    $signatureImage = get_option('signature_image');
+    if ($signatureImage != '') {
+        $signaturePath = FCPATH . 'uploads/company/' . $signatureImage;
+        if (file_exists($signaturePath)) {
+            $imageData     = base64_encode(file_get_contents($signaturePath));
+            $signatureHtml = '<br/><img src="@' . $imageData . '" height="105" style="max-height:105px;" />';
+        }
+    }
+
+    // Terms & Conditions entered on the estimate
+    $termsHtml = '';
+    $terms     = trim((string) ($estimate->terms ?? ''));
+    if ($terms !== '') {
+        // Plain-text terms: escape and keep line breaks; HTML terms: same as core estimate PDF
+        $termsBody = ($terms === strip_tags($terms)) ? nl2br(htmlspecialchars($terms)) : $terms;
+        $termsHtml = '<tr>
+        <td width="100%" colspan="2" style="' . $border_style . ' font-size:12px; padding:3px; margin:0;">
+            <strong style="font-size:12px;">' . _l('terms_and_conditions') . '</strong><br/>
+            <span style="font-size:12px;">' . $termsBody . '</span>
+        </td>
+    </tr>';
+    }
+
+    return '<table width="100%" cellspacing="0" cellpadding="2" border="1" style="' . $border_style . ' margin:0 !important; padding:0 !important;">
+    <tr>
+        <td width="60%" style="' . $border_style . ' font-size:12px; padding:3px; margin:0;">
+            <strong style="font-size:12px;">Company\'s Bank Details</strong><br/>
+            <span style="font-size:12px;"><strong>A/c Holder\'s Name:</strong> ' . get_option('invoice_company_name') . '<br/>
+            <strong>Bank Name:</strong> HDFC BANK LTD<br/>
+            <strong>A/c No.:</strong> 50200096015459<br/>
+            <strong>Branch & IFS Code:</strong> HDFC0000592</span>
+        </td>
+        <td width="40%" style="' . $border_style . ' text-align:right; vertical-align:bottom; font-size:12px; padding:3px; padding-bottom:5px; margin:0;">
+            <strong style="font-size:12px;">for ' . get_option('invoice_company_name') . '</strong><br/>
+            ' . $signatureHtml . '
+            <strong style="font-size:12px;">Authorised Signatory</strong>
+        </td>
+    </tr>
+    ' . $termsHtml . '
+    <tr>
+        <td width="100%" colspan="2" style="' . $border_style . ' font-size:12px; padding:3px; margin:0;">
+            <strong style="font-size:12px;">Declaration</strong><br/>
+            <span style="font-size:12px;">We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.</span>
+        </td>
+    </tr>
+    </table>';
+}
+
+/**
+ * Measure the rendered height (mm) of the estimate footer block without drawing it.
+ */
+function lumifog_estimate_pdf_footer_height($pdf, $html, $width)
+{
+    $pdf->startTransaction();
+    // No page breaks while measuring, otherwise GetY() resets on the new page
+    $pdf->setAutoPageBreak(false);
+    $pdf->setCellPadding(0);
+    $startY = $pdf->getMargins()['top'];
+    $pdf->writeHTMLCell($width, '', $pdf->getMargins()['left'], $startY, $html, 0, 1, false, true, 'L', true);
+    $height = $pdf->GetY() - $startY;
+    $pdf->rollbackTransaction(true);
+
+    return max($height, 0);
 }
 
 function lumifog_proposal_pdf_watermark($pdf)
