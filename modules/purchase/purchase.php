@@ -103,6 +103,7 @@ hooks()->add_filter('get_styling_areas', 'purchase_before_load_theme_style');
 hooks()->add_filter('expenses_table_columns', 'purchase_add_vendor_column');
 hooks()->add_filter('expenses_table_sql_columns', 'purchase_add_vendor_sql_column');
 hooks()->add_filter('expenses_table_row_data', 'purchase_add_vendor_row_data', 10, 2);
+hooks()->add_action('after_left_panel_expense_preview_template', 'purchase_expense_preview_details');
 hooks()->add_action('purchase_init',PURCHASE_MODULE_NAME.'_appint');
 // hooks()->add_action('pre_activate_module', PURCHASE_MODULE_NAME.'_preactivate');
 // hooks()->add_action('pre_deactivate_module', PURCHASE_MODULE_NAME.'_predeactivate');

@@ -3206,3 +3206,65 @@ function pur_check_csrf_protection()
     }
     return 'false';
 }
+
+/**
+ * Expense preview panel: extra details for project managers
+ * (vendor, billable, tax amount, created on).
+ * Hooked on after_left_panel_expense_preview_template.
+ *
+ * @param  object $expense  Expense object passed by the core preview template
+ * @return void
+ */
+function purchase_expense_preview_details($expense)
+{
+    if (!is_object($expense) || empty($expense->expenseid)) {
+        return;
+    }
+
+    $CI = &get_instance();
+
+    // Read our fields straight from the expenses table: the core get() joins
+    // several tables with SELECT *, so same-named columns could collide.
+    $CI->db->select('vendor, billable, dateadded, amount, tax, tax2');
+    $CI->db->where('id', $expense->expenseid);
+    $row = $CI->db->get(db_prefix() . 'expenses')->row();
+
+    if (!$row) {
+        return;
+    }
+
+    $currency = isset($expense->currency_data) ? $expense->currency_data : get_base_currency();
+
+    $tax_amount = 0;
+    if ((int) $row->tax > 0 && isset($expense->taxrate)) {
+        $tax_amount += (float) $row->amount / 100 * (float) $expense->taxrate;
+    }
+    if ((int) $row->tax2 > 0 && isset($expense->taxrate2)) {
+        $tax_amount += (float) $row->amount / 100 * (float) $expense->taxrate2;
+    }
+
+    $html = '<hr class="hr-panel-separator !tw-my-4" />';
+
+    if ((int) $row->vendor > 0) {
+        $html .= '<p class="bold mbot5">' . _l('pur_vendor') . '</p>';
+        $html .= '<p class="mbot15"><a href="' . admin_url('purchase/vendor/' . (int) $row->vendor) . '">'
+            . e(get_vendor_company_name($row->vendor)) . '</a></p>';
+    }
+
+    $html .= '<p class="bold mbot5">' . _l('expense_add_edit_billable') . '</p>';
+    $html .= '<p class="mbot15">' . ((int) $row->billable === 1
+        ? '<span class="label label-info">' . _l('settings_yes') . '</span>'
+        : '<span class="label label-default">' . _l('settings_no') . '</span>') . '</p>';
+
+    if ($tax_amount > 0) {
+        $html .= '<p class="bold mbot5">' . _l('tax_amount') . '</p>';
+        $html .= '<p class="mbot15 text-muted">' . e(app_format_money($tax_amount, $currency)) . '</p>';
+    }
+
+    if (!empty($row->dateadded)) {
+        $html .= '<p class="bold mbot5">' . _l('date_created') . '</p>';
+        $html .= '<p class="mbot15 text-muted">' . e(_dt($row->dateadded)) . '</p>';
+    }
+
+    echo $html;
+}
