@@ -1202,7 +1202,7 @@ class purchase extends AdminController
             }
         }
 
-        $list_item = $this->purchase_model->create_purchase_order_row_template();
+        $list_item = $this->purchase_model->create_purchase_order_blank_row_template();
 
         $currency_rate = 1;
         $to_currency = $base_currency->id;
@@ -1224,7 +1224,7 @@ class purchase extends AdminController
                     $item_name = pur_get_item_variatiom($item['item_code']);
                 }
 
-                $list_item .= $this->purchase_model->create_purchase_order_row_template('newitems[' . $index_quote . ']',  $item_name,'', $item['quantity'], $unit_name, $item['unit_price'], $taxname, $item['item_code'], $item['unit_id'], $item['tax_rate'],  $item['total'], '', '', $item['total'], $item['into_money'], $item['tax'], $item['tax_value'], $index_quote, true, $currency_rate, $to_currency);
+                $list_item .= $this->purchase_model->create_purchase_order_row_template('newitems[' . $index_quote . ']',  $item_name,'', $item['quantity'], $unit_name, $item['unit_price'], $taxname, $item['item_code'], $item['unit_id'], $item['tax_rate'],  $item['total'], '', '', $item['total'], $item['into_money'], $item['tax'], $item['tax_value'], $index_quote, true, $currency_rate, $to_currency, true);
             }
         }
 
@@ -1272,7 +1272,7 @@ class purchase extends AdminController
         }
 
         $base_currency = $this->currencies_model->get_base_currency();
-        $list_item = $this->purchase_model->create_purchase_order_row_template();
+        $list_item = $this->purchase_model->create_purchase_order_blank_row_template();
 
         $currency_rate = 1;
         $to_currency = $base_currency->id;
@@ -1292,7 +1292,7 @@ class purchase extends AdminController
                     $item_name = pur_get_item_variatiom($item['item_code']);
                 }
 
-                $list_item .= $this->purchase_model->create_purchase_order_row_template('newitems[' . $index . ']',  $item_name, '', $item['quantity'], $unit_name, $item['unit_price'], $taxname, $item['item_code'], $item['unit_id'], $item['tax_rate'],  $item['total_money'], $item['discount_%'], $item['discount_money'], $item['total'], $item['into_money'], $item['tax'], $item['tax_value'], $index, true, $currency_rate, $to_currency);
+                $list_item .= $this->purchase_model->create_purchase_order_row_template('newitems[' . $index . ']',  $item_name, '', $item['quantity'], $unit_name, $item['unit_price'], $taxname, $item['item_code'], $item['unit_id'], $item['tax_rate'],  $item['total_money'], $item['discount_%'], $item['discount_money'], $item['total'], $item['into_money'], $item['tax'], $item['tax_value'], $index, true, $currency_rate, $to_currency, true);
             }
         }
 
@@ -1529,7 +1529,7 @@ class purchase extends AdminController
         $this->load->model('currencies_model');
         $data['base_currency'] = $this->currencies_model->get_base_currency();
 
-        $pur_order_row_template = $this->purchase_model->create_purchase_order_row_template();
+        $pur_order_row_template = $this->purchase_model->create_purchase_order_blank_row_template();
 
         if ($id == '') {
             $title = _l('create_new_pur_order');
@@ -1563,7 +1563,7 @@ class purchase extends AdminController
                         $item_name = pur_get_item_variatiom($order_detail['item_code']);
                     }
 
-                    $pur_order_row_template .= $this->purchase_model->create_purchase_order_row_template('items[' . $index_order . ']',  $item_name, $order_detail['description'], $order_detail['quantity'], $unit_name, $order_detail['unit_price'], $taxname, $order_detail['item_code'], $order_detail['unit_id'], $order_detail['tax_rate'],  $order_detail['total_money'], $order_detail['discount_%'], $order_detail['discount_money'], $order_detail['total'], $order_detail['into_money'], $order_detail['tax'], $order_detail['tax_value'], $order_detail['id'], true, $currency_rate, $to_currency);
+                    $pur_order_row_template .= $this->purchase_model->create_purchase_order_row_template('items[' . $index_order . ']',  $item_name, $order_detail['description'], $order_detail['quantity'], $unit_name, $order_detail['unit_price'], $taxname, $order_detail['item_code'], $order_detail['unit_id'], $order_detail['tax_rate'],  $order_detail['total_money'], $order_detail['discount_%'], $order_detail['discount_money'], $order_detail['total'], $order_detail['into_money'], $order_detail['tax'], $order_detail['tax_value'], $order_detail['id'], true, $currency_rate, $to_currency, true);
                 }
             }
         }
@@ -6389,7 +6389,7 @@ class purchase extends AdminController
         $inv = $this->invoices_model->get($invoice);
         $base_currency = $this->currencies_model->get_base_currency();
 
-        $list_item = $this->purchase_model->create_purchase_order_row_template();
+        $list_item = $this->purchase_model->create_purchase_order_blank_row_template();
 
         $currency_rate = 1;
         $to_currency = $base_currency->id;
@@ -6444,7 +6444,7 @@ class purchase extends AdminController
                     $into_money = (float) ($item['rate'] * $item['qty']);
                     $total = $tax_value + $into_money;
 
-                    $list_item .= $this->purchase_model->create_purchase_order_row_template('newitems[' . $index_request . ']', $item_text, $item['long_description'], $item['qty'], $unit_name, $unit_price, $tax_name, $item_code, '', $tax_rate, $total, '', '', $total, $into_money, $tax, $tax_value, $index_request, false, $currency_rate, $to_currency);
+                    $list_item .= $this->purchase_model->create_purchase_order_row_template('newitems[' . $index_request . ']', $item_text, $item['long_description'], $item['qty'], $unit_name, $unit_price, $tax_name, $item_code, '', $tax_rate, $total, '', '', $total, $into_money, $tax, $tax_value, $index_request, false, $currency_rate, $to_currency, true);
                 }
             }
         }
@@ -7470,7 +7470,7 @@ class purchase extends AdminController
         $currency_rate = $this->input->post('currency_rate');
         $to_currency = $this->input->post('to_currency');
 
-        echo $this->purchase_model->create_purchase_order_row_template($name, $item_name, $item_description, $quantity, $unit_name, $unit_price, $taxname, $item_code, $unit_id, $tax_rate, '', $discount, '', '', '', '', '', $item_key, false, $currency_rate, $to_currency);
+        echo $this->purchase_model->create_purchase_order_row_template($name, $item_name, $item_description, $quantity, $unit_name, $unit_price, $taxname, $item_code, $unit_id, $tax_rate, '', $discount, '', '', '', '', '', $item_key, false, $currency_rate, $to_currency, true);
     }
 
     /**

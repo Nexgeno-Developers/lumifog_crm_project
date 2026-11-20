@@ -11436,6 +11436,15 @@ class Purchase_model extends App_Model
     }
 
     /**
+     * Blank input row for the PO form, with the Basic Amount column.
+     *
+     * @return     string
+     */
+    public function create_purchase_order_blank_row_template() {
+        return $this->create_purchase_order_row_template('', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', false, 1, '', true);
+    }
+
+    /**
      * Creates a purchase order row template.
      *
      * @param      string      $name              The name
@@ -11457,10 +11466,13 @@ class Purchase_model extends App_Model
      * @param      string      $tax_value         The tax value
      * @param      string      $item_key          The item key
      * @param      bool        $is_edit           Indicates if edit
+     * @param      bool        $show_basic_amount Render the "Basic Amount" (qty x price, before tax) cell.
+     *                                            Only the PO form has that column; invoice forms reuse
+     *                                            this template's blank row and must keep it off.
      *
-     * @return     string      
+     * @return     string
      */
-    public function create_purchase_order_row_template($name = '', $item_name = '', $item_description = '', $quantity = '', $unit_name = '', $unit_price = '', $taxname = '',  $item_code = '', $unit_id = '', $tax_rate = '', $total_money = '', $discount = '', $discount_money = '', $total = '', $into_money = '', $tax_id = '', $tax_value = '', $item_key = '',$is_edit = false, $currency_rate = 1, $to_currency = '') {
+    public function create_purchase_order_row_template($name = '', $item_name = '', $item_description = '', $quantity = '', $unit_name = '', $unit_price = '', $taxname = '',  $item_code = '', $unit_id = '', $tax_rate = '', $total_money = '', $discount = '', $discount_money = '', $total = '', $into_money = '', $tax_id = '', $tax_value = '', $item_key = '',$is_edit = false, $currency_rate = 1, $to_currency = '', $show_basic_amount = false) {
         
         $this->load->model('invoice_items_model');
         $row = '';
@@ -11590,6 +11602,11 @@ class Purchase_model extends App_Model
         render_input($name_unit_name, '', $unit_name, 'text', ['placeholder' => _l('unit'), 'readonly' => true], [], 'no-margin', 'input-transparent text-right pur_input_none').
         '</td>';
         
+        if ($show_basic_amount) {
+            // Filled live by pur_calculate_total() via td.into_money
+            $row .= '<td class="into_money" align="right">' . ($name == '' ? '' : app_format_number($sub_total)) . '</td>';
+        }
+
         $row .= '<td class="taxrate">' . $this->get_taxes_dropdown_template($name_tax_id_select, $invoice_item_taxes, 'invoice', $item_key, true, $manual) . '</td>';
 
         $row .= '<td class="tax_value">' . render_input($name_tax_value, '', $tax_value, 'number', $array_subtotal_attr, [], '', $text_right_class) . '</td>';
