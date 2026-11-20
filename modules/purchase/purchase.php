@@ -529,6 +529,10 @@ function purchase_add_footer_components() {
         echo '<script src="' . module_dir_url(PURCHASE_MODULE_NAME, 'assets/js/po_on_project.js') .'?v=' . PURCHASE_REVISION.'"></script>';
     }
 
+    if(!(strpos($viewuri, '/admin/projects/view') === false)  && !(strpos($viewuri, '?group=project_expenses') === false)){
+        echo '<script src="' . module_dir_url(PURCHASE_MODULE_NAME, 'assets/js/project_expense_preview.js') .'?v=' . PURCHASE_REVISION.'"></script>';
+    }
+
     if(!(strpos($viewuri, '/admin/projects/view') === false)  && !(strpos($viewuri, '?group=purchase_contract') === false)){
         echo '<script src="' . module_dir_url(PURCHASE_MODULE_NAME, 'assets/js/pur_contract_on_project.js') .'?v=' . PURCHASE_REVISION.'"></script>';
     }
