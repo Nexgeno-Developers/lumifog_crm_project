@@ -696,3 +696,6 @@ $lang['purchase_request_change_approve_status'] = 'Change the approval status of
 $lang['pur_boq_invalid_line'] = 'One or more purchase lines are not linked to a valid BOQ line for this project.';
 $lang['pur_boq_qty_exceeds_remaining'] = 'Requested quantity cannot exceed the remaining BOQ quantity for that line.';
 $lang['purchase_quotations_change_approve_status'] = 'Change the approval status of purchase quotations';
+$lang['pur_basic_amount'] = 'Basic Amount';
+$lang['pur_receipt_preview'] = 'Preview';
+$lang['pur_open_in_new_tab'] = 'Open in new tab';

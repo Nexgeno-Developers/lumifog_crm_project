@@ -204,7 +204,11 @@
                                     }else{
                                        echo pur_html_entity_decode($es['item_text']);
                                     }
-                                    ?></strong></td>
+                                    ?></strong><?php
+                                    if (!empty($es['description'])) {
+                                       echo '<div class="text-muted tw-mt-1">' . nl2br(e($es['description'])) . '</div>';
+                                    }
+                                    ?></td>
                                     <?php
                                        $unit_name = pur_get_unit_name($es['unit_id']); 
                                     ?>

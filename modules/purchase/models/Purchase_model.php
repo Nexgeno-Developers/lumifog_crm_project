@@ -1008,8 +1008,16 @@ class Purchase_model extends App_Model
      * @return     <array>  The pur request detail in po.
      */
     public function get_pur_request_detail_in_po($pur_request){
-        
-        $pur_request_lst = $this->db->query('SELECT item_code, prq.unit_id as unit_id, unit_price, quantity, into_money, long_description as description, prq.tax as tax, tax_name, tax_rate, item_text, tax_value, total as total_money, total as total FROM '.db_prefix().'pur_request_detail prq LEFT JOIN '.db_prefix().'items it ON prq.item_code = it.id WHERE prq.pur_request = '.$pur_request)->result_array();
+
+        $detail_table  = db_prefix() . 'pur_request_detail';
+        $has_desc      = $this->pur_request_detail_has_description();
+        $has_boq_line  = $this->db->field_exists('boq_item_id', $detail_table);
+
+        $extra = ($has_desc ? ', prq.description as pr_description' : '') . ($has_boq_line ? ', prq.boq_item_id as boq_item_id' : '');
+
+        $pur_request_lst = $this->db->query('SELECT item_code, prq.unit_id as unit_id, unit_price, quantity, into_money, long_description as description, prq.tax as tax, tax_name, tax_rate, item_text, tax_value, total as total_money, total as total' . $extra . ' FROM ' . $detail_table . ' prq LEFT JOIN ' . db_prefix() . 'items it ON prq.item_code = it.id WHERE prq.pur_request = ?', [(int) $pur_request])->result_array();
+
+        $boq_loaded = null;
 
         foreach($pur_request_lst as $key => $detail){
             $pur_request_lst[$key]['into_money'] = (float) $detail['into_money'];
@@ -1017,6 +1025,20 @@ class Purchase_model extends App_Model
             $pur_request_lst[$key]['total_money'] = (float) $detail['total_money'];
             $pur_request_lst[$key]['unit_price'] = (float) $detail['unit_price'];
             $pur_request_lst[$key]['tax_value'] = (float) $detail['tax_value'];
+
+            // Line description for the PO: the PR line's own description; for PRs saved before
+            // that column existed, fall back to the linked BOQ line's description.
+            $line_desc = trim((string) ($detail['pr_description'] ?? ''));
+            if ($line_desc === '' && !empty($detail['boq_item_id'])) {
+                if ($boq_loaded === null) {
+                    $boq_loaded = $this->load_project_boq_model();
+                }
+                if ($boq_loaded) {
+                    $boq = $this->project_boq_model->get((int) $detail['boq_item_id']);
+                    $line_desc = $boq ? trim((string) ($boq->boq_description ?? '')) : '';
+                }
+            }
+            $pur_request_lst[$key]['line_description'] = $line_desc;
         }
 
         return $pur_request_lst;
@@ -1116,6 +1138,22 @@ class Purchase_model extends App_Model
      *
      * @return     boolean  
      */
+    /**
+     * Whether pur_request_detail has the per-line `description` column (added by
+     * purchase_ensure_pr_detail_description_column()). Cached per request.
+     *
+     * @return bool
+     */
+    public function pur_request_detail_has_description()
+    {
+        static $has = null;
+        if ($has === null) {
+            $has = $this->db->field_exists('description', db_prefix() . 'pur_request_detail');
+        }
+
+        return $has;
+    }
+
     public function add_pur_request($data){
         $data['request_date'] = date('Y-m-d H:i:s');
         $check_appr = $this->get_approve_setting('pur_request');
@@ -1150,6 +1188,7 @@ class Purchase_model extends App_Model
         $data['to_currency'] = $data['currency'];
 
         unset($data['item_text']);
+        unset($data['item_description']);
         unset($data['unit_price']);
         unset($data['quantity']);
         unset($data['into_money']);
@@ -1237,6 +1276,10 @@ class Purchase_model extends App_Model
                         $dt_data['boq_item_id'] = (int) $rqd['boq_item_id'];
                     }
 
+                    if ($this->pur_request_detail_has_description() && isset($rqd['item_description'])) {
+                        $dt_data['description'] = (string) $rqd['item_description'];
+                    }
+
                     if($data['status'] == 2 && ($rqd['item_code'] == '' || $rqd['item_code'] == null) ){
                         $item_data['description'] = $rqd['item_text'];
                         $item_data['purchase_price'] = $rqd['unit_price'];
@@ -1298,6 +1341,7 @@ class Purchase_model extends App_Model
         }
 
         unset($data['item_text']);
+        unset($data['item_description']);
         unset($data['unit_price']);
         unset($data['quantity']);
         unset($data['into_money']);
@@ -1389,6 +1433,10 @@ class Purchase_model extends App_Model
                     $dt_data['boq_item_id'] = (int) $rqd['boq_item_id'];
                 }
 
+                if ($this->pur_request_detail_has_description() && isset($rqd['item_description'])) {
+                    $dt_data['description'] = (string) $rqd['item_description'];
+                }
+
                 if($purq->status == 2 && ($rqd['item_code'] == '' || $rqd['item_code'] == null) ){
                     $item_data['description'] = $rqd['item_text'];
                     $item_data['purchase_price'] = $rqd['unit_price'];
@@ -1444,6 +1492,10 @@ class Purchase_model extends App_Model
 
                 if ($this->db->field_exists('boq_item_id', db_prefix() . 'pur_request_detail') && ! empty($rqd['boq_item_id'])) {
                     $dt_data['boq_item_id'] = (int) $rqd['boq_item_id'];
+                }
+
+                if ($this->pur_request_detail_has_description() && isset($rqd['item_description'])) {
+                    $dt_data['description'] = (string) $rqd['item_description'];
                 }
 
                 if($purq->status == 2 && ($rqd['item_code'] == '' || $rqd['item_code'] == null) ){
@@ -3990,24 +4042,26 @@ class Purchase_model extends App_Model
       foreach($pur_request_detail as $row){
         $items = $this->get_items_by_id($row['item_code']);
         $units = $this->get_units_by_id($row['unit_id']);
+        // Per-line description under the item name
+        $line_desc_html = !empty($row['description']) ? '<br /><span style="color:#6b7280;">' . nl2br(e($row['description'])) . '</span>' : '';
         if($items){
             $unit_name = isset($units->unit_name) ? $units->unit_name : '';
 
             $html .= '<tr class="border_tr">
-                <td class="width30" align="left">'.$items->commodity_code.' - '.$items->description.'</td>
+                <td class="width30" align="left">'.$items->commodity_code.' - '.$items->description.$line_desc_html.'</td>
 
                 <td class="width15" align="right">'.app_format_money($row['unit_price'],$base_currency->symbol).'</td>
                 <td class="width15" align="right">'.app_format_number($row['quantity'],'').' '.$unit_name.'</td>
                 <td class="width15" align="right">'.app_format_money($row['into_money'],$base_currency->symbol).'</td>';
-          
+
                     $html .= '<td class="width10" align="right">'.app_format_money($row['tax_value'],$base_currency->symbol).'</td>';
-                
+
                 $html .= '<td class="width15" align="right">'.app_format_money($row['total'],$base_currency->symbol).'</td>
               </tr>';
         }else{
             $unit_name = isset($units->unit_name) ? $units->unit_name : '';
             $html .= '<tr class="border_tr">
-                <td class="width30" align="left">'.$row['item_text'].'</td>
+                <td class="width30" align="left">'.$row['item_text'].$line_desc_html.'</td>
 
                 <td class="width15" align="right">'.app_format_money($row['unit_price'],$base_currency->symbol).'</td>
                 <td class="width15" align="right">'.$row['quantity'].'</td>
@@ -10571,12 +10625,13 @@ class Purchase_model extends App_Model
      * @param      array   $unit_data  The unit data
      * @param      string  $name       The name
      */
-    public function create_purchase_request_row_template($name = '', $item_code = '', $item_text = '', $unit_price = '', $quantity = '', $unit_name = '', $unit_id = '', $into_money = '', $item_key = '', $tax_value = '', $total = '', $tax_name = '', $tax_rate = '', $tax_id = '', $is_edit = false, $currency_rate = 1, $to_currency = '', $qty_max = null, $boq_item_id = null){
+    public function create_purchase_request_row_template($name = '', $item_code = '', $item_text = '', $unit_price = '', $quantity = '', $unit_name = '', $unit_id = '', $into_money = '', $item_key = '', $tax_value = '', $total = '', $tax_name = '', $tax_rate = '', $tax_id = '', $is_edit = false, $currency_rate = 1, $to_currency = '', $qty_max = null, $boq_item_id = null, $description = ''){
         $this->load->model('invoice_items_model');
         $row = '';
 
         $name_item_code = 'item_code';
         $name_item_text = 'item_text';
+        $name_item_description = 'item_description';
         $name_unit_id = 'unit_id';
         $name_unit_name = 'unit_name';
         $name_unit_price = 'unit_price';
@@ -10611,6 +10666,7 @@ class Purchase_model extends App_Model
                     <td class="dragger"><input type="hidden" class="order" name="' . $name . '[order]"><input type="hidden" class="ids" name="' . $name . '[id]" value="' . $item_key . '"></td>';
             $name_item_code = $name . '[item_code]';
             $name_item_text = $name . '[item_text]';
+            $name_item_description = $name . '[item_description]';
             $name_unit_id = $name . '[unit_id]';
             $name_unit_name = $name . '[unit_name]';
             $name_unit_price = $name . '[unit_price]';
@@ -10663,6 +10719,8 @@ class Purchase_model extends App_Model
 
 
         $row .= '<td class="">' . render_textarea($name_item_text, '', $item_text, ['rows' => 2, 'placeholder' => _l('pur_item_name')] ) . '</td>';
+        // Line description (from BOQ / item master / typed). render_textarea escapes via set_value().
+        $row .= '<td class="item_description">' . render_textarea($name_item_description, '', (string) $description, ['rows' => 2, 'placeholder' => _l('item_description')] ) . '</td>';
         $row .= '<td class="rate">' . render_input($name_unit_price, '', $unit_price, 'number', $array_rate_attr, [], 'no-margin', $text_right_class) ;
         if( $unit_price != ''){
             $original_price = round( ($unit_price/$currency_rate), 2);
@@ -10758,6 +10816,11 @@ class Purchase_model extends App_Model
             }
 
             $item_text = $item->code_description ?? $item->long_description ?? '';
+            // BOQ line description first; fall back to the item master's long description
+            $item_description = trim((string) ($boq->boq_description ?? ''));
+            if ($item_description === '') {
+                $item_description = (string) ($item->long_description ?? '');
+            }
             $unit_name = $item->unit_name ?? '';
             $unit_id   = $item->unit_id ?? '';
 
@@ -10809,7 +10872,8 @@ class Purchase_model extends App_Model
                 $currency_rate,
                 $to_currency,
                 $remaining,
-                $boq_item_id
+                $boq_item_id,
+                $item_description
             );
         }
 
@@ -11092,7 +11156,8 @@ class Purchase_model extends App_Model
         // Clear the duplicates
         $taxes = $this->pur_uniqueByKey($taxes, 'name');
 
-        $select = '<select class="selectpicker display-block taxes" data-width="100%" name="' . $name . '" multiple data-none-selected-text="' . _l('no_tax') . '">';
+        // data-container="body": open the menu outside the item table so a scrolling table can't clip it
+        $select = '<select class="selectpicker display-block taxes" data-width="100%" data-container="body" name="' . $name . '" multiple data-none-selected-text="' . _l('no_tax') . '">';
 
         foreach ($taxes as $tax) {
             $selected = '';
@@ -11436,6 +11501,15 @@ class Purchase_model extends App_Model
     }
 
     /**
+     * Blank input row for the PO form, with the Basic Amount column.
+     *
+     * @return     string
+     */
+    public function create_purchase_order_blank_row_template() {
+        return $this->create_purchase_order_row_template('', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', false, 1, '', true);
+    }
+
+    /**
      * Creates a purchase order row template.
      *
      * @param      string      $name              The name
@@ -11457,10 +11531,13 @@ class Purchase_model extends App_Model
      * @param      string      $tax_value         The tax value
      * @param      string      $item_key          The item key
      * @param      bool        $is_edit           Indicates if edit
+     * @param      bool        $show_basic_amount Render the "Basic Amount" (qty x price, before tax) cell.
+     *                                            Only the PO form has that column; invoice forms reuse
+     *                                            this template's blank row and must keep it off.
      *
-     * @return     string      
+     * @return     string
      */
-    public function create_purchase_order_row_template($name = '', $item_name = '', $item_description = '', $quantity = '', $unit_name = '', $unit_price = '', $taxname = '',  $item_code = '', $unit_id = '', $tax_rate = '', $total_money = '', $discount = '', $discount_money = '', $total = '', $into_money = '', $tax_id = '', $tax_value = '', $item_key = '',$is_edit = false, $currency_rate = 1, $to_currency = '') {
+    public function create_purchase_order_row_template($name = '', $item_name = '', $item_description = '', $quantity = '', $unit_name = '', $unit_price = '', $taxname = '',  $item_code = '', $unit_id = '', $tax_rate = '', $total_money = '', $discount = '', $discount_money = '', $total = '', $into_money = '', $tax_id = '', $tax_value = '', $item_key = '',$is_edit = false, $currency_rate = 1, $to_currency = '', $show_basic_amount = false) {
         
         $this->load->model('invoice_items_model');
         $row = '';
@@ -11590,6 +11667,11 @@ class Purchase_model extends App_Model
         render_input($name_unit_name, '', $unit_name, 'text', ['placeholder' => _l('unit'), 'readonly' => true], [], 'no-margin', 'input-transparent text-right pur_input_none').
         '</td>';
         
+        if ($show_basic_amount) {
+            // Filled live by pur_calculate_total() via td.into_money
+            $row .= '<td class="into_money" align="right">' . ($name == '' ? '' : app_format_number($sub_total)) . '</td>';
+        }
+
         $row .= '<td class="taxrate">' . $this->get_taxes_dropdown_template($name_tax_id_select, $invoice_item_taxes, 'invoice', $item_key, true, $manual) . '</td>';
 
         $row .= '<td class="tax_value">' . render_input($name_tax_value, '', $tax_value, 'number', $array_subtotal_attr, [], '', $text_right_class) . '</td>';

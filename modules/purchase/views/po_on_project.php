@@ -8,8 +8,9 @@
 		<?php echo form_hidden('_project_id', $project->id); ?>
 		<?php $table_data = array(
         _l('purchase_order'),
-        _l('total'),
-        _l('estimates_total_tax'),
+        _l('po_value'),
+        _l('tax_value'),
+        _l('po_value_included_tax'),
         _l('vendor'),
         _l('order_date'),
         _l('payment_status'),

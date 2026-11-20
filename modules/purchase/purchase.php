@@ -103,6 +103,9 @@ hooks()->add_filter('get_styling_areas', 'purchase_before_load_theme_style');
 hooks()->add_filter('expenses_table_columns', 'purchase_add_vendor_column');
 hooks()->add_filter('expenses_table_sql_columns', 'purchase_add_vendor_sql_column');
 hooks()->add_filter('expenses_table_row_data', 'purchase_add_vendor_row_data', 10, 2);
+hooks()->add_action('after_left_panel_expense_preview_template', 'purchase_expense_preview_details');
+hooks()->add_action('after_right_panel_expense_preview_template', 'purchase_expense_receipt_preview');
+hooks()->add_action('admin_init', 'purchase_ensure_pr_detail_description_column');
 hooks()->add_action('purchase_init',PURCHASE_MODULE_NAME.'_appint');
 // hooks()->add_action('pre_activate_module', PURCHASE_MODULE_NAME.'_preactivate');
 // hooks()->add_action('pre_deactivate_module', PURCHASE_MODULE_NAME.'_predeactivate');
@@ -527,6 +530,10 @@ function purchase_add_footer_components() {
         echo '<script src="' . module_dir_url(PURCHASE_MODULE_NAME, 'assets/js/po_on_project.js') .'?v=' . PURCHASE_REVISION.'"></script>';
     }
 
+    if(!(strpos($viewuri, '/admin/projects/view') === false)  && !(strpos($viewuri, '?group=project_expenses') === false)){
+        echo '<script src="' . module_dir_url(PURCHASE_MODULE_NAME, 'assets/js/project_expense_preview.js') .'?v=' . PURCHASE_REVISION.'"></script>';
+    }
+
     if(!(strpos($viewuri, '/admin/projects/view') === false)  && !(strpos($viewuri, '?group=purchase_contract') === false)){
         echo '<script src="' . module_dir_url(PURCHASE_MODULE_NAME, 'assets/js/pur_contract_on_project.js') .'?v=' . PURCHASE_REVISION.'"></script>';
     }
@@ -622,6 +629,7 @@ function purchase_head_components() {
     }
     if(!(strpos($viewuri, '/admin/purchase/pur_order') === false)){
         echo '<link href="' . module_dir_url(PURCHASE_MODULE_NAME, 'assets/css/pur_order.css') .'?v=' . PURCHASE_REVISION.'"  rel="stylesheet" type="text/css" />';
+        echo '<link href="' . module_dir_url(PURCHASE_MODULE_NAME, 'assets/css/pur_order_items.css') .'?v=' . PURCHASE_REVISION.'"  rel="stylesheet" type="text/css" />';
     }
     if(!(strpos($viewuri, '/admin/purchase/pur_request') === false)){
         echo '<link href="' . module_dir_url(PURCHASE_MODULE_NAME, 'assets/css/pur_request.css') .'?v=' . PURCHASE_REVISION.'"  rel="stylesheet" type="text/css" />';

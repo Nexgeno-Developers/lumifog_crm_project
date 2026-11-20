@@ -378,7 +378,7 @@
         </div> 
         <div class="row">
           <div class="col-md-12">
-            <div class="table-responsive s_table ">
+            <div class="table-responsive s_table pur-items-scroll">
               <table class="table invoice-items-table items table-main-invoice-edit has-calculations no-mtop">
                 <thead>
                   <tr>
@@ -387,6 +387,7 @@
                     <th width="15%" align="left"><?php echo _l('item_description'); ?></th>
                     <th width="10%" align="right"><?php echo _l('unit_price'); ?><span class="th_currency"><?php echo '('.$po_currency->name.')'; ?></span></th>
                     <th width="10%" align="right" class="qty"><?php echo _l('quantity'); ?></th>
+                    <th width="10%" align="right"><?php echo _l('pur_basic_amount'); ?><span class="th_currency"><?php echo '('.$po_currency->name.')'; ?></span></th>
                     <th width="12%" align="right"><?php echo _l('invoice_table_tax_heading'); ?></th>
                     <th width="10%" align="right"><?php echo _l('tax_value'); ?><span class="th_currency"><?php echo '('.$po_currency->name.')'; ?></span></th>
                     <th width="10%" align="right"><?php echo _l('pur_subtotal_after_tax'); ?><span class="th_currency"><?php echo '('.$po_currency->name.')'; ?></span></th>

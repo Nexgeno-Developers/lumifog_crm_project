@@ -25,7 +25,19 @@ $aColumns = [
     'expense_convert',
     ];
 
-if(isset($vendor) || isset($project)){
+if(isset($project)){
+    // Project > Purchase tab: show basic value, tax and value incl. tax like the main PO list
+    $aColumns = [
+    'pur_order_number',
+    'subtotal',
+    'total_tax',
+    'total',
+    'vendor',
+    'order_date',
+    'number',
+    'approve_status',
+    ];
+}elseif(isset($vendor)){
     $aColumns = [
     'pur_order_number',
     'total',

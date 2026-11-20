@@ -3206,3 +3206,175 @@ function pur_check_csrf_protection()
     }
     return 'false';
 }
+
+/**
+ * Expense preview panel: extra details for project managers
+ * (vendor, billable, tax amount, created on).
+ * Hooked on after_left_panel_expense_preview_template.
+ *
+ * @param  object $expense  Expense object passed by the core preview template
+ * @return void
+ */
+function purchase_expense_preview_details($expense)
+{
+    if (!is_object($expense) || empty($expense->expenseid)) {
+        return;
+    }
+
+    $CI = &get_instance();
+
+    // Read our fields straight from the expenses table: the core get() joins
+    // several tables with SELECT *, so same-named columns could collide.
+    $CI->db->select('vendor, billable, dateadded, amount, tax, tax2');
+    $CI->db->where('id', $expense->expenseid);
+    $row = $CI->db->get(db_prefix() . 'expenses')->row();
+
+    if (!$row) {
+        return;
+    }
+
+    $currency = isset($expense->currency_data) ? $expense->currency_data : get_base_currency();
+
+    $tax_amount = 0;
+    if ((int) $row->tax > 0 && isset($expense->taxrate)) {
+        $tax_amount += (float) $row->amount / 100 * (float) $expense->taxrate;
+    }
+    if ((int) $row->tax2 > 0 && isset($expense->taxrate2)) {
+        $tax_amount += (float) $row->amount / 100 * (float) $expense->taxrate2;
+    }
+
+    $html = '<hr class="hr-panel-separator !tw-my-4" />';
+
+    if ((int) $row->vendor > 0) {
+        $html .= '<p class="bold mbot5">' . _l('pur_vendor') . '</p>';
+        $html .= '<p class="mbot15"><a href="' . admin_url('purchase/vendor/' . (int) $row->vendor) . '">'
+            . e(get_vendor_company_name($row->vendor)) . '</a></p>';
+    }
+
+    $html .= '<p class="bold mbot5">' . _l('expense_add_edit_billable') . '</p>';
+    $html .= '<p class="mbot15">' . ((int) $row->billable === 1
+        ? '<span class="label label-info">' . _l('settings_yes') . '</span>'
+        : '<span class="label label-default">' . _l('settings_no') . '</span>') . '</p>';
+
+    if ($tax_amount > 0) {
+        $html .= '<p class="bold mbot5">' . _l('tax_amount') . '</p>';
+        $html .= '<p class="mbot15 text-muted">' . e(app_format_money($tax_amount, $currency)) . '</p>';
+    }
+
+    if (!empty($row->dateadded)) {
+        $html .= '<p class="bold mbot5">' . _l('date_created') . '</p>';
+        $html .= '<p class="mbot15 text-muted">' . e(_dt($row->dateadded)) . '</p>';
+    }
+
+    echo $html;
+}
+
+
+/**
+ * Expense preview panel: Preview / Open in new tab / Download for the receipt.
+ * Hooked on after_right_panel_expense_preview_template.
+ *
+ * @param  object $expense  Expense object passed by the core preview template
+ * @return void
+ */
+function purchase_expense_receipt_preview($expense)
+{
+    if (!is_object($expense) || empty($expense->expenseid) || empty($expense->attachment)) {
+        return;
+    }
+
+    $ext = strtolower(pathinfo($expense->attachment, PATHINFO_EXTENSION));
+    $kinds = ['pdf' => 'pdf', 'png' => 'image', 'jpg' => 'image', 'jpeg' => 'image', 'gif' => 'image', 'webp' => 'image'];
+    $kind = isset($kinds[$ext]) ? $kinds[$ext] : '';
+
+    $id           = (int) $expense->expenseid;
+    $preview_url  = admin_url('purchase/expense_receipt/preview/' . $id);
+    $download_url = site_url('download/file/expense/' . $id);
+
+    $html = '<div class="tw-mt-3 tw-flex tw-flex-wrap tw-gap-2">';
+    if ($kind !== '') {
+        $html .= '<button type="button" class="btn btn-default btn-sm" data-src="' . e($preview_url) . '" data-kind="' . $kind . '"'
+            . ' data-download="' . e($download_url) . '" data-name="' . e($expense->attachment) . '"'
+            . ' onclick="purOpenReceiptModal(this); return false;">'
+            . '<i class="fa-regular fa-eye tw-mr-1"></i>' . _l('pur_receipt_preview') . '</button>';
+        $html .= '<a href="' . e($preview_url) . '" target="_blank" rel="noopener" class="btn btn-default btn-sm">'
+            . '<i class="fa fa-up-right-from-square tw-mr-1"></i>' . _l('pur_open_in_new_tab') . '</a>';
+    }
+    $html .= '<a href="' . e($download_url) . '" class="btn btn-default btn-sm">'
+        . '<i class="fa fa-download tw-mr-1"></i>' . _l('download') . '</a>';
+    $html .= '</div>';
+
+    if ($kind !== '') {
+        // One shared modal, appended to <body> on first use (the preview panel is re-rendered
+        // by AJAX and sits inside scrolling containers, which would clip a modal placed there).
+        // The file is only fetched when Preview is clicked, and unloaded when the modal closes.
+        $labels = json_encode([
+            'newTab'   => _l('pur_open_in_new_tab'),
+            'download' => _l('download'),
+            'close'    => _l('close'),
+        ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+        $html .= '<script>
+if (typeof window.purOpenReceiptModal !== "function") {
+    window.purReceiptLabels = ' . $labels . ';
+    window.purOpenReceiptModal = function (btn) {
+        var L = window.purReceiptLabels, $btn = $(btn), $m = $("#pur-receipt-modal");
+        if (!$m.length) {
+            $m = $(
+                "<div class=\"modal fade\" id=\"pur-receipt-modal\" tabindex=\"-1\" role=\"dialog\">" +
+                "<div class=\"modal-dialog\" role=\"document\" style=\"width:92vw;max-width:1200px;margin:2vh auto;\">" +
+                "<div class=\"modal-content\">" +
+                "<div class=\"modal-header\" style=\"display:flex;align-items:center;gap:8px;\">" +
+                "<h4 class=\"modal-title pur-receipt-title\" style=\"flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;\"></h4>" +
+                "<a class=\"btn btn-default btn-sm pur-receipt-newtab\" target=\"_blank\" rel=\"noopener\"><i class=\"fa fa-up-right-from-square tw-mr-1\"></i></a>" +
+                "<a class=\"btn btn-default btn-sm pur-receipt-download\"><i class=\"fa fa-download tw-mr-1\"></i></a>" +
+                "<button type=\"button\" class=\"close\" data-dismiss=\"modal\" style=\"margin-left:8px;\"><span aria-hidden=\"true\">&times;</span></button>" +
+                "</div>" +
+                "<div class=\"modal-body pur-receipt-body\" style=\"padding:0;background:#525659;height:calc(96vh - 70px);overflow:auto;text-align:center;\"></div>" +
+                "</div></div></div>"
+            );
+            $m.find(".pur-receipt-newtab").append(document.createTextNode(L.newTab));
+            $m.find(".pur-receipt-download").append(document.createTextNode(L.download));
+            $m.find(".close").attr("aria-label", L.close);
+            $m.on("hidden.bs.modal", function () { $m.find(".pur-receipt-body").empty(); });
+            $("body").append($m);
+        }
+        var src = $btn.data("src"), $body = $m.find(".pur-receipt-body").empty();
+        $m.find(".pur-receipt-title").text($btn.data("name"));
+        $m.find(".pur-receipt-newtab").attr("href", src);
+        $m.find(".pur-receipt-download").attr("href", $btn.data("download"));
+        if ($btn.data("kind") === "pdf") {
+            $body.append($("<iframe>", {src: src, title: $btn.data("name"), style: "width:100%;height:100%;border:0;display:block;"}));
+        } else {
+            $body.append($("<img>", {src: src, alt: $btn.data("name"), style: "max-width:100%;height:auto;margin:16px auto;display:block;background:#fff;"}));
+        }
+        $m.modal("show");
+    };
+}
+</script>';
+    }
+
+    echo $html;
+}
+
+/**
+ * Adds the per-line `description` column to pur_request_detail if it is missing,
+ * so item descriptions travel BOQ -> purchase request -> purchase order.
+ * Idempotent; hooked on admin_init (same approach as the BOQ module's columns).
+ *
+ * @return void
+ */
+function purchase_ensure_pr_detail_description_column()
+{
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+
+    $CI    = &get_instance();
+    $table = db_prefix() . 'pur_request_detail';
+
+    if ($CI->db->table_exists($table) && !$CI->db->field_exists('description', $table)) {
+        $CI->db->query('ALTER TABLE `' . $table . '` ADD `description` TEXT NULL AFTER `item_text`');
+    }
+}

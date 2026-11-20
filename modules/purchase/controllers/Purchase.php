@@ -585,7 +585,7 @@ class purchase extends AdminController
                         $item_text = pur_get_item_variatiom($request_detail['item_code']);
                     }
 
-                    $purchase_request_row_template .= $this->purchase_model->create_purchase_request_row_template('items[' . $index_request . ']', $request_detail['item_code'], $item_text, $request_detail['unit_price'], $request_detail['quantity'], $unit_name, $request_detail['unit_id'], $request_detail['into_money'], $request_detail['prd_id'], $request_detail['tax_value'], $request_detail['total'], $request_detail['tax_name'], $request_detail['tax_rate'], $request_detail['tax'], true, $currency_rate, $to_currency);
+                    $purchase_request_row_template .= $this->purchase_model->create_purchase_request_row_template('items[' . $index_request . ']', $request_detail['item_code'], $item_text, $request_detail['unit_price'], $request_detail['quantity'], $unit_name, $request_detail['unit_id'], $request_detail['into_money'], $request_detail['prd_id'], $request_detail['tax_value'], $request_detail['total'], $request_detail['tax_name'], $request_detail['tax_rate'], $request_detail['tax'], true, $currency_rate, $to_currency, null, null, $request_detail['description'] ?? '');
                 }
             }
         }
@@ -1202,7 +1202,7 @@ class purchase extends AdminController
             }
         }
 
-        $list_item = $this->purchase_model->create_purchase_order_row_template();
+        $list_item = $this->purchase_model->create_purchase_order_blank_row_template();
 
         $currency_rate = 1;
         $to_currency = $base_currency->id;
@@ -1224,7 +1224,7 @@ class purchase extends AdminController
                     $item_name = pur_get_item_variatiom($item['item_code']);
                 }
 
-                $list_item .= $this->purchase_model->create_purchase_order_row_template('newitems[' . $index_quote . ']',  $item_name,'', $item['quantity'], $unit_name, $item['unit_price'], $taxname, $item['item_code'], $item['unit_id'], $item['tax_rate'],  $item['total'], '', '', $item['total'], $item['into_money'], $item['tax'], $item['tax_value'], $index_quote, true, $currency_rate, $to_currency);
+                $list_item .= $this->purchase_model->create_purchase_order_row_template('newitems[' . $index_quote . ']',  $item_name, $item['line_description'] ?? '', $item['quantity'], $unit_name, $item['unit_price'], $taxname, $item['item_code'], $item['unit_id'], $item['tax_rate'],  $item['total'], '', '', $item['total'], $item['into_money'], $item['tax'], $item['tax_value'], $index_quote, true, $currency_rate, $to_currency, true);
             }
         }
 
@@ -1272,7 +1272,7 @@ class purchase extends AdminController
         }
 
         $base_currency = $this->currencies_model->get_base_currency();
-        $list_item = $this->purchase_model->create_purchase_order_row_template();
+        $list_item = $this->purchase_model->create_purchase_order_blank_row_template();
 
         $currency_rate = 1;
         $to_currency = $base_currency->id;
@@ -1292,7 +1292,7 @@ class purchase extends AdminController
                     $item_name = pur_get_item_variatiom($item['item_code']);
                 }
 
-                $list_item .= $this->purchase_model->create_purchase_order_row_template('newitems[' . $index . ']',  $item_name, '', $item['quantity'], $unit_name, $item['unit_price'], $taxname, $item['item_code'], $item['unit_id'], $item['tax_rate'],  $item['total_money'], $item['discount_%'], $item['discount_money'], $item['total'], $item['into_money'], $item['tax'], $item['tax_value'], $index, true, $currency_rate, $to_currency);
+                $list_item .= $this->purchase_model->create_purchase_order_row_template('newitems[' . $index . ']',  $item_name, '', $item['quantity'], $unit_name, $item['unit_price'], $taxname, $item['item_code'], $item['unit_id'], $item['tax_rate'],  $item['total_money'], $item['discount_%'], $item['discount_money'], $item['total'], $item['into_money'], $item['tax'], $item['tax_value'], $index, true, $currency_rate, $to_currency, true);
             }
         }
 
@@ -1529,7 +1529,7 @@ class purchase extends AdminController
         $this->load->model('currencies_model');
         $data['base_currency'] = $this->currencies_model->get_base_currency();
 
-        $pur_order_row_template = $this->purchase_model->create_purchase_order_row_template();
+        $pur_order_row_template = $this->purchase_model->create_purchase_order_blank_row_template();
 
         if ($id == '') {
             $title = _l('create_new_pur_order');
@@ -1563,7 +1563,7 @@ class purchase extends AdminController
                         $item_name = pur_get_item_variatiom($order_detail['item_code']);
                     }
 
-                    $pur_order_row_template .= $this->purchase_model->create_purchase_order_row_template('items[' . $index_order . ']',  $item_name, $order_detail['description'], $order_detail['quantity'], $unit_name, $order_detail['unit_price'], $taxname, $order_detail['item_code'], $order_detail['unit_id'], $order_detail['tax_rate'],  $order_detail['total_money'], $order_detail['discount_%'], $order_detail['discount_money'], $order_detail['total'], $order_detail['into_money'], $order_detail['tax'], $order_detail['tax_value'], $order_detail['id'], true, $currency_rate, $to_currency);
+                    $pur_order_row_template .= $this->purchase_model->create_purchase_order_row_template('items[' . $index_order . ']',  $item_name, $order_detail['description'], $order_detail['quantity'], $unit_name, $order_detail['unit_price'], $taxname, $order_detail['item_code'], $order_detail['unit_id'], $order_detail['tax_rate'],  $order_detail['total_money'], $order_detail['discount_%'], $order_detail['discount_money'], $order_detail['total'], $order_detail['into_money'], $order_detail['tax'], $order_detail['tax_value'], $order_detail['id'], true, $currency_rate, $to_currency, true);
                 }
             }
         }
@@ -6389,7 +6389,7 @@ class purchase extends AdminController
         $inv = $this->invoices_model->get($invoice);
         $base_currency = $this->currencies_model->get_base_currency();
 
-        $list_item = $this->purchase_model->create_purchase_order_row_template();
+        $list_item = $this->purchase_model->create_purchase_order_blank_row_template();
 
         $currency_rate = 1;
         $to_currency = $base_currency->id;
@@ -6444,7 +6444,7 @@ class purchase extends AdminController
                     $into_money = (float) ($item['rate'] * $item['qty']);
                     $total = $tax_value + $into_money;
 
-                    $list_item .= $this->purchase_model->create_purchase_order_row_template('newitems[' . $index_request . ']', $item_text, $item['long_description'], $item['qty'], $unit_name, $unit_price, $tax_name, $item_code, '', $tax_rate, $total, '', '', $total, $into_money, $tax, $tax_value, $index_request, false, $currency_rate, $to_currency);
+                    $list_item .= $this->purchase_model->create_purchase_order_row_template('newitems[' . $index_request . ']', $item_text, $item['long_description'], $item['qty'], $unit_name, $unit_price, $tax_name, $item_code, '', $tax_rate, $total, '', '', $total, $into_money, $tax, $tax_value, $index_request, false, $currency_rate, $to_currency, true);
                 }
             }
         }
@@ -7380,7 +7380,9 @@ class purchase extends AdminController
         $qty_max_param = ($qty_max !== null && $qty_max !== '') ? $qty_max : null;
         $boq_id_param  = ($boq_item_id !== null && $boq_item_id !== '') ? (int) $boq_item_id : null;
 
-        echo $this->purchase_model->create_purchase_request_row_template($name, $item_code, $item_text, $unit_price, $quantity, $unit_name, $unit_id, $into_money, $item_key, $tax_value, $total, $tax_name, '', '', false, $currency_rate, $to_currency, $qty_max_param, $boq_id_param);
+        $item_description = (string) $this->input->post('item_description');
+
+        echo $this->purchase_model->create_purchase_request_row_template($name, $item_code, $item_text, $unit_price, $quantity, $unit_name, $unit_id, $into_money, $item_key, $tax_value, $total, $tax_name, '', '', false, $currency_rate, $to_currency, $qty_max_param, $boq_id_param, $item_description);
     }
 
     /**
@@ -7470,7 +7472,7 @@ class purchase extends AdminController
         $currency_rate = $this->input->post('currency_rate');
         $to_currency = $this->input->post('to_currency');
 
-        echo $this->purchase_model->create_purchase_order_row_template($name, $item_name, $item_description, $quantity, $unit_name, $unit_price, $taxname, $item_code, $unit_id, $tax_rate, '', $discount, '', '', '', '', '', $item_key, false, $currency_rate, $to_currency);
+        echo $this->purchase_model->create_purchase_order_row_template($name, $item_name, $item_description, $quantity, $unit_name, $unit_price, $taxname, $item_code, $unit_id, $tax_rate, '', $discount, '', '', '', '', '', $item_key, false, $currency_rate, $to_currency, true);
     }
 
     /**

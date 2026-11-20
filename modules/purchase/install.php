@@ -1887,3 +1887,7 @@ if (!$CI->db->field_exists('wh_quantity_received' ,db_prefix() . 'pur_order_deta
       ADD COLUMN `wh_quantity_received` varchar(200)  NULL
   ;");
 }
+
+if ($CI->db->table_exists(db_prefix() . 'pur_request_detail') && !$CI->db->field_exists('description', db_prefix() . 'pur_request_detail')) {
+    $CI->db->query('ALTER TABLE `' . db_prefix() . 'pur_request_detail` ADD `description` TEXT NULL AFTER `item_text`');
+}
