@@ -369,6 +369,8 @@ function pur_add_item_to_preview(id) {
 
     $('.main input[name="item_code"]').val(response.itemid);
     $('.main textarea[name="item_text"]').val(response.code_description);
+    // Item master long description (server sends it through nl2br - turn <br> back into plain new lines)
+    $('.main textarea[name="item_description"]').val(String(response.long_description || '').replace(/<br\s*\/?>/gi, ''));
     $('.main input[name="unit_price"]').val(response.purchase_price);
     $('.main input[name="unit_name"]').val(response.unit_name);
     $('.main input[name="unit_id"]').val(response.unit_id);
@@ -424,7 +426,7 @@ function tax_rate_by_id(tax_id){
   return tax_rate;
 }
 
-function pur_get_item_row_template(name, item_code, item_text, unit_price, quantity, unit_name, unit_id, into_money, item_key, tax_value, total, taxname, currency_rate, to_currency)  {
+function pur_get_item_row_template(name, item_code, item_text, unit_price, quantity, unit_name, unit_id, into_money, item_key, tax_value, total, taxname, currency_rate, to_currency, item_description)  {
   "use strict";
 
   jQuery.ajaxSetup({
@@ -434,6 +436,7 @@ function pur_get_item_row_template(name, item_code, item_text, unit_price, quant
   var d = $.post(admin_url + 'purchase/get_purchase_request_row_template', {
     name: name,
     item_text : item_text,
+    item_description : item_description || '',
     unit_price : unit_price,
     quantity : quantity,
     unit_name : unit_name,
@@ -470,7 +473,7 @@ function pur_add_item_to_table(data, itemid) {
   var item_key = lastAddedItemKey ? lastAddedItemKey += 1 : $("body").find('.invoice-items-table tbody .item').length + 1;
   lastAddedItemKey = item_key;
   $("body").append('<div class="dt-loader"></div>');
-  pur_get_item_row_template('newitems[' + item_key + ']', data.item_code, data.item_text,data.unit_price,data.quantity, data.unit_name, data.unit_id, data.into_money, item_key, data.tax_value, data.total, data.taxname, currency_rate, to_currency).done(function(output){
+  pur_get_item_row_template('newitems[' + item_key + ']', data.item_code, data.item_text,data.unit_price,data.quantity, data.unit_name, data.unit_id, data.into_money, item_key, data.tax_value, data.total, data.taxname, currency_rate, to_currency, data.item_description).done(function(output){
     table_row += output;
 
     $('.invoice-item table.invoice-items-table.items tbody').append(table_row);
@@ -519,6 +522,7 @@ function pur_get_item_preview_values() {
 
   var response = {};
   response.item_text = $('.invoice-item .main textarea[name="item_text"]').val();
+  response.item_description = $('.invoice-item .main textarea[name="item_description"]').val();
   response.item_code = $('.invoice-item .main input[name="item_code"]').val();
   response.quantity = $('.invoice-item .main input[name="quantity"]').val();
   response.unit_name = $('.invoice-item .main input[name="unit_name"]').val();

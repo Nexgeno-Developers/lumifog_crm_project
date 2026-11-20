@@ -3355,3 +3355,26 @@ if (typeof window.purOpenReceiptModal !== "function") {
 
     echo $html;
 }
+
+/**
+ * Adds the per-line `description` column to pur_request_detail if it is missing,
+ * so item descriptions travel BOQ -> purchase request -> purchase order.
+ * Idempotent; hooked on admin_init (same approach as the BOQ module's columns).
+ *
+ * @return void
+ */
+function purchase_ensure_pr_detail_description_column()
+{
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+
+    $CI    = &get_instance();
+    $table = db_prefix() . 'pur_request_detail';
+
+    if ($CI->db->table_exists($table) && !$CI->db->field_exists('description', $table)) {
+        $CI->db->query('ALTER TABLE `' . $table . '` ADD `description` TEXT NULL AFTER `item_text`');
+    }
+}
