@@ -1,0 +1,79 @@
+/*
+ * Purchase order form - item table.
+ * Keeps horizontal scrolling inside the table box instead of the whole page.
+ * Desktop/laptop only: at <=1024px core Perfex switches .s_table to a stacked mobile layout.
+ */
+@media (min-width: 1025px) {
+
+  /* Core sets .s_table { overflow-x: visible } - scroll inside the box instead */
+  .s_table.pur-items-scroll {
+    overflow-x: auto;
+    overflow-y: hidden;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    margin-bottom: 15px;
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 #f1f5f9;
+  }
+
+  .s_table.pur-items-scroll::-webkit-scrollbar {
+    height: 8px;
+  }
+
+  .s_table.pur-items-scroll::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 0 0 6px 6px;
+  }
+
+  .s_table.pur-items-scroll::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+  }
+
+  .s_table.pur-items-scroll::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
+
+  /* Give columns room so inputs aren't squashed; the box scrolls when narrower */
+  .pur-items-scroll > table.invoice-items-table {
+    min-width: 1280px;
+    margin: 0;
+  }
+
+  .pur-items-scroll > table.invoice-items-table > thead > tr > th {
+    vertical-align: middle;
+    white-space: normal;
+    line-height: 1.3;
+  }
+
+  .pur-items-scroll > table.invoice-items-table > tbody > tr > td {
+    vertical-align: top;
+  }
+
+  /* Read-only amount cells: line up with the inputs beside them */
+  .pur-items-scroll td.into_money,
+  .pur-items-scroll td._total,
+  .pur-items-scroll td.label_total_after_discount {
+    padding-top: 15px;
+    white-space: nowrap;
+  }
+
+  /* Keep the add / delete button visible while scrolling sideways */
+  .pur-items-scroll > table.invoice-items-table > thead > tr > th:last-child,
+  .pur-items-scroll > table.invoice-items-table > tbody > tr > td:last-child {
+    position: sticky;
+    right: 0;
+    z-index: 2;
+    background: #fff;
+    box-shadow: -6px 0 6px -6px rgba(15, 23, 42, 0.25);
+  }
+
+  /* Match core colours: header #f3f4f6, input row (.main) #f9fafb */
+  .pur-items-scroll > table.invoice-items-table > thead > tr > th:last-child {
+    background: #f3f4f6;
+  }
+
+  .pur-items-scroll > table.invoice-items-table > tbody > tr.main > td:last-child {
+    background: #f9fafb;
+  }
+}

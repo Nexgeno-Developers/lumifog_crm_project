@@ -622,6 +622,7 @@ function purchase_head_components() {
     }
     if(!(strpos($viewuri, '/admin/purchase/pur_order') === false)){
         echo '<link href="' . module_dir_url(PURCHASE_MODULE_NAME, 'assets/css/pur_order.css') .'?v=' . PURCHASE_REVISION.'"  rel="stylesheet" type="text/css" />';
+        echo '<link href="' . module_dir_url(PURCHASE_MODULE_NAME, 'assets/css/pur_order_items.css') .'?v=' . PURCHASE_REVISION.'"  rel="stylesheet" type="text/css" />';
     }
     if(!(strpos($viewuri, '/admin/purchase/pur_request') === false)){
         echo '<link href="' . module_dir_url(PURCHASE_MODULE_NAME, 'assets/css/pur_request.css') .'?v=' . PURCHASE_REVISION.'"  rel="stylesheet" type="text/css" />';

@@ -11092,7 +11092,8 @@ class Purchase_model extends App_Model
         // Clear the duplicates
         $taxes = $this->pur_uniqueByKey($taxes, 'name');
 
-        $select = '<select class="selectpicker display-block taxes" data-width="100%" name="' . $name . '" multiple data-none-selected-text="' . _l('no_tax') . '">';
+        // data-container="body": open the menu outside the item table so a scrolling table can't clip it
+        $select = '<select class="selectpicker display-block taxes" data-width="100%" data-container="body" name="' . $name . '" multiple data-none-selected-text="' . _l('no_tax') . '">';
 
         foreach ($taxes as $tax) {
             $selected = '';
