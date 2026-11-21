@@ -55,6 +55,15 @@ class Pur_order_pdf extends App_pdf
         return $actualPath;
     }
     
+    /**
+     * Per page: length of the page buffer once the header (logo + watermark) is drawn.
+     * Lets pur_page_has_body() tell a page with real content from an overflow page
+     * that only carries the header.
+     *
+     * @var array<int,int>
+     */
+    protected $pur_body_start = [];
+
     public function Header()
     {
         $logo = FCPATH . 'uploads/company/lumifog-logo.webp';
@@ -71,6 +80,46 @@ class Pur_order_pdf extends App_pdf
         
         // Add watermark on every page
         $this->addWatermark();
+
+        $this->pur_body_start[$this->getPage()] = strlen((string) $this->getPageBuffer($this->getPage()));
+    }
+
+    /**
+     * Whether the current page has printed body content (text or images) below the header.
+     *
+     * @return bool
+     */
+    public function pur_page_has_body()
+    {
+        $page = $this->getPage();
+        if (!isset($this->pur_body_start[$page])) {
+            return true;
+        }
+        $body = substr((string) $this->getPageBuffer($page), $this->pur_body_start[$page]);
+
+        // PDF operators: Tj / TJ = show text, Do = draw image
+        return (bool) preg_match('/\b(Tj|TJ|Do)\b/', $body);
+    }
+
+    /**
+     * Start the Terms & Conditions page.
+     *
+     * - If the PO body ran exactly to the bottom of a page, TCPDF has already opened an
+     *   empty overflow page: drop it instead of leaving a blank page before the terms.
+     * - Pages opened by automatic page breaks get TCPDF's original 10mm side margins;
+     *   give the terms page the same 15mm margins as page 1.
+     *
+     * @return void
+     */
+    public function pur_start_terms_page()
+    {
+        if (!$this->pur_page_has_body() && $this->getNumPages() > 1) {
+            $this->deletePage($this->getPage());
+        }
+
+        $this->AddPage();
+        $this->SetMargins(15, 40, 15);
+        $this->SetX(15);
     }
     
     protected function addWatermark()

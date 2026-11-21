@@ -5117,10 +5117,11 @@ class Purchase_model extends App_Model
             </tr>
         </table>';
         
-        // Terms start on a new page. A <br pagebreak> plus bold lines (instead of an empty
-        // page-break div + <h4> headings, which TCPDF pads heavily) removes the blank gap
-        // under the page logo and leaves room for a larger terms font on one page.
-        $html .= '<br pagebreak="true"/>';
+        // Terms start on their own page. The PDF view (purchase_order/pur_orderpdf.php) splits
+        // the HTML at this marker and only adds a page when the current one already has
+        // printed content, so a full page 1 can't leave a blank page before the terms.
+        // Bold lines (not <h4>, which TCPDF pads heavily) keep the terms close under the logo.
+        $html .= '<!--PUR_TERMS_PAGE-->';
         $html .= '
         <table width="100%" cellpadding="0" cellspacing="0">
             <tr>
