@@ -4887,7 +4887,20 @@ class Purchase_model extends App_Model
     $pur_order_detail = $this->get_pur_order_detail($pur_order_id);
     $list_approve_status = $this->get_list_approval_details($pur_order_id,'pur_order');
 
-    $company_name = get_option('invoice_company_name'); 
+    // Header stamp: APPROVED once the PO is approved or at least one approver has approved
+    // (approve = 2); otherwise NOT APPROVED. Pending (sent for approval) and rejected
+    // requests do not count as an approval.
+    $po_has_approval = ((int) $pur_order->approve_status === 2);
+    if (!$po_has_approval && is_array($list_approve_status)) {
+        foreach ($list_approve_status as $approval_row) {
+            if ((int) ($approval_row['approve'] ?? 0) === 2) {
+                $po_has_approval = true;
+                break;
+            }
+        }
+    }
+
+    $company_name = get_option('invoice_company_name');
     $vendor = $this->get_vendor($pur_order->vendor);
     $vendor_contact = $this->db->where('userid', $vendor->userid)
                            ->where('is_primary', 1)
@@ -4978,10 +4991,10 @@ class Purchase_model extends App_Model
                 </div> 
                 <br><strong>'.mb_strtoupper($pur_order->pur_order_number).'</strong> 
                 <br>Date:&nbsp;<strong>'. $day.'</strong>
-                <br> '.( (empty($list_approve_status) || count($list_approve_status) == 0) ? '
+                <br>
                 <div>
-                    <img src="'.FCPATH.'modules/purchase/uploads/approval/notapproved.png" class="img_style">
-                </div>' : '' ).' 
+                    <img src="'.FCPATH.'modules/purchase/uploads/approval/'.($po_has_approval ? 'approved.png' : 'notapproved.png').'" class="img_style">
+                </div>
             </td>
             <td class="text-left" style="width: 2%; "></td>
             <td class="text-left" style="width: 28%; ">
@@ -5092,11 +5105,10 @@ class Purchase_model extends App_Model
                 <td style="width:25%; vertical-align:top; text-align:right;">
                     <h4>From: Lumifog Pvt Ltd</h4>
         
-                    <img src="/uploads/company/stamp-sign-both.png" 
+                    <img src="'.FCPATH.'uploads/company/stamp-sign-both.png" 
                          class="purchase-order-logo" 
                          alt="Company Image" 
                          style="width: 150px;">
-        
                     <div style="margin-top:5px; font-size:12px;">
                         <strong>Purchase Executive</strong><br>
                         Kadir Abdul Shaikh
@@ -5105,15 +5117,15 @@ class Purchase_model extends App_Model
             </tr>
         </table>';
         
-        $html .= '<div style="page-break-before: always;"></div>';
-        
+        // Terms start on a new page. A <br pagebreak> plus bold lines (instead of an empty
+        // page-break div + <h4> headings, which TCPDF pads heavily) removes the blank gap
+        // under the page logo and leaves room for a larger terms font on one page.
+        $html .= '<br pagebreak="true"/>';
         $html .= '
         <table width="100%" cellpadding="0" cellspacing="0">
             <tr>
-                <td style="width:100%; vertical-align:top;">
-                    <h4>Purchase Order Number: '.mb_strtoupper($pur_order->pur_order_number).'</h4>
-                    <h4>Purchase Order Terms & Conditions:</h4>
-                    <ol style="padding-left:15px; line-height:1.5; font-size:14px;">
+                <td style="width:100%; vertical-align:top;"><b style="font-size:14px;">Purchase Order Number: '.mb_strtoupper($pur_order->pur_order_number).'</b><br/><b style="font-size:14px;">Purchase Order Terms & Conditions:</b>
+                    <ol style="padding-left:15px; line-height:1.35; font-size:14px;">
                     
                         <li><strong>Acceptance:</strong> This Purchase Order (PO) is an offer by the Purchaser for the purchase of the goods or services (Supplies) specified, from the party to whom the PO is addressed (the Seller), subject to these terms. The PO will be deemed accepted by the Seller upon full or partial performance, or after ten (10) days from receipt without written notice of non-acceptance. Any deviation from these terms is rejected unless expressly approved by the Purchaser in writing.</li>
                     
